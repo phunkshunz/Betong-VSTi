@@ -13,9 +13,12 @@ Pluginet laddas i DAW:en och spelar ett ljud på alla MIDI-toner, med C3 som ori
 
 ## Ladda ner
 
-1. Gå till fliken **Actions** här på GitHub och öppna senaste gröna bygget.
-2. Ladda ner **BETONG-macOS** längst ner på sidan.
-3. Dubbelklicka på zip-filerna tills du har en mapp som heter **BETONG** i Hämtade filer.
+Ladda ner den senaste versionen här:
+https://github.com/phunkshunz/betong-vsti/releases/latest/download/BETONG-macOS.zip
+
+Dubbelklicka på zip-filen i Hämtade filer. Då får du en mapp som heter **BETONG**.
+
+Ladda inte ner via den gröna knappen **Code**. Den ger bara källkoden, inte pluginet.
 
 ## Installera
 
