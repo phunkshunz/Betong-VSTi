@@ -1,0 +1,50 @@
+name: Bygg BETONG för macOS
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Konfigurera
+        run: >
+          cmake -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+          -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0
+
+      - name: Bygg
+        run: cmake --build build --config Release -j 3
+
+      - name: Paketera
+        run: |
+          ART=build/Betong_artefacts/Release
+          mkdir -p dist/BETONG
+          cp -R "$ART/VST3/BETONG.vst3" dist/BETONG/
+          cp -R "$ART/AU/BETONG.component" dist/BETONG/
+          cp -R "$ART/Standalone/BETONG.app" dist/BETONG/
+          cp scripts/installera.command dist/BETONG/
+          chmod +x dist/BETONG/installera.command
+          for b in dist/BETONG/BETONG.vst3 dist/BETONG/BETONG.component dist/BETONG/BETONG.app; do
+            codesign --force --deep --sign - "$b"
+          done
+          cd dist && ditto -c -k --keepParent BETONG BETONG-macOS.zip
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: BETONG-macOS
+          path: dist/BETONG-macOS.zip
+
+      - name: Skapa release (bara vid versionstagg)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/BETONG-macOS.zip
