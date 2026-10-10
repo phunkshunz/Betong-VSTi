@@ -46,8 +46,15 @@ jobs:
           name: BETONG-macOS
           path: dist/BETONG-macOS.zip
 
-      - name: Skapa release (bara vid versionstagg)
-        if: startsWith(github.ref, 'refs/tags/v')
+      # Varje bygge på main blir en release, så att
+      # .../releases/latest/download/BETONG-macOS.zip alltid ger senaste versionen.
+      - name: Skapa release
+        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('bygge-{0}', github.run_number) }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('BETONG bygge {0}', github.run_number) }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: "Ladda ner BETONG-macOS.zip nedan. Installera enligt README."
           files: dist/BETONG-macOS.zip
