@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(BETONG VERSION 0.1.0)
+project(BETONG VERSION 1.0.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,6 +17,7 @@ FetchContent_MakeAvailable(JUCE)
 juce_add_plugin(Betong
     COMPANY_NAME "phunkshunz"
     PRODUCT_NAME "BETONG"
+    BUNDLE_ID "com.phunkshunz.betong"
     PLUGIN_MANUFACTURER_CODE Phnk
     PLUGIN_CODE Btng
     IS_SYNTH TRUE
@@ -29,14 +30,15 @@ juce_add_plugin(Betong
     AU_MAIN_TYPE kAudioUnitType_MusicDevice
     FORMATS VST3 AU Standalone)
 
-juce_add_binary_data(BetongData
-    SOURCES
-        assets/Kick_909_Punch.wav)
+# Ljudbiblioteket (103 ljud, 24-bit FLAC) byggs in i pluginet
+file(GLOB BETONG_LIBRARY CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/library/*.flac)
+juce_add_binary_data(BetongData SOURCES ${BETONG_LIBRARY})
 
 target_sources(Betong
     PRIVATE
         src/PluginProcessor.cpp
-        src/PluginEditor.cpp)
+        src/PluginEditor.cpp
+        src/Library.cpp)
 
 target_compile_definitions(Betong
     PUBLIC
@@ -50,6 +52,7 @@ target_link_libraries(Betong
         BetongData
         juce::juce_audio_utils
         juce::juce_audio_formats
+        juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
