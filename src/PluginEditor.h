@@ -2,6 +2,7 @@
 
 #include "PluginProcessor.h"
 #include "Gui.h"
+#include "About.h"
 
 class BetongEditor;
 
@@ -141,6 +142,8 @@ class BetongContent : public juce::Component, private juce::Timer
 {
 public:
     explicit BetongContent (BetongProcessor&);
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseMove (const juce::MouseEvent&) override;
     ~BetongContent() override;
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -190,6 +193,8 @@ private:
     Knob kDFb, kDTone, kDWob, kDRet, kRSize, kRDrive, kRCut, kRDuck, kRRet, kSweep, kMCrush, kClip, kOut;
 
     std::unique_ptr<juce::FileChooser> chooser;
+    AboutOverlay about { "BETONG", juce::String::fromUTF8 ("techno-sampler · v1.0") };
+    juce::Rectangle<int> logoArea;
     int seenVersion = -1;
     int shownPad = -1, shownLane = -1;
     juce::Rectangle<int> headerArea, waveArea, padsArea, sideArea, seqArea, fxArea[4];

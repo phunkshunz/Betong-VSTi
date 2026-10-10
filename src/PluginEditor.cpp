@@ -729,6 +729,7 @@ BetongContent::BetongContent (BetongProcessor& p)
 
     setSize (W, H);
     selectionChanged();
+    addChildComponent (about);
     startTimerHz (30);
 }
 
@@ -833,7 +834,7 @@ void BetongContent::paint (juce::Graphics& g)
     g.drawText ("BETONG", logo.removeFromTop (36), juce::Justification::centredLeft);
     g.setColour (muted);
     g.setFont (juce::FontOptions (9.5f));
-    g.drawText (utf8 ("TECHNO SAMPLER · v1.0"), logo, juce::Justification::topLeft);
+    g.drawText (utf8 ("TECHNO SAMPLER · MASKINHALLEN"), logo, juce::Justification::topLeft);
 
     auto bpmArea = headerArea.reduced (16, 8).removeFromRight (90);
     g.setColour (muted);
@@ -978,6 +979,19 @@ void BetongContent::resized()
         pf.removeFromRight (6);
         stutterButton.setBounds (pf.withSizeKeepingCentre (pf.getWidth(), 44));
     }
+
+    logoArea = headerArea.reduced (16, 8).removeFromLeft (150);
+    about.setBounds (getLocalBounds());
+}
+
+void BetongContent::mouseDown (const juce::MouseEvent& e)
+{
+    if (logoArea.contains (e.getPosition())) { about.setVisible (true); about.toFront (false); }
+}
+
+void BetongContent::mouseMove (const juce::MouseEvent& e)
+{
+    setMouseCursor (logoArea.contains (e.getPosition()) ? juce::MouseCursor::PointingHandCursor : juce::MouseCursor::NormalCursor);
 }
 
 //==============================================================================
