@@ -1,4 +1,4 @@
-"""BETONG ljudbibliotek. Syntetiserar ~100 techno-ljud från grunden.
+"""BETONG ljudbibliotek. Syntetiserar ~150 techno-ljud från grunden.
 
 Allt räknas i 96 kHz och decimeras till 48 kHz (mindre aliasing),
 sparas som 24-bit mono FLAC. Tonala ljud ligger i F-moll.
@@ -364,6 +364,149 @@ patt16 = [(F2, 1, 0), (F2, 0, 0), (F3, 0, 1), (F2, 0, 0), (None, 0, 0), (F2 + 3,
 add("Lp07_Acid_Screaming_F_130", acid_line(patt16 * 2, S16, base=150, mod=4500, res=0.93, drive=3.5))
 fg = ploop([(b * BEAT, kk, 1.0) for b in range(8)]) + 0.8 * lib["Lp01_Perc_Swedish_130"]
 add("Lp08_Full_Groove_130", fg)
+
+# ---------------------------------------------------------------- RÅ & HÅRD: ÅNGVÄLTS-TECHNO
+# Tyngre, smutsigare ljud för hård 90-tals-techno runt 135-140 BPM.
+def tape(x, d=2.0, bias=0.15):
+    """Asymmetrisk mättnad, som ett band som körs för hårt."""
+    return (np.tanh((x + bias) * d) - np.tanh(bias * d)) / np.tanh(d)
+def hardclip(x, gain): return np.clip(x * gain, -1, 1)
+def norm(x): return x / (np.max(np.abs(x)) + 1e-9)
+def room(x, sec=1.2, decay=0.4, lp=5000, amt=0.5):
+    y = fit(x, len(x) + int(sec * FS))
+    w = fftconvolve(y, reverb_ir(sec, decay, lp))[: len(y)]
+    return y + amt * norm(w) * np.max(np.abs(x))
+def heavy_kick(f0=320, f1=46, pdec=0.028, dec=0.42, length=0.7, drive=6, clip=1.6, click=1.0):
+    tt = t(length)
+    fr = f1 + (f0 - f1) * np.exp(-tt / pdec)
+    body = np.sin(2 * np.pi * np.cumsum(fr) / FS)
+    amp = np.exp(-tt / dec) * (1 - 0.25 * np.exp(-tt / 0.01))
+    sub = 0.7 * np.sin(2 * np.pi * f1 * tt) * np.exp(-tt / (dec * 1.3)) * np.minimum(tt / 0.012, 1)
+    c = filt(noise(length), "band", [1800, 9000]) * np.exp(-tt / 0.004) * click
+    c += 0.6 * np.sin(2 * np.pi * 1200 * tt) * np.exp(-tt / 0.0025) * click
+    x = tape(body * amp + sub + c, drive * 0.5)
+    x = hardclip(x, clip)
+    return filt(x, "low", 12000)
+def rumble_from(dry, beat, drive=10, lp=120, length=None):
+    """Kick genom reverb, dist och lowpass, duckad mot nästa slag: rumble."""
+    L = length or len(dry) / FS
+    d = fit(dry, N(L))
+    w = fftconvolve(d, reverb_ir(2.4, 0.9, 2500))[: len(d)]
+    w = filt(tanhd(filt(w, "low", 220) * drive, 3), "low", lp, 4)
+    w = norm(w)
+    tt = t(L); ph = (tt % beat) / beat
+    duck = np.clip((ph - 0.12) / 0.35, 0, 1) ** 1.5 * np.clip((1 - ph) / 0.07, 0, 1)
+    return w * duck
+
+B138 = 60 / 138; S138 = B138 / 4; BAR138 = B138 * 4
+
+ak = heavy_kick()
+add("K11_Angvalt", ak)
+kt = heavy_kick(280, 45, 0.03, 0.55, 1.6, 5, 1.4)
+add("K12_Rumble_Tunnel", kt * 0.85 + 0.9 * rumble_from(kt, 1.6, 12, 110, 1.6) * (t(1.6) > 0.09))
+add("K13_Stampen", heavy_kick(380, 58, 0.018, 0.16, 0.35, 8, 2.4, 1.4))
+rk = heavy_kick(300, 43.65, 0.03, 0.45, 0.8, 7, 1.5)
+add("K14_Rost_Kick_F", rk * 0.6 + 0.4 * crush(rk, 8, 6))
+hg = kick(240, 50, 0.03, 0.32, 0.55, 1.2, 1.4)
+add("K15_Hardgroove_909", hardclip(tape(hg * 1.6, 2.5, 0.2), 1.3))
+mh2 = fm(140, 397, 10, 0.12, 0.7, 0.03)
+add("K16_Anghammare", hardclip(heavy_kick(300, 48, 0.025, 0.4, 0.7, 6, 1.3) + 0.35 * fit(mh2, N(0.7)), 1.2))
+add("K17_Bunker_Long_F", heavy_kick(220, 43.65, 0.045, 0.9, 1.6, 4, 1.25, 0.6))
+add("K18_Tunga_Vals", hardclip(heavy_kick(260, 50, 0.04, 0.35, 0.6, 9, 2.0, 0.8) * 1.0, 1.0))
+
+# rumble-basar: en takt-slinga och ett ensamt andetag
+rb = place(BAR138 * 2, [(b * B138, heavy_kick(280, 45, 0.03, 0.35, 0.6), 1) for b in range(8)])
+add("B11_Rumble_Angvalt_138", rumble_from(rb, B138, 14, 120))
+one = fit(heavy_kick(260, 43.65, 0.035, 0.5, 0.9), N(B138))
+add("B12_Rumble_Breath_F", rumble_from(one, B138, 16, 140, B138))
+L = 0.6; gr = sum(saw(mtof(F1) * (1 + d), L) for d in (-0.01, 0, 0.011))
+gr = svf_lp(gr, 180 + 700 * np.exp(-t(L) / 0.09), 0.55)
+add("B13_Growl_Bass_F", hardclip(tape(gr, 4), 1.4) * adsr(L, 0.004, 0.15, 0.7, 0.08, 0.42))
+L = 0.45; ds = saw(mtof(F2), L) + 0.7 * square(mtof(F2) * 0.5, L, 0.4)
+ds = svf_lp(ds, 250 + 2500 * np.exp(-t(L) / 0.05), 0.7)
+add("B14_Dist_Saw_Bass_F", hardclip(tanhd(ds, 6), 1.2) * env(L, 0.2, 0.002))
+L = 0.6; tt = t(L)
+fmb = np.sin(2 * np.pi * mtof(F2) * tt + (4 + 3 * np.exp(-tt / 0.08)) * np.sin(2 * np.pi * mtof(F2) * 1.5 * tt))
+add("B15_Grind_FM_Bass_F", filt(hardclip(tape(fmb, 3), 1.5), "low", 3500) * adsr(L, 0.003, 0.1, 0.75, 0.06, 0.4))
+L = 1.0; fdip = mtof(F2) * (1 - 0.4 * np.exp(-t(L) / 0.04))
+hb = sum(square(fdip * m, L, 0.5 + 0.35 * np.sin(2 * np.pi * 1.1 * t(L))) for m in (0.5, 0.993, 1.0, 1.008)) / 2.5
+add("B16_Hoover_Bass_F", hardclip(tanhd(filt(hb, "low", 3000), 2.5), 1.2) * adsr(L, 0.01, 0.2, 0.8, 0.15, 0.75))
+
+# hats och cymbaler med grus
+hh = metal(0.18, 0.035, 6000) + 0.5 * filt(noise(0.18), "high", 7000) * env(0.18, 0.025)
+add("H09_Hard_Closed_Dist", hardclip(tape(norm(hh), 3), 1.3))
+add("H10_Open_Trash", filt(hardclip(tanhd(norm(metal(0.9, 0.25, 5000) + 0.6 * filt(noise(0.9), "high", 5000) * env(0.9, 0.22)), 4), 1.4), "high", 2500))
+rd = metal(2.0, 0.8, 4000) + 0.35 * np.sin(2 * np.pi * 3311 * t(2.0)) * env(2.0, 0.7) + 0.2 * np.sin(2 * np.pi * 5120 * t(2.0)) * env(2.0, 0.5)
+add("H11_Ride_Crunch", tape(norm(rd), 2.5))
+h9 = filt(metal(0.2, 0.05, 7500), "high", 6000) + 0.3 * filt(noise(0.2), "band", [8000, 16000]) * env(0.2, 0.03)
+add("H12_Hat_Tape_909", tape(norm(h9), 2.2, 0.25))
+add("H13_Hat_Shuffle_Fat", hardclip(tape(norm(metal(0.12, 0.02, 5500) + 0.8 * filt(noise(0.12), "band", [4000, 12000]) * env(0.12, 0.018)), 2.5), 1.2))
+
+# clap och snare som smäller
+cl2 = clap(0.14); sn = filt(noise(0.6), "band", [400, 6000]) * env(0.6, 0.11) + 0.6 * np.sin(2 * np.pi * 200 * t(0.6)) * env(0.6, 0.04)
+add("C07_Clap_Smash", hardclip(tape(norm(cl2 + 0.7 * sn), 3), 1.5))
+cw = room(fit(clap(0.2), N(0.5)), 1.4, 0.45, 4000, 0.9)
+add("C08_Clap_Warehouse", tape(norm(cw), 2.5))
+L = 0.45; rsn = np.sin(2 * np.pi * (180 + 80 * np.exp(-t(L) / 0.01)) * t(L)) * env(L, 0.05) + filt(noise(L), "band", [700, 8000]) * env(L, 0.13)
+add("C09_Snare_Rost", 0.65 * hardclip(tanhd(rsn, 4), 1.3) + 0.35 * crush(hardclip(tanhd(rsn, 4), 1.3), 8, 3))
+add("C10_Clap_Stack_Hard", hardclip(norm(clap(0.1) + fit(clap(0.18)[N(0.004):], N(0.6)) + 0.5 * filt(noise(0.6), "band", [2500, 9000]) * env(0.6, 0.06)) * 1.8, 1.0))
+
+# perc från verkstadsgolvet
+add("P17_Metal_Pipe", hardclip(tape(fm(311, 311 * 2.76, 9, 0.18, 0.8, 0.02) + 0.5 * fm(622, 622 * 3.1, 4, 0.1, 0.8), 2), 1.3))
+an = sum(np.sin(2 * np.pi * f * t(1.2)) * env(1.2, d) for f, d in ((870, 0.5), (1943, 0.3), (2711, 0.25), (3517, 0.15)))
+add("P18_Anvil", tape(norm(an + 0.5 * filt(noise(1.2), "high", 3000) * env(1.2, 0.006)), 2))
+add("P19_Tom_Dist_Low", hardclip(tape(norm(tom(170, 65, 0.25)), 4), 1.4))
+cnk = fm(230, 230 * 4.2, 14, 0.06, 0.4, 0.01) + filt(noise(0.4), "band", [1500, 5000]) * env(0.4, 0.012)
+add("P20_Hammer_Clank", hardclip(tanhd(norm(cnk), 3), 1.3))
+add("P21_Tom_Dist_Mid", hardclip(tape(norm(tom(260, 120, 0.18)), 4), 1.4))
+add("P22_Rim_Crack", hardclip(norm((np.sin(2 * np.pi * 1900 * t(0.1)) + 0.8 * filt(noise(0.1), "band", [2000, 8000])) * env(0.1, 0.009)) * 1.8, 1.0))
+
+# stabs och leads
+st2 = chord_saw(Fm7, 0.5, 0.2)
+add("S11_Rave_Stab_Dist_Fm", hardclip(tanhd(svf_lp(st2, 500 + 7000 * np.exp(-t(0.5) / 0.04), 0.65), 4), 1.2) * env(0.5, 0.14))
+ist = crush(hardclip(tanhd(svf_lp(chord_saw((41, 48, 53, 56), 0.5, 0.3), 300 + 4000 * np.exp(-t(0.5) / 0.03), 0.6), 5), 1.2), 6, 4)
+add("S12_Industrial_Stab_Fm", filt(ist, "band", [120, 6000]) * env(0.5, 0.12))
+L = 0.7; f = (1 - 0.3 * np.exp(-t(L) / 0.04))
+hs = sum(square(mtof(n) * f * m, L, 0.35) for n in (53, 56, 60) for m in (0.997, 1.004)) / 3
+add("S13_Hoover_Stab_Fm", hardclip(tanhd(filt(hs, "low", 6000), 2.5), 1.2) * adsr(L, 0.005, 0.15, 0.6, 0.12, 0.35))
+add("S14_Dub_Stab_Dirty_Fm", dub_delay(tape(filt(chord_saw(Fm7, 0.5, 0.15), "low", 1200) * env(0.5, 0.12), 3), S138 * 3, 0.65, 350, 2000, 3.0))
+add("L09_Acid_Dist_F", hardclip(tanhd(acid_line([(F2 + 12, 1, 0), (None, 0, 0)], B138 * 0.75, base=200, mod=5000, res=0.93, drive=5), 3), 1.3))
+L = 1.0; scr = sum(saw(mtof(77) * (1 + 0.04 * np.sin(2 * np.pi * 7 * t(L))) * m, L) for m in (1, 1.5))
+add("L10_Screech_F", hardclip(tanhd(svf_lp(scr, 3000 + 2000 * np.sin(2 * np.pi * 3 * t(L)), 0.85), 4), 1.2) * adsr(L, 0.005, 0.2, 0.8, 0.2, 0.7))
+L = 1.2; al = square(np.where((t(L) * 4) % 1 < 0.5, 988.0, 740.0), L, 0.5)
+add("L11_Alarm", hardclip(tanhd(filt(al, "low", 5000), 3), 1.2) * adsr(L, 0.005, 0.1, 0.9, 0.1, 1.0))
+
+# texturer och fx
+L = 4 * B138 * 2; pist = place(L, [(i * S138, fm(70, 211, 6, 0.06, 0.25), 0.8 if i % 4 == 0 else 0.45) for i in range(32)])
+pist += place(L, [(i * S138 + S138 * 0.5, filt(noise(0.2), "high", 2500) * env(0.2, 0.03), 0.4) for i in range(0, 32, 2)])
+add("T11_Steamroller_138", hardclip(tape(norm(pist), 2.5), 1.2))
+L = 2.5; imp = heavy_kick(200, 40, 0.05, 1.2, L, 4, 1.2, 1.4) + 0.7 * fit(metal(2.5, 0.8, 2500), N(L)) + 0.5 * filt(noise(L), "low", 3000) * env(L, 0.5)
+add("X12_Impact_Steel", tape(norm(imp), 2))
+L = BAR138 * 2; ris = filt(noise(L), "band", [400, 6000]) * (t(L) / L) ** 2
+ris *= 0.6 + 0.4 * (np.sin(2 * np.pi * (2 + 14 * (t(L) / L) ** 2) * t(L)) > 0)
+add("X13_Riser_Grind_138", hardclip(tanhd(ris * 2, 3), 1.0))
+
+# loopar 138 BPM
+def ploop138(hits): return place(BAR138 * 2, hits)
+hg_hits = []
+for s in range(32):
+    ts = s * S138
+    if s % 4 == 2: hg_hits.append((ts, lib["H10_Open_Trash"], 0.5))
+    hg_hits.append((ts + (0.006 if s % 2 else 0), lib["H13_Hat_Shuffle_Fat"], 0.45 if s % 2 else 0.25))
+    if s in (4, 12, 20, 28): hg_hits.append((ts, lib["C07_Clap_Smash"], 0.65))
+    if s in (3, 7, 10, 15, 19, 23, 26, 31): hg_hits.append((ts, lib["P19_Tom_Dist_Low"] if s % 2 else lib["P21_Tom_Dist_Mid"], 0.45))
+    if s in (6, 14, 22, 27): hg_hits.append((ts, lib["P22_Rim_Crack"], 0.5))
+add("Lp09_Hardgroove_Perc_138", ploop138(hg_hits))
+top = []
+for s in range(32):
+    ts = s * S138
+    top.append((ts, lib["H09_Hard_Closed_Dist"], 0.5 if s % 4 == 2 else 0.28))
+    if s % 8 in (3, 6): top.append((ts, lib["P17_Metal_Pipe"], 0.35))
+    if s in (12, 28): top.append((ts, lib["C09_Snare_Rost"], 0.5))
+    if s % 16 == 11: top.append((ts, lib["P20_Hammer_Clank"], 0.5))
+add("Lp10_Angvalt_Top_138", ploop138(top))
+full = ploop138([(b * B138, ak, 1.0) for b in range(8)]) + 0.9 * lib["B11_Rumble_Angvalt_138"][: N(BAR138 * 2)] * 0.6 + 0.7 * lib["Lp09_Hardgroove_Perc_138"]
+add("Lp11_Angvalt_Groove_138", hardclip(full / (np.max(np.abs(full)) + 1e-9) * 1.4, 1.0))
 
 # ---------------------------------------------------------------- SPARA
 os.makedirs(OUT, exist_ok=True)

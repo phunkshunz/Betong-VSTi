@@ -30,14 +30,14 @@ Starta om Bitwig, eller tryck **Rescan** under Settings › Locations › Plug-i
 **Starta:** tryck Play i Bitwig. Sequencern följer DAW:ens tempo. Utan DAW, eller i den fristående appen, trycker du **SPELA** nere till höger.
 
 **Uppe i fönstret**
-- **Kit, Mönster och Effekter:** 20 kit, 68 mönster och 54 effekt-presets.
+- **Kit, Mönster och Effekter:** 26 kit, 74 mönster och 54 effekt-presets.
 - **Tärningarna:** slumpar kit, effekter, mönster eller allt. **Galenskap** styr hur vilt det blir.
 - **Ångra:** backar de senaste 20 slumpningarna.
 - **Lås** på ett spår gör att slumpen låter det spåret vara.
 
 **Sampling och pads**
 - **Klick på en pad:** spelar den och väljer den.
-- **Högerklick på en pad:** välj ett av de 103 inbyggda ljuden eller en egen fil.
+- **Högerklick på en pad:** välj ett av de 145 inbyggda ljuden eller en egen fil.
 - **Dra in filer** på en pad, eller dra flera filer på en gång.
 - **Hacka till pads:** delar ljudet på vald pad i bitar och lägger dem på pad 1–16. Läget **Anslag** hittar slagen automatiskt.
 - **Dra i de orange kanterna** i vågformen för att flytta start och slut.
@@ -68,9 +68,10 @@ Starta om Bitwig, eller tryck **Rescan** under Settings › Locations › Plug-i
 
 ## Ljuden
 
-103 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. De är fria att använda i egna låtar.
+145 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. De är fria att använda i egna låtar.
 
 - Kickar, hats, clap, perc
+- Rå och hård ångvälts-techno: distade kickar, rumble, smutsiga hats och smällande clap. Kiten Ångvälten, Hardgroove 97, Rostfabriken, Valsverk 140, Lagerlokal och Stålpressen.
 - Bas, stabs, leads
 - Texturer och drönare
 - Röster och FX

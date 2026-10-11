@@ -147,14 +147,14 @@ BetongProcessor::BetongProcessor()
     for (int p = 0; p < kPads; ++p)
         pp[(size_t) p] = { raw (padId (p, "pitch")), raw (padId (p, "decay")), raw (padId (p, "rev")) };
 
-    // Startläge: industriellt kit, mönster och fuktigt betonggolv
+    // Startläge: ångvälts-kit, mönster och fuktigt betonggolv
     auto findIndex = [] (auto& table, int count, const char* name)
     {
-        for (int i = 0; i < count; ++i) if (juce::String (table[i].name) == juce::String::fromUTF8 (name)) return i;
+        for (int i = 0; i < count; ++i) if (juce::String::fromUTF8 (table[i].name) == juce::String::fromUTF8 (name)) return i;
         return 0;
     };
-    applyKit (findIndex (kKits, kNumKits, "Industriell 909"));
-    applyPattern (findIndex (kPatterns, kNumPatterns, "Industriell 909"));
+    applyKit (findIndex (kKits, kNumKits, "Ångvälten"));
+    applyPattern (findIndex (kPatterns, kNumPatterns, "Ångvält 138"));
     applyFx (findIndex (kFx, kNumFx, "Fuktigt Betonggolv"));
 
     startTimerHz (1);
