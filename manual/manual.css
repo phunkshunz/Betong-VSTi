@@ -49,9 +49,10 @@ body { margin: 0; font: 10pt/1.55 var(--body); color: var(--ink); background: va
 
 /* Rubriker */
 h2 {
-  font: 900 30pt/1 var(--disp); margin: 0 0 4mm; letter-spacing: .01em; text-transform: uppercase;
-  break-before: page; break-after: avoid;
+  font: 900 30pt/1 var(--disp); margin: 11mm 0 4mm; padding-top: 5mm; border-top: .6mm solid var(--ink);
+  letter-spacing: .01em; text-transform: uppercase; break-after: avoid;
 }
+h2.page { break-before: page; margin-top: 0; padding-top: 0; border-top: 0; }
 h2 .n { color: var(--sodium); margin-right: 3mm; }
 h3 { font: 800 15pt/1.15 var(--disp); text-transform: uppercase; letter-spacing: .03em; margin: 7mm 0 2mm; break-after: avoid; }
 h3::before { content: ""; display: inline-block; width: 3mm; height: 3mm; background: var(--sodium); margin-right: 2.5mm; vertical-align: .5mm; }
