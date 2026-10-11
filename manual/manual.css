@@ -87,6 +87,7 @@ td.r { white-space: nowrap; color: var(--mute); font: 8.3pt var(--mono); width: 
 /* Rutor */
 .box { background: var(--tint); border-left: 1.2mm solid var(--sodium); padding: 3mm 4mm; margin: 3mm 0 4mm; break-inside: avoid; }
 .box.cold { border-left-color: var(--cold); }
+.box.cold:has(+ .end) { break-after: avoid; }
 .box b.h { display: block; font: 600 7.5pt var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--mute); margin-bottom: 1mm; }
 .box p:last-child, .box ol:last-child, .box ul:last-child { margin-bottom: 0; }
 
@@ -110,6 +111,6 @@ td.r { white-space: nowrap; color: var(--mute); font: 8.3pt var(--mono); width: 
 .toc li { font: 600 9pt var(--mono); padding: 1.4mm 0; border-bottom: .25mm solid var(--rule); break-inside: avoid; }
 .toc li span { color: var(--sodium-dk); display: inline-block; width: 8mm; }
 
-.end { margin-top: 10mm; text-align: center; font: 900 20pt var(--disp); letter-spacing: .03em; }
+.end { break-before: avoid; margin-top: 6mm; text-align: center; font: 900 20pt var(--disp); letter-spacing: .03em; }
 .end span { color: var(--sodium); }
 .small { font-size: 8.6pt; color: var(--mute); }
