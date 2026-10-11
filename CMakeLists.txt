@@ -5,6 +5,9 @@ project(BETONG VERSION 1.0.0)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Windows: bygg in C++-runtime i pluginet, så att köparen inte behöver installera något extra
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # JUCE hämtas automatiskt vid bygget
 include(FetchContent)
 FetchContent_Declare(

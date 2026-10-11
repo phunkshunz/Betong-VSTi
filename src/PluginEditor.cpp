@@ -1,6 +1,13 @@
 #include "PluginEditor.h"
 #include "Presets.h"
 
+// Cmd på Mac, Ctrl på Windows (JUCE:s isCommandDown följer samma regel)
+#if JUCE_MAC
+ #define CMD_KEY "Cmd"
+#else
+ #define CMD_KEY "Ctrl"
+#endif
+
 using namespace BetongColours;
 using namespace betong;
 
@@ -856,7 +863,7 @@ void BetongContent::paint (juce::Graphics& g)
 
     // sequencer
     drawPanel (g, seqArea, "SEQUENCER",
-               utf8 ("Klick på/av · Shift accent · Alt sannolikhet · Cmd ratchet · Högerklick meny"));
+               utf8 ("Klick på/av · Shift accent · Alt sannolikhet · " CMD_KEY " ratchet · Högerklick meny"));
 
     // effekter
     const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };

@@ -1,6 +1,6 @@
 # BETONG
 
-Techno-sampler som VST3 och AU för macOS. Den hackar upp ljud och gör skeva, polyrytmiska beats. Allt ska låta som ett fuktigt betonggolv.
+Techno-sampler som VST3 och AU för macOS, och VST3 för Windows. Den hackar upp ljud och gör skeva, polyrytmiska beats. Allt ska låta som ett fuktigt betonggolv.
 
 Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i pluginet för att läsa om båtvarvet Docklands, där allt började.
 
@@ -13,7 +13,7 @@ Dubbelklicka på zip-filen i Hämtade filer. Då får du en mapp som heter **BET
 
 Ladda inte ner via den gröna knappen **Code**. Den ger bara källkoden, inte pluginet.
 
-## Installera
+## Installera på Mac
 
 Öppna Terminal och kör:
 
@@ -24,6 +24,20 @@ bash ~/Downloads/BETONG/installera.command
 Hamnade mappen någon annanstans? Skriv `bash ` och dra in filen `installera.command` i Terminal-fönstret, och tryck sedan Enter.
 
 Starta om Bitwig, eller tryck **Rescan** under Settings › Locations › Plug-ins. Sök på BETONG.
+
+## Windows
+
+Ladda ner Windows-versionen här:
+https://github.com/phunkshunz/Betong-VSTi/releases/latest/download/BETONG-Windows.zip
+
+1. Högerklicka på zip-filen och välj **Extrahera alla**. Du får en mapp som heter **BETONG**.
+2. Dubbelklicka på **installera.bat** i mappen. Svara **Ja** när Windows frågar om administratör.
+3. Om Windows säger "Windows skyddade datorn": klicka **Mer info** och sedan **Kör ändå**. Det beror på att pluginet inte är signerat än.
+4. Starta om din DAW, eller kör en ny plugin-sökning. BETONG ligger i `C:\Program Files\Common Files\VST3`.
+
+I mappen finns också **BETONG.exe**, som är den fristående appen. Den kan du starta direkt utan DAW.
+
+Kräver 64-bitars Windows 10 eller 11.
 
 ## Så funkar den
 
@@ -49,7 +63,7 @@ Starta om Bitwig, eller tryck **Rescan** under Settings › Locations › Plug-i
 - **Klick** slår på och av ett steg, och du kan dra för att måla.
 - **Shift-klick** = accent.
 - **Alt-klick** = sannolikhet.
-- **Cmd-klick** = ratchet.
+- **Cmd-klick** (Ctrl-klick på Windows) = ratchet.
 - **Högerklick** = meny med allt.
 - **M / S / Lås** = mute, solo och lås mot slump.
 
@@ -81,7 +95,7 @@ Allt tonalt ligger i F-moll.
 
 ## Bygga själv
 
-Pluginet byggs automatiskt av GitHub Actions och läggs upp som release. Det blir en universell binär för Intel och Apple Silicon och kräver macOS 11 Big Sur eller nyare.
+Pluginet byggs automatiskt av GitHub Actions och läggs upp som release. Det blir en universell binär för Intel och Apple Silicon och kräver macOS 11 Big Sur eller nyare. Samtidigt byggs en 64-bitars Windows-version.
 
 ```
 cmake -B build -DCMAKE_BUILD_TYPE=Release
