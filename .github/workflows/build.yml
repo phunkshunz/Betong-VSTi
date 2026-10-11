@@ -1,4 +1,4 @@
-name: Bygg BETONG för macOS
+name: Bygg BETONG för macOS och Windows
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: write # behövs för att skapa releaser
 
 jobs:
-  build:
+  macos:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -46,15 +46,54 @@ jobs:
           name: BETONG-macOS
           path: dist/BETONG-macOS.zip
 
-      # Varje bygge på main blir en release, så att
-      # .../releases/latest/download/BETONG-macOS.zip alltid ger senaste versionen.
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Konfigurera
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+
+      - name: Bygg
+        run: cmake --build build --config Release --parallel 4
+
+      - name: Paketera
+        shell: pwsh
+        run: |
+          $ART = "build/Betong_artefacts/Release"
+          New-Item -ItemType Directory -Force dist/BETONG | Out-Null
+          Copy-Item -Recurse "$ART/VST3/BETONG.vst3" dist/BETONG/
+          Copy-Item "$ART/Standalone/BETONG.exe" dist/BETONG/
+          Copy-Item scripts/installera.bat dist/BETONG/
+          Compress-Archive -Path dist/BETONG -DestinationPath dist/BETONG-Windows.zip
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: BETONG-Windows
+          path: dist/BETONG-Windows.zip
+
+  # Varje bygge på main blir en release, så att
+  # .../releases/latest/download/BETONG-macOS.zip och BETONG-Windows.zip
+  # alltid ger senaste versionen.
+  release:
+    if: github.event_name == 'push'
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - name: Skapa release
-        if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('bygge-{0}', github.run_number) }}
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('BETONG bygge {0}', github.run_number) }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          body: "Ladda ner BETONG-macOS.zip nedan. Installera enligt README."
-          files: dist/BETONG-macOS.zip
+          body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README."
+          files: |
+            dist/BETONG-macOS.zip
+            dist/BETONG-Windows.zip
