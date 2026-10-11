@@ -23,6 +23,15 @@ constexpr KitPreset kKits[] = {
     { "Röstmaskin", { "K01_909_Punch", "K10_Click_Thump", "H01_Closed", "H03_Open", "C01_Clap_909ish", "C03_Snare_Tight", "P11_Conga_Low", "P12_Conga_High", "P06_Wood", "P10_Blip_Low", "C05_Rim", "P08_Shaker", "B06_FM_Bass_F", "V01_Ah_F", "V03_Vocoder_Ee_F", "V04_Formant_Chop" } },
     { "Glitch Labb", { "K05_Lofi_12bit", "K10_Click_Thump", "H05_Closed_12bit", "H06_Industrial_6bit", "C02_Clap_Gated", "C04_Snare_Noise_Industrial", "P07_Woodblock_6bit", "P10_Blip_Low", "P09_Blip", "P15_Metal_Hit", "P14_Clave", "P08_Shaker", "B09_Pluck_Bass_F", "S10_Skew_Detuned_Fm", "X09_Glitch_Granular", "X08_Radio_Scrape" } },
     { "Maskinrummet", { "K06_Industrial_Crushed", "K08_Rumble_Combo", "H06_Industrial_6bit", "H08_Open_Long_Metal", "C04_Snare_Noise_Industrial", "C03_Snare_Tight", "P15_Metal_Hit", "P16_Spring_Thud", "P07_Woodblock_6bit", "P04_Metal_FM", "C05_Rim", "P08_Shaker", "B07_Rumble_Tone_F", "S01_Dub_Fm7_Dry", "T10_Machine_Room", "X10_Tape_Stop" } },
+    // Techno: hypnotiskt, industriellt och dub
+    { "Rullande Tunnel", { "K02_Deep_Long", "K08_Rumble_Combo", "H02_Closed_Short", "H04_Ride", "C02_Clap_Gated", "C03_Snare_Tight", "P01_Tom_Low", "P02_Tom_Mid", "P11_Conga_Low", "P06_Wood", "C05_Rim", "P08_Shaker", "B01_Sub_Roll_F", "S08_Minor_Ring_Fm", "T04_Subway_Hum", "V06_Whisper" } },
+    { "Hypnos Minimal", { "K04_Minimal_Tight", "K10_Click_Thump", "H02_Closed_Short", "H03_Open", "C01_Clap_909ish", "C03_Snare_Tight", "P11_Conga_Low", "P12_Conga_High", "P09_Blip", "P10_Blip_Low", "P14_Clave", "P08_Shaker", "B10_Square_Sub_F", "S10_Skew_Detuned_Fm", "T08_Drone_Dark_F", "X07_Laser" } },
+    { "Varvet", { "K01_909_Punch", "K08_Rumble_Combo", "H01_Closed", "H04_Ride", "C02_Clap_Gated", "C04_Snare_Noise_Industrial", "P02_Tom_Mid", "P03_Tom_High", "P15_Metal_Hit", "P13_Cowbell_Dark", "C05_Rim", "P08_Shaker", "B02_Offbeat_F", "S09_Fifths_Stab_F", "T05_Metal_Drone_F", "X11_Metal_Slam" } },
+    { "Stålverk", { "K07_Hard_Clipped", "K06_Industrial_Crushed", "H06_Industrial_6bit", "H08_Open_Long_Metal", "C04_Snare_Noise_Industrial", "C02_Clap_Gated", "P15_Metal_Hit", "P16_Spring_Thud", "P07_Woodblock_6bit", "P04_Metal_FM", "C05_Rim", "H05_Closed_12bit", "B05_Reese_Dist_F", "S06_Crushed_Noise_Chord", "T02_Industrial_Noise", "X11_Metal_Slam" } },
+    { "Bunker 140", { "K03_Distorted", "K07_Hard_Clipped", "H05_Closed_12bit", "H03_Open", "C02_Clap_Gated", "C04_Snare_Noise_Industrial", "P01_Tom_Low", "P15_Metal_Hit", "P13_Cowbell_Dark", "P04_Metal_FM", "C05_Rim", "P08_Shaker", "B08_Saw_Stab_Bass_F", "S05_Rave_Stab_Fm", "L08_Sync_Scream_F", "X06_Siren" } },
+    { "Ångvalsen", { "K06_Industrial_Crushed", "K08_Rumble_Combo", "H06_Industrial_6bit", "H08_Open_Long_Metal", "C04_Snare_Noise_Industrial", "C03_Snare_Tight", "P16_Spring_Thud", "P15_Metal_Hit", "P07_Woodblock_6bit", "P04_Metal_FM", "C05_Rim", "P08_Shaker", "B07_Rumble_Tone_F", "S01_Dub_Fm7_Dry", "T03_Steam", "T10_Machine_Room" } },
+    { "Dimhamn", { "K02_Deep_Long", "K09_Sub_Boom_F", "H05_Closed_12bit", "H07_Ride_Pitched_Verb", "C06_Clap_Layer_Verb", "C03_Snare_Tight", "P11_Conga_Low", "P12_Conga_High", "P06_Wood", "P05_Bell_FM", "C05_Rim", "P08_Shaker", "B10_Square_Sub_F", "S02_Dub_Fm7_Echo", "T01_Dark_Pad_Fm", "T06_Tape_Hiss" } },
+    { "Djuphavet", { "K09_Sub_Boom_F", "K02_Deep_Long", "H02_Closed_Short", "H07_Ride_Pitched_Verb", "C06_Clap_Layer_Verb", "C03_Snare_Tight", "P11_Conga_Low", "P01_Tom_Low", "P06_Wood", "P10_Blip_Low", "P14_Clave", "P08_Shaker", "B01_Sub_Roll_F", "S03_Dub_Bbm7_Echo", "T08_Drone_Dark_F", "T09_Wind_Tunnel" } },
 };
 constexpr int kNumKits = (int) (sizeof (kKits) / sizeof (kKits[0]));
 
@@ -89,6 +98,27 @@ constexpr PatternPreset kPatterns[] = {
     { "Septol-rost", 0.0f, { "1:16:X...x...x...x...", "9:7:x.xx.x.x.xx.x", "3:16:..x...x...x...x.", "5:16:....x.......x...", nullptr } },
     { "Fasförskjutning", 0.0f, { "1:16:X...x...x...x...", "9:12:x..x.xx..x.x", "10:13:x..x.xx..x.x.", "3:16:..x...x...x...x.", nullptr } },
     { "Kaos Kontrollerat", 0.2f, { "1:16:X...x...x...x...", "9:11:oxo.o.x.op.", "10:9:p.o.x.o.p", "7:7:o..x.o.", "13:13:x.o.x..o.x.p.", "3:16:o.x.o.x.o.x.o.x.", nullptr } },
+    // Hypnotiskt och rullande
+    { "Rullande Tunnel", 0.05f, { "1:16:X...x...x...x...", "2:16:x...x...x...x...", "3:16:xxXxxxXxxxXxxxXx", "4:16:..x...x...x...x.", "13:16:.xxx.xxx.xxx.xxx", "10:16:e:5:16:3", "12:16:.x.x.x.x.x.x.x.x", "15:16:x..............................." } },
+    { "Hypnos 128", 0.1f, { "1:16:X...x...x...x...", "2:16:x...x...x...x...", "3:16:..x...x...x...x.", "4:16:..x...........x.", "9:8:e:3:8:1", "13:16:..x...x...x...xx", "11:16:...x.......x..o.", "15:16:x..............................." } },
+    { "Tunnelseende", 0.0f, { "1:16:X...x...x...x...", "13:16:.x.x.x.x.x.x.x.x", "3:16:xxxxxxxxxxxxxxxx", "11:16:e:3:16:2", "4:16:..x...x...x...x.", "14:16:..............................x.", nullptr } },
+    { "Spiral 7/13", 0.0f, { "1:16:X...x...x...x...", "2:16:x...x...x...x...", "9:7:x..x.x.", "10:16:e:9:16:1", "13:13:x..x..x.x..x.", "3:16:..x...x...x...x.", nullptr } },
+    { "Snurr", 0.08f, { "1:16:X...x...x...x...", "3:16T:x.xx.xx.xx.xx.xx", "4:16:..x...x...x...x.", "7:16:..x...x...x..x..", "13:16:.x..x.x..x..x.x.", "12:16:oxoxoxoxoxoxoxox", nullptr } },
+    { "Ändlös Ride", 0.0f, { "1:16:X...x...x...x...", "4:8:xxxxxxxx", "3:16:..x...x...x...x.", "2:16:x...x...x...x...", "13:16:..x...x...x...x.", "11:16:e:5:16:0", nullptr } },
+    // Hårt och industriellt
+    { "Stålverk 140", 0.0f, { "1:16:X...x...x...x...", "2:16:x.x.x.x.x.x.x.x.", "3:16:x.xXx.xXx.xXx.xX", "4:16:..x...x...x...x.", "6:16:....X.......X...", "9:16:e:5:16:1", "15:16:x......................x........" } },
+    { "Hammarslag", 0.0f, { "1:16:X...x...x...x.xx", "5:16:....x.......x...", "3:16:xxxxxxxxxxxxxxxx", "10:16:x..x..x..x..x..x", "13:16:..x...x...x...x.", "16:16:..............................x.", nullptr } },
+    { "Valsverk", 0.0f, { "1:16:X...x...x...x...", "2:16:x...x...x...x...", "12:16:xxxxxxxxxxxxxxxx", "7:16:x..x..x...x..x..", "8:16:..x...x.x...x..x", "15:16:x...............................", "6:16:....x.......x...", nullptr } },
+    { "Bunkerrave", 0.0f, { "1:16:X...x...x...x...", "6:16:....x.......x..4", "3:16:x.xXx.xXx.xXx.xX", "4:16:..x...x...x...x.", "14:16:x.....x.....x...", "16:16:x...............................", "13:16:..x...x...x...x.", nullptr } },
+    { "Rostlåda", 0.0f, { "1:16:X...x...x...x...", "9:16:e:7:16:2", "10:16:e:5:16:0", "7:12:x..x.x..x.x.", "3:16:..x...x...x...x.", "6:16:....x.......x...", nullptr } },
+    { "Nitpistol", 0.0f, { "1:16:X...x...x...x...", "9:16:x3x3x3x3x3x3x3x4", "3:16:..x...x...x...x.", "5:16:....x.......x...", "13:16:..x...x...x...x.", nullptr } },
+    // Dub och djup
+    { "Dimhamn", 0.05f, { "1:16:x...x...x...x...", "14:16:..x.......x.....", "3:16:..x...x...x...x.", "12:16:oxoxoxoxoxoxoxox", "13:16:x.......x.......", "11:16T:..x..x..x..x..x.", nullptr } },
+    { "Kanal Två", 0.0f, { "1:16:X...x...x...x...", "14:16:...x..x....x....", "11:16T:x..x..x..x..x..x", "3:16:..x...x...x...x.", "15:16:x...............................", "13:16:..x...x...x...xx", nullptr } },
+    { "Djupvatten", 0.0f, { "1:16:x...x...x...x...", "14:16:x...........x...", "4:16:..x...x...x...x.", "13:16:x..x............", "9:16:e:3:16:5", nullptr } },
+    { "Ekobassäng", 0.0f, { "1:16:X...x...x...x...", "14:16:..x.....x..x....", "10:16:e:3:16:2", "3:16:..x...x...x...x.", "2:16:x...x...x...x...", "16:16:..........................x.....", nullptr } },
+    { "Kvällsdimma", 0.1f, { "1:16:x...x...x...x...", "14:16:x.....x.....x...", "12:16:.x.x.x.x.x.x.x.x", "11:7:x..x...", "15:16:x...............................", nullptr } },
+    { "Varvet 1994", 0.05f, { "1:16:X...x...x...x...", "2:16:x...x...x...x...", "3:16:xxXxxxXxxxXxxxXx", "4:16:..x...x...x...x.", "13:16:.xxx.xX..xxx.x2.", "14:16:..x.....x.......", "9:16:e:5:16:3", "16:16:..............................x." } },
 };
 constexpr int kNumPatterns = (int) (sizeof (kPatterns) / sizeof (kPatterns[0]));
 
@@ -161,6 +191,11 @@ constexpr FxPreset kFx[] = {
     { "Ren Klubb", 2, 0.4f, 0.5f, 0.0f, 0.2f, 0.6f, 0.3f, 100.0f, 0.8f, 0.45f, 0.25f, 0, "00000000", "60000000", "00000000", "00000000", "00000000" },
     { "Total Kollaps", 4, 0.9f, 0.4f, 0.7f, 0.6f, 1.0f, 1.0f, 140.0f, 1.0f, 0.8f, 0.95f, 0.45f, "09999999", "99000000", "05555555", "77777777", "03333333" },
     { "Fuktigt Betonggolv", 2, 0.62f, 0.35f, 0.35f, 0.45f, 0.9f, 0.6f, 105.0f, 0.9f, 0.8f, 0.25f, 0.08f, "00300960", "95000000", "00200000", "40000000", "00000000" },
+    // Techno
+    { "Tunnelpump", 2, 0.55f, 0.35f, 0.15f, 0.3f, 0.9f, 0.6f, 100.0f, 1.0f, 0.85f, 0.35f, 0, "00000000", "95000000", "00000000", "30000000", "00000000" },
+    { "Stålverk", 1, 0.45f, 0.6f, 0.0f, 0.25f, 0.7f, 0.85f, 120.0f, 0.95f, 0.7f, 0.75f, 0.1f, "00090000", "90000000", "00330000", "55555555", "00000000" },
+    { "Dimhamn", 2, 0.75f, 0.3f, 0.45f, 0.65f, 0.8f, 0.3f, 90.0f, 0.8f, 0.6f, 0.2f, 0, "00009900", "80000000", "00000000", "00000000", "00000000" },
+    { "Djuphavet", 5, 0.8f, 0.25f, 0.35f, 0.6f, 1.0f, 0.35f, 80.0f, 0.7f, 0.7f, 0.2f, 0, "00009990", "90000000", "00000000", "00000000", "00000000" },
 };
 constexpr int kNumFx = (int) (sizeof (kFx) / sizeof (kFx[0]));
 } // namespace betong

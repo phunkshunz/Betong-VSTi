@@ -30,7 +30,7 @@ Starta om Bitwig, eller tryck **Rescan** under Settings › Locations › Plug-i
 **Starta:** tryck Play i Bitwig. Sequencern följer DAW:ens tempo. Utan DAW, eller i den fristående appen, trycker du **SPELA** nere till höger.
 
 **Uppe i fönstret**
-- **Kit, Mönster och Effekter:** 12 kit, 50 mönster och 50 effekt-presets.
+- **Kit, Mönster och Effekter:** 20 kit, 68 mönster och 54 effekt-presets.
 - **Tärningarna:** slumpar kit, effekter, mönster eller allt. **Galenskap** styr hur vilt det blir.
 - **Ångra:** backar de senaste 20 slumpningarna.
 - **Lås** på ett spår gör att slumpen låter det spåret vara.
