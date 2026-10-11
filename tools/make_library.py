@@ -56,6 +56,12 @@ def square(f, sec, pw=0.5):
     b = 2 * ph2 - 1
     return np.clip(a - b + (2 * pw - 1), -1.5, 1.5) * 0.66
 def tanhd(x, d): return np.tanh(x * d) / np.tanh(d)
+def softclip(x, knee=0.72):
+    """Klipper mjukt ovanför knät: slagen behåller sin attack i stället för att bli fyrkant."""
+    a = np.abs(x); over = a > knee
+    y = x.copy()
+    y[over] = np.sign(x[over]) * (knee + (1 - knee) * np.tanh((a[over] - knee) / (1 - knee)))
+    return y
 def crush(x, bits=12, down=4):
     y = np.repeat(x[::down], down)[: len(x)]; q = 2 ** (bits - 1); return np.round(y * q) / q
 def fade(x, ms=4):
@@ -108,13 +114,13 @@ def kick(f0=230, f1=48, pdec=0.035, dec=0.35, length=0.6, click=0.6, drive=1.5, 
 kk = kick()
 add("K01_909_Punch", kk)
 add("K02_Deep_Long", kick(180, 43.65, 0.05, 0.85, 1.3, 0.3, 1.2))
-add("K03_Distorted", filt(kick(260, 50, 0.03, 0.4, 0.6, 0.6, 7), "low", 9000))
+add("K03_Distorted", filt(kick(260, 50, 0.03, 0.4, 0.6, 0.6, 2.2), "low", 9000))
 add("K04_Minimal_Tight", kick(300, 60, 0.02, 0.11, 0.3, 1.0, 1.2))
 add("K05_Lofi_12bit", crush(kick(240, 50, 0.035, 0.45), 12, 4))
-ind = kick(250, 48, 0.03, 0.42, 0.6, 0.8, 4)
+ind = kick(250, 48, 0.03, 0.42, 0.6, 0.8, 2.4)
 ind = ind - 0.5 * filt(filt(ind, "band", [230, 320]), "band", [230, 320])
 add("K06_Industrial_Crushed", crush(ind, 10, 3))
-hc = kick(280, 52, 0.025, 0.38, 0.55, 0.9, 3); add("K07_Hard_Clipped", np.clip(hc * 2.2, -1, 1))
+hc = kick(280, 52, 0.025, 0.38, 0.55, 0.9, 1.6); add("K07_Hard_Clipped", softclip(hc * 1.3))
 dry = kick(230, 48, 0.035, 0.3, 1.4, 0.5, 1.6)
 wet = fftconvolve(dry, reverb_ir(2.0, 0.7))[: len(dry)]
 wet = filt(tanhd(filt(wet, "low", 150) * 6, 2), "low", 110)
@@ -369,8 +375,9 @@ add("Lp08_Full_Groove_130", fg)
 # Tyngre, smutsigare ljud för hård 90-tals-techno runt 135-140 BPM.
 def tape(x, d=2.0, bias=0.15):
     """Asymmetrisk mättnad, som ett band som körs för hårt."""
+    d = 1.0 + (d - 1.0) * 0.6  # nivå-genomgången: mindre platt
     return (np.tanh((x + bias) * d) - np.tanh(bias * d)) / np.tanh(d)
-def hardclip(x, gain): return np.clip(x * gain, -1, 1)
+def hardclip(x, gain): return softclip(x * (1.0 + (gain - 1.0) * 0.45))
 def norm(x): return x / (np.max(np.abs(x)) + 1e-9)
 def room(x, sec=1.2, decay=0.4, lp=5000, amt=0.5):
     y = fit(x, len(x) + int(sec * FS))
@@ -384,7 +391,7 @@ def heavy_kick(f0=320, f1=46, pdec=0.028, dec=0.42, length=0.7, drive=6, clip=1.
     sub = 0.7 * np.sin(2 * np.pi * f1 * tt) * np.exp(-tt / (dec * 1.3)) * np.minimum(tt / 0.012, 1)
     c = filt(noise(length), "band", [1800, 9000]) * np.exp(-tt / 0.004) * click
     c += 0.6 * np.sin(2 * np.pi * 1200 * tt) * np.exp(-tt / 0.0025) * click
-    x = tape(body * amp + sub + c, drive * 0.5)
+    x = tape(body * amp + sub + c, drive * 0.35)
     x = hardclip(x, clip)
     return filt(x, "low", 12000)
 def rumble_from(dry, beat, drive=10, lp=120, length=None):
@@ -404,11 +411,11 @@ ak = heavy_kick()
 add("K11_Angvalt", ak)
 kt = heavy_kick(280, 45, 0.03, 0.55, 1.6, 5, 1.4)
 add("K12_Rumble_Tunnel", kt * 0.85 + 0.9 * rumble_from(kt, 1.6, 12, 110, 1.6) * (t(1.6) > 0.09))
-add("K13_Stampen", heavy_kick(380, 58, 0.018, 0.16, 0.35, 8, 2.4, 1.4))
+add("K13_Stampen", heavy_kick(380, 58, 0.018, 0.16, 0.35, 5, 1.6, 1.4))
 rk = heavy_kick(300, 43.65, 0.03, 0.45, 0.8, 7, 1.5)
 add("K14_Rost_Kick_F", rk * 0.6 + 0.4 * crush(rk, 8, 6))
 hg = kick(240, 50, 0.03, 0.32, 0.55, 1.2, 1.4)
-add("K15_Hardgroove_909", hardclip(tape(hg * 1.6, 2.5, 0.2), 1.3))
+add("K15_Hardgroove_909", hardclip(tape(hg * 1.15, 2.2, 0.2), 1.15))
 mh2 = fm(140, 397, 10, 0.12, 0.7, 0.03)
 add("K16_Anghammare", hardclip(heavy_kick(300, 48, 0.025, 0.4, 0.7, 6, 1.3) + 0.35 * fit(mh2, N(0.7)), 1.2))
 add("K17_Bunker_Long_F", heavy_kick(220, 43.65, 0.045, 0.9, 1.6, 4, 1.25, 0.6))
@@ -508,6 +515,138 @@ add("Lp10_Angvalt_Top_138", ploop138(top))
 full = ploop138([(b * B138, ak, 1.0) for b in range(8)]) + 0.9 * lib["B11_Rumble_Angvalt_138"][: N(BAR138 * 2)] * 0.6 + 0.7 * lib["Lp09_Hardgroove_Perc_138"]
 add("Lp11_Angvalt_Groove_138", hardclip(full / (np.max(np.abs(full)) + 1e-9) * 1.4, 1.0))
 
+# ---------------------------------------------------------------- TECH HOUSE & TRIBAL (124-126 BPM)
+B125 = 60 / 125; S125 = B125 / 4; BAR125 = B125 * 4
+
+def drum(f0, f1, pdec, dec, L, modes=((1.0, 1.0),), noise_amt=0.0, nband=(1500, 5000), ndec=0.01):
+    """Skinntrumma: tonande moder med pitch-fall + slagbrus."""
+    tt = t(L); fr = f1 + (f0 - f1) * np.exp(-tt / pdec)
+    ph = 2 * np.pi * np.cumsum(fr) / FS
+    x = sum(a * np.sin(ph * m) * np.exp(-tt / (dec / (1 + 0.6 * (m - 1)))) for m, a in modes)
+    if noise_amt: x = x + noise_amt * filt(noise(L), "band", list(nband)) * np.exp(-tt / ndec)
+    return x
+
+# bongos, congas, djembe
+add("P23_Bongo_High", drum(520, 430, 0.012, 0.09, 0.35, ((1, 1), (1.6, 0.35)), 0.5, (2000, 6000), 0.006))
+add("P24_Bongo_Low", drum(380, 300, 0.015, 0.12, 0.4, ((1, 1), (1.58, 0.3)), 0.45, (1500, 5000), 0.007))
+add("P25_Conga_Slap", drum(420, 360, 0.01, 0.06, 0.3, ((1, 0.6), (1.7, 0.4)), 1.4, (1200, 6000), 0.012))
+add("P26_Conga_Open", drum(360, 320, 0.02, 0.22, 0.6, ((1, 1), (1.59, 0.25), (2.14, 0.1)), 0.25, (1500, 4000), 0.006))
+add("P27_Conga_Mute", drum(340, 300, 0.01, 0.04, 0.2, ((1, 1), (1.6, 0.2)), 0.4, (1500, 4000), 0.005))
+add("P28_Djembe_Bass", drum(140, 78, 0.03, 0.18, 0.6, ((1, 1), (2.1, 0.15)), 0.3, (300, 1500), 0.01))
+add("P29_Djembe_Tone", drum(360, 300, 0.012, 0.11, 0.4, ((1, 1), (1.5, 0.4), (2.3, 0.15)), 0.35, (1500, 5000), 0.006))
+add("P30_Djembe_Slap", drum(700, 600, 0.006, 0.05, 0.3, ((1, 0.5), (1.9, 0.3)), 1.6, (1800, 8000), 0.018))
+tt = t(0.9); tim = (np.sin(2 * np.pi * 620 * tt) + 0.6 * np.sin(2 * np.pi * 1490 * tt) + 0.3 * np.sin(2 * np.pi * 2380 * tt)) * env(0.9, 0.22)
+add("P31_Timbale_High", tim + 0.8 * filt(noise(0.9), "band", [2500, 8000]) * env(0.9, 0.012))
+tt = t(1.0); tim2 = (np.sin(2 * np.pi * 410 * tt) + 0.6 * np.sin(2 * np.pi * 1010 * tt) + 0.3 * np.sin(2 * np.pi * 1730 * tt)) * env(1.0, 0.26)
+add("P32_Timbale_Low", tim2 + 0.7 * filt(noise(1.0), "band", [2000, 7000]) * env(1.0, 0.014))
+jing = np.zeros(N(0.45))
+for k in range(9):
+    o = int(rng.uniform(0, 0.025) * FS); jing[o:] += metal(0.45 - o / FS, 0.09, 6500, tuple(f * rng.uniform(1.8, 2.6) for f in (205.3, 304.4, 369.6, 522.7, 540.0, 800.0)))[: len(jing) - o] * rng.uniform(0.4, 1)
+add("P33_Tambourine", filt(jing, "high", 5000) + 0.3 * filt(noise(0.45), "band", [800, 2500]) * env(0.45, 0.01))
+def logdrum(note, dec=0.32, L=0.7):
+    f = mtof(note); tt = t(L); fr = f * (1 + 0.25 * np.exp(-tt / 0.012))
+    ph = 2 * np.pi * np.cumsum(fr) / FS
+    return (np.sin(ph) + 0.25 * np.sin(2 * ph) * np.exp(-tt / 0.05)) * env(L, dec, 0.002)
+add("P34_Log_Drum_F", logdrum(F2 + 12))
+add("P35_Log_Drum_Low_F", logdrum(F2, 0.45, 0.9))
+add("P36_Cabasa", filt(noise(0.18), "high", 6000) * adsr(0.18, 0.012, 0.03, 0.2, 0.03, 0.05))
+gu = np.zeros(N(0.3))
+for k in range(14):
+    o = N(0.008 + k * 0.016); g = filt(noise(0.012), "band", [2500, 7000]) * np.hanning(N(0.012)); gu[o:o + len(g)] += g[: len(gu) - o]
+add("P37_Guiro", gu)
+add("P38_Agogo_High", (np.sin(2 * np.pi * 980 * t(0.6)) + 0.4 * np.sin(2 * np.pi * 2645 * t(0.6))) * env(0.6, 0.12))
+add("P39_Agogo_Low", (np.sin(2 * np.pi * 735 * t(0.7)) + 0.4 * np.sin(2 * np.pi * 1985 * t(0.7))) * env(0.7, 0.14))
+add("P40_Shaker_Soft", filt(noise(0.2), "band", [4000, 11000]) * adsr(0.2, 0.025, 0.04, 0.25, 0.04, 0.07))
+add("P41_Woodblock_Tribal", fm(820, 1640, 1.2, 0.035, 0.25))
+L = 0.6; tt = t(L); tbend = 180 * (1 + 0.35 * np.sin(np.pi * np.minimum(tt / 0.35, 1)))
+add("P42_Talking_Drum", np.sin(2 * np.pi * np.cumsum(tbend) / FS) * env(L, 0.22, 0.002) + 0.3 * filt(noise(L), "band", [800, 3000]) * env(L, 0.008))
+
+# clap, snap, snare
+add("C11_Clap_House", room(fit(clap(0.12), N(0.45)), 0.6, 0.18, 6000, 0.45))
+add("C12_Snap", filt(noise(0.15), "band", [1800, 4500]) * env(0.15, 0.025, 0.001) + 0.4 * np.sin(2 * np.pi * 2100 * t(0.15)) * env(0.15, 0.004))
+add("C13_Clap_Tight_Room", room(fit(clap(0.08), N(0.35)), 0.35, 0.09, 8000, 0.6))
+tt = t(0.35); add("C14_Snare_Tech_House", 0.5 * np.sin(2 * np.pi * 210 * tt) * env(0.35, 0.03) + filt(noise(0.35), "band", [2000, 9000]) * env(0.35, 0.07))
+
+# hats
+add("H14_Hat_Closed_Crisp", filt(metal(0.1, 0.018, 8000), "high", 7500))
+add("H15_Hat_Open_House", filt(metal(0.5, 0.11, 7000), "high", 6500))
+add("H16_Ride_Tech", metal(1.2, 0.35, 6000, (311, 427, 563, 711, 879, 1103)) + 0.25 * np.sin(2 * np.pi * 4120 * t(1.2)) * env(1.2, 0.3))
+
+# kickar
+add("K19_Tech_House", kick(170, 50, 0.04, 0.26, 0.45, 0.5, 1.3, 0.3))
+add("K20_Round_Deep_F", kick(150, 43.65, 0.05, 0.38, 0.7, 0.3, 1.15, 0.5))
+add("K21_Tribal_Tom_Kick", kick(200, 62, 0.03, 0.22, 0.5, 0.4, 1.4) + 0.4 * fit(tom(200, 100, 0.15), N(0.5)))
+
+# bas (F)
+L = 0.45; tt = t(L)
+org = sum(a * np.sin(2 * np.pi * mtof(F2) * h * tt) for h, a in ((1, 1), (2, 0.55), (3, 0.3), (4, 0.15)))
+add("B17_Organ_Bass_F", (org + 0.4 * filt(noise(L), "band", [1500, 5000]) * env(L, 0.003)) * adsr(L, 0.003, 0.08, 0.7, 0.05, 0.3))
+add("B18_Tech_Pluck_F", svf_lp(saw(mtof(F2), 0.35), 180 + 1800 * np.exp(-t(0.35) / 0.035), 0.55) * env(0.35, 0.14, 0.002))
+L = 0.4; tt = t(L); rf = mtof(F2) * (1 + 0.9 * np.exp(-tt / 0.008))
+add("B19_Rubber_Bass_F", tanhd(np.sin(2 * np.pi * np.cumsum(rf) / FS), 1.6) * env(L, 0.18, 0.002))
+add("B20_Sub_Sine_F", np.sin(2 * np.pi * mtof(F2) * t(0.6)) * adsr(0.6, 0.004, 0.1, 0.85, 0.06, 0.45))
+
+# stabs och toner
+L = 0.4; tt = t(L)
+house = sum(sum(a * np.sin(2 * np.pi * mtof(n) * h * tt) for h, a in ((1, 1), (2, 0.7), (3, 0.5), (4, 0.35), (6, 0.2), (8, 0.12))) for n in (53, 56, 60, 63))
+add("S15_Organ_Stab_House_Fm", (house / 5 + 0.3 * filt(noise(L), "band", [2000, 6000]) * env(L, 0.003)) * adsr(L, 0.002, 0.06, 0.6, 0.06, 0.22))
+add("S16_Chord_Stab_Tech_Fm9", svf_lp(chord_saw((53, 56, 60, 63, 67), 0.4, 0.12), 600 + 3500 * np.exp(-t(0.4) / 0.03), 0.4) * env(0.4, 0.11))
+L = 0.6; tt = t(L)
+add("S17_Marimba_F", (np.sin(2 * np.pi * mtof(65) * tt) + 0.35 * np.sin(2 * np.pi * mtof(65) * 3.93 * tt) * np.exp(-tt / 0.03)) * env(L, 0.18, 0.001))
+
+# röster
+L = 0.35; tt = t(L)
+hey = voice("e", L, mtof(58)) * env(L, 0.12, 0.004)
+add("V07_Hey_Shout", hey + 0.3 * filt(noise(L), "band", [2000, 5000]) * env(L, 0.05))
+add("V08_Chant_Oh_F", voice("o", 0.9, mtof(53)) * adsr(0.9, 0.04, 0.2, 0.75, 0.2, 0.65))
+
+# textur
+L = 5.0; ins = filt(noise(L), "band", [4500, 9000]) * (0.5 + 0.5 * (np.sin(2 * np.pi * 23 * t(L)) > 0.6))
+ins += 0.4 * filt(noise(L), "band", [1200, 2400]) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.4 * t(L)))
+add("T12_Jungle_Night", ins * adsr(L, 0.6, 0.2, 1, 0.6, 4.3))
+
+# loopar 125 BPM
+def ploop125(hits): return place(BAR125 * 2, hits)
+sw = lambda s: s * S125 + (S125 * 0.18 if s % 2 else 0)  # tech house-shuffle
+th = []
+for s in range(32):
+    if s % 4 == 2: th.append((sw(s), lib["H15_Hat_Open_House"], 0.5))
+    th.append((sw(s), lib["P40_Shaker_Soft"], 0.35 if s % 2 else 0.18))
+    if s in (4, 12, 20, 28): th.append((sw(s), lib["C11_Clap_House"], 0.6))
+    if s in (7, 15, 23, 26, 31): th.append((sw(s), lib["P25_Conga_Slap"], 0.35))
+add("Lp12_Tech_House_Top_125", ploop125(th))
+tr = []
+for s in range(32):
+    if s % 3 == 0: tr.append((sw(s), lib["P26_Conga_Open"], 0.5))
+    if s % 5 == 2: tr.append((sw(s), lib["P24_Bongo_Low"], 0.45))
+    if s % 7 == 4: tr.append((sw(s), lib["P29_Djembe_Tone"], 0.5))
+    if s % 4 == 0: tr.append((sw(s), lib["P28_Djembe_Bass"], 0.45))
+    tr.append((sw(s), lib["P36_Cabasa"], 0.22 if s % 2 else 0.1))
+add("Lp13_Tribal_Perc_125", ploop125(tr))
+af = []
+for s in range(32):
+    if s % 6 in (0, 3): af.append((sw(s), lib["P34_Log_Drum_F"], 0.5))
+    if s % 8 == 6: af.append((sw(s), lib["P35_Log_Drum_Low_F"], 0.5))
+    if s % 4 == 2: af.append((sw(s), lib["P33_Tambourine"], 0.35))
+    if s % 3 == 1: af.append((sw(s), lib["P23_Bongo_High"], 0.3))
+add("Lp14_Afro_3mot4_125", ploop125(af))
+bl = [(sw(s), lib["P23_Bongo_High"] if s % 3 else lib["P24_Bongo_Low"], 0.5) for s in range(32) if s % 8 not in (1, 5)]
+add("Lp15_Bongo_Loop_125", ploop125(bl))
+
+# ---------------------------------------------------------------- NIVÅER
+# Varje kategori får en målnivå (högsta korta RMS, 50 ms), som i en färdig mix.
+# Taket är -1 dBTP: om målet kräver mer än så, stannar ljudet vid taket.
+TARGET = {"K": -9.0, "B": -11.0, "C": -13.0, "H": -17.0, "P": -14.0, "S": -14.0, "L": -14.0,
+          "T": -15.0, "V": -14.0, "X": -14.0, "Lp": -13.0}
+CEIL = 10 ** (-1.0 / 20)
+def category(name): return "Lp" if name.startswith("Lp") else name[0]
+def short_rms_max(y, sr):
+    w = max(1, int(0.05 * sr)); p = np.convolve(y * y, np.ones(w) / w, "valid")
+    return np.sqrt(p.max()) if len(p) else np.sqrt(np.mean(y * y))
+def true_peak(y):
+    return np.max(np.abs(resample_poly(y, 4, 1))) if len(y) > 64 else np.max(np.abs(y))
+levels = []
+
 # ---------------------------------------------------------------- SPARA
 os.makedirs(OUT, exist_ok=True)
 for f in os.listdir(OUT):
@@ -518,10 +657,17 @@ for name, x in lib.items():
     x = filt(x, "high", 18)                      # bort med DC
     x = fadein(fade(x, 5), 0.3)
     y = resample_poly(x, 1, FS // OUT_FS)        # 96 k -> 48 k med anti-alias-filter
-    p = np.max(np.abs(y)); y = y / p * 10 ** (-0.5 / 20) if p > 0 else y
+    rms = short_rms_max(y, OUT_FS)
+    gain = 10 ** (TARGET[category(name)] / 20) / (rms + 1e-12)
+    tp = true_peak(y * gain)
+    if tp > CEIL: gain *= CEIL / tp
+    y = y * gain
+    levels.append((name, 20 * np.log10(short_rms_max(y, OUT_FS) + 1e-12), 20 * np.log10(true_peak(y) + 1e-12)))
     w = os.path.join(tmp, name + ".wav")
     wavfile.write(w, OUT_FS, y.astype(np.float32))
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", w, "-c:a", "flac",
                     "-sample_fmt", "s32", "-bits_per_raw_sample", "24", "-compression_level", "8",
                     os.path.join(OUT, name + ".flac")], check=True)
 print(len(lib), "ljud sparade i", OUT)
+off = [(n, round(r, 1), round(TARGET[category(n)] - r, 1)) for n, r, p in levels if TARGET[category(n)] - r > 1.0]
+print("under målet (stoppade av taket):", off)
