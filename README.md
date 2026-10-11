@@ -39,6 +39,10 @@ I mappen finns också **BETONG.exe**, som är den fristående appen. Den kan du 
 
 Kräver 64-bitars Windows 10 eller 11.
 
+## Manual
+
+Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i `manual/manual.html`. GitHub gör PDF:en automatiskt vid varje bygge.
+
 ## Så funkar den
 
 **Starta:** tryck Play i Bitwig. Sequencern följer DAW:ens tempo. Utan DAW, eller i den fristående appen, trycker du **SPELA** nere till höger.

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>BETONG – User Manual</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=Inter:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=block">
+<link rel="stylesheet" href="manual.css">
+<style>@page { @bottom-left { content: "BETONG · USER MANUAL"; } }</style>
+</head>
+<body>
+
+<section class="cover">
+  <div class="stripe"></div>
+  <div class="kicker">MASKINHALLEN · USER MANUAL · VERSION 1.0</div>
+  <h1>BETONG</h1>
+  <div class="what">TECHNO SAMPLER · DRUM MACHINE</div>
+  <p class="tag">Chops up sounds and makes crooked, polyrhythmic beats. Eight tracks, each with its own length and rate, sliding against each other. Rumble under everything. It should all sound like a damp concrete floor.</p>
+  <div class="foot">
+    <div>VST3 · AU · STANDALONE<br>MACOS + WINDOWS</div>
+    <b>MASKIN<span>HALLEN</span></b>
+  </div>
+</section>
+
+<h2 style="break-before:auto">Contents</h2>
+<ol class="toc">
+  <li><span>01</span>Welcome</li>
+  <li><span>02</span>Install</li>
+  <li><span>03</span>Your first beat in one minute</li>
+  <li><span>04</span>The window</li>
+  <li><span>05</span>The top bar</li>
+  <li><span>06</span>Sounds, pads and chopping</li>
+  <li><span>07</span>The techno filter</li>
+  <li><span>08</span>The sequencer</li>
+  <li><span>09</span>Effects and performance</li>
+  <li><span>10</span>MIDI and automation</li>
+  <li><span>11</span>Recipes</li>
+  <li><span>12</span>Troubleshooting</li>
+</ol>
+
+<h2><span class="n">01</span>Welcome</h2>
+<p class="lead">BETONG is a drum machine and sampler for hard, hypnotic techno. You load sounds onto 16 pads, play them from an 8-track step sequencer, and push everything through a filter, a dub delay and a rumble that ducks under the kick.</p>
+<p>The idea is simple: give every track its own length and its own rate. A 16-step hat against a 13-step perc against a 5-tuplet clap. They drift apart and meet again, so the groove keeps moving without you touching anything.</p>
+<ul>
+  <li>16 pads and 145 original 24-bit sounds, free to use in your own tracks</li>
+  <li>8-track sequencer with Euclidean mode, ratchets, accents and probability</li>
+  <li>A techno filter on every track with drive, envelope and bit crush</li>
+  <li>Dub delay, rumble, master sweep, clipper and stutter</li>
+  <li>26 kits, 74 patterns and 54 effect presets, plus dice that invent new ones</li>
+</ul>
+
+<div class="box">
+  <b class="h">About the Swedish labels</b>
+  <p>BETONG was built in Stockholm, so the controls have Swedish names. This manual writes every label exactly as it looks on screen, like <span class="k">SPELA</span>, with the English meaning next to it the first time. Here are the words you will see most:</p>
+  <table>
+    <thead><tr><th>On screen</th><th>English</th><th>On screen</th><th>English</th></tr></thead>
+    <tbody>
+      <tr><td><span class="k">SPELA</span> / <span class="k">STOPP</span></td><td>Play / Stop</td><td><span class="k">MÖNSTER</span></td><td>Pattern</td></tr>
+      <tr><td><span class="k">SPÅR</span></td><td>Track</td><td><span class="k">ALLT</span></td><td>Everything</td></tr>
+      <tr><td><span class="k">GALENSKAP</span></td><td>Madness</td><td><span class="k">Ångra</span></td><td>Undo</td></tr>
+      <tr><td><span class="k">Lås</span></td><td>Lock</td><td><span class="k">Bibliotek</span></td><td>Library</td></tr>
+      <tr><td><span class="k">Hacka till pads</span></td><td>Chop to pads</td><td><span class="k">Baklänges</span></td><td>Reverse</td></tr>
+      <tr><td><span class="k">SÄND</span></td><td>Send</td><td><span class="k">NIVÅ</span></td><td>Level</td></tr>
+      <tr><td><span class="k">VOLYM</span></td><td>Volume</td><td><span class="k">PANORERING</span></td><td>Pan</td></tr>
+      <tr><td><span class="k">SVEP</span></td><td>Sweep</td><td><span class="k">GRUS</span></td><td>Grit</td></tr>
+      <tr><td><span class="k">UT</span></td><td>Output</td><td><span class="k">STORLEK</span></td><td>Size</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h2><span class="n">02</span>Install</h2>
+<p class="lead">After buying you get one zip file for Mac and one for Windows. Use the one for your computer.</p>
+
+<div class="two">
+<div>
+<h3>Mac</h3>
+<p class="small">macOS 11 Big Sur or later. Intel and Apple Silicon.</p>
+<ol class="steps">
+  <li>Double-click the zip file. You get a folder called <strong>BETONG</strong>.</li>
+  <li>Open <strong>Terminal</strong> and type <kbd>bash</kbd> and a space.</li>
+  <li>Drag the file <strong>installera.command</strong> from the folder into the Terminal window and press <kbd>Enter</kbd>.</li>
+  <li>Restart your DAW, or rescan plugins. Search for BETONG.</li>
+</ol>
+<p class="small">The script copies the VST3 and AU to your user plugin folders and clears the macOS download block. The folder also has <strong>BETONG.app</strong>, which runs without a DAW.</p>
+</div>
+<div>
+<h3>Windows</h3>
+<p class="small">64-bit Windows 10 or 11.</p>
+<ol class="steps">
+  <li>Right-click the zip file and choose <strong>Extract all</strong>. You get a folder called <strong>BETONG</strong>.</li>
+  <li>Double-click <strong>installera.bat</strong>. Click <strong>Yes</strong> when Windows asks for administrator rights.</li>
+  <li>If Windows says “Windows protected your PC”, click <strong>More info</strong> and then <strong>Run anyway</strong>.</li>
+  <li>Restart your DAW, or rescan plugins. Search for BETONG.</li>
+</ol>
+<p class="small">The plugin goes to <code>C:\Program Files\Common Files\VST3</code>. The folder also has <strong>BETONG.exe</strong>, which runs without a DAW.</p>
+</div>
+</div>
+
+<div class="box cold">
+  <b class="h">Updates</b>
+  <p>New versions are free. Download the new zip and run the install script again. It replaces the old version.</p>
+</div>
+
+<h2><span class="n">03</span>Your first beat in one minute</h2>
+<ol class="steps">
+  <li>Put BETONG on an instrument track in your DAW and open it.</li>
+  <li>Press play in the DAW. BETONG follows the DAW tempo and starts playing right away. In the standalone app, press <span class="k o">SPELA</span> <span class="tr">(play)</span> at the bottom right.</li>
+  <li>Pick a kit in the first menu at the top, and a pattern in the second.</li>
+  <li>Press the <span class="k">ALLT</span> <span class="tr">(everything)</span> dice. You get a new kit, pattern and effects in one go.</li>
+  <li>Turn <span class="k">GALENSKAP</span> <span class="tr">(madness)</span> up and press <span class="k">ALLT</span> again. It gets weirder. Didn't like it? Press <span class="k">Ångra</span> <span class="tr">(undo)</span>.</li>
+  <li>Hold <span class="k">STUTTER</span> on a build-up, and turn <span class="k">SVEP</span> <span class="tr">(sweep)</span> left to filter the whole mix.</li>
+</ol>
+<div class="box">
+  <b class="h">Good to know</b>
+  <p>Everything in BETONG is saved with your DAW project: sounds, pads, patterns and knobs. The window can be resized from the bottom right corner.</p>
+</div>
+
+<h2><span class="n">04</span>The window</h2>
+<p class="lead">BETONG has six areas, from top to bottom.</p>
+<div class="map" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+  <div style="grid-column: 1 / 5"><i>1</i>TOP BAR<small>Logo, preset menus, dice, undo, GALENSKAP, SWING, BPM</small></div>
+  <div style="grid-column: 1 / 3"><i>2</i>SAMPLING · PAD<small>Waveform of the selected pad, load, library, chop</small></div>
+  <div style="grid-column: 3 / 5; grid-row: 2 / 4"><i>4</i>TECHNO-FILTER · SPÅR<small>Filter and sends for the selected track. Pitch, decay and reverse for the selected pad.</small></div>
+  <div style="grid-column: 1 / 3"><i>3</i>PADS<small>16 pads in two rows</small></div>
+  <div style="grid-column: 1 / 5"><i>5</i>SEQUENCER<small>8 tracks, up to 32 steps each</small></div>
+  <div><i>6</i>DUB-DELAY</div><div>RUMBLE</div><div>MASTER</div><div>PERFORMANCE<small>Stutter, play, tempo</small></div>
+</div>
+<p><strong>Selected pad and selected track.</strong> Many controls act on what is selected. Click a pad to select it. Click the name at the left of a sequencer row to select that track. Selecting a track also selects the pad it plays, and clicking a pad selects the track that plays it.</p>
+<p><strong>About MASKINHALLEN.</strong> Click the BETONG logo at the top left to read where it all started: Docklands, a rattling boatyard in Stockholm.</p>
+
+<h2><span class="n">05</span>The top bar</h2>
+<h3>Preset menus</h3>
+<p>The three menus load ready-made settings. They only replace their own part, so you can mix a kit from one style with a pattern from another.</p>
+<table>
+  <thead><tr><th>Menu</th><th>What it loads</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>Kit (first menu)</td><td>16 sounds onto the pads.</td><td class="r">26 kits</td></tr>
+    <tr><td>Pattern (second)</td><td>A full sequencer pattern, all 8 tracks, plus swing.</td><td class="r">74 patterns</td></tr>
+    <tr><td>Effects (third)</td><td>Delay, rumble, clipper, master grit, and the sends and distortion on each track.</td><td class="r">54 presets</td></tr>
+  </tbody>
+</table>
+
+<h3>The dice</h3>
+<table>
+  <thead><tr><th>Button</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">KIT</span></td><td>New sounds on all pads that are not locked. Kicks stay on pads 1–2, hats on 3–4, claps on 5–6, and so on, so the result still makes sense.</td></tr>
+    <tr><td><span class="k">FX</span></td><td>Nudges the delay, rumble and filters in new directions.</td></tr>
+    <tr><td><span class="k">MÖNSTER</span></td><td><span class="tr">(pattern)</span> A new crooked pattern on all tracks that are not locked, with new lengths, rates and swing.</td></tr>
+    <tr><td><span class="k o">ALLT</span></td><td><span class="tr">(everything)</span> All three at once.</td></tr>
+    <tr><td><span class="k">Ångra</span></td><td><span class="tr">(undo)</span> Goes back one dice roll. Remembers the last 20.</td></tr>
+  </tbody>
+</table>
+<p><span class="k">GALENSKAP</span> <span class="tr">(madness)</span> sets how wild the dice are. Low: straight four-on-the-floor, normal lengths, sounds in their usual place. High: odd lengths like 5, 7 and 13, tuplets, ratchets, probability, pitched and reversed sounds, and strange sounds on unexpected pads.</p>
+<p><span class="k">Lås</span> <span class="tr">(lock)</span> on a sequencer row protects that track and its pad from the dice. Lock your kick and bass, and roll the rest.</p>
+
+<h3>Swing and tempo display</h3>
+<p><span class="k">SWING</span> pushes every second step later. It works on 1/16, 1/8, 1/16T and 1/32 tracks. The 5- and 7-tuplet tracks are never swung, which makes them sound even more off against the rest.</p>
+<p>At the top right you see the tempo. It says <strong>BPM · VÄRD</strong> <span class="tr">(host)</span> when the DAW is playing, and BPM when BETONG uses its own tempo.</p>
+
+<h2><span class="n">06</span>Sounds, pads and chopping</h2>
+<h3>Loading a sound</h3>
+<p>There are five ways to get a sound onto a pad:</p>
+<ul>
+  <li><strong>Right-click a pad</strong> and pick a built-in sound from the categories, or choose <span class="k">Ladda fil...</span> <span class="tr">(load file)</span>.</li>
+  <li><strong>Drag a file</strong> from Finder or Explorer onto a pad, or onto the waveform to load it to the selected pad.</li>
+  <li><strong>Drag several files</strong> at once onto a pad. They fill that pad and the ones after it, in order.</li>
+  <li>Press <span class="k">Ladda ljud</span> <span class="tr">(load sound)</span> above the waveform to pick a file for the selected pad.</li>
+  <li>Press <span class="k">Bibliotek</span> <span class="tr">(library)</span> and click a sound in the list.</li>
+</ul>
+<p class="small">File types: WAV, AIFF, FLAC and OGG. MP3 also works on Mac.</p>
+
+<h3>The library</h3>
+<p>The library opens over the waveform and pads. Pick a category on the left, then click a sound on the right. It loads straight onto the selected pad and plays, so you can click through sounds while the beat runs. Press <span class="k">Stäng</span> <span class="tr">(close)</span> when you are done.</p>
+<p>The built-in categories are kicks, hats and cymbals, clap and snare, perc, bass, stabs and chords, leads, textures and drones, voices, FX, and loops at 130 BPM. All tonal sounds are in F minor, so they fit together.</p>
+<p><strong>Your own sounds.</strong> Press <span class="k">+ Lägg till mapp</span> <span class="tr">(add folder)</span> and pick a folder with samples. Its sounds show up under <strong>Egna mappar</strong> <span class="tr">(my folders)</span>. BETONG remembers your folders in every project. <span class="k">Ta bort mapp</span> <span class="tr">(remove folder)</span> removes the chosen folder from the list. It does not delete any files.</p>
+
+<h3>The pads</h3>
+<p>Click a pad to play it and select it. Each pad shows its sound name, its number, and which track plays it, for example <strong>PAD 5 · SPÅR 3</strong>. The coloured bar on top matches the track colour. Pads flash when they play.</p>
+<ul>
+  <li><strong>Hi-hat choke:</strong> pad 3 (closed hat) cuts off pad 4 (open hat), just like on a real drum machine.</li>
+  <li><strong>One voice per track:</strong> a new hit on a track cuts off the last one. This keeps basses and acid lines tight.</li>
+</ul>
+
+<h3>Shaping a sound</h3>
+<p>The waveform shows the sound on the selected pad. The bright part is what the pad plays.</p>
+<ul>
+  <li><strong>Drag the orange edges</strong> to move the start and end.</li>
+  <li><strong>Click inside the waveform</strong> to hear the pad.</li>
+  <li>Thin lines with numbers show other pads that use the same sound, for example after chopping.</li>
+</ul>
+<p>Under the filter on the right there are three controls for the selected pad: <span class="k">PITCH</span> (±24 semitones), <span class="k">DECAY</span> (shortens the sound) and <span class="k">Baklänges</span> <span class="tr">(reverse)</span>.</p>
+
+<h3>Chopping a sound onto the pads</h3>
+<p>Chopping cuts one sound into pieces and puts them on pads 1–16. It is the fastest way to turn a loop or a vocal into a new beat.</p>
+<ol class="steps">
+  <li>Load a loop or a long sound onto any pad and select it.</li>
+  <li>Choose how to cut in the menu above the waveform.</li>
+  <li>Press <span class="k o">Hacka till pads</span> <span class="tr">(chop to pads)</span>.</li>
+</ol>
+<table>
+  <thead><tr><th>Mode</th><th>How it cuts</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">Anslag</span> <span class="tr">(hits)</span></td><td>Finds the hits in the sound and cuts at each one. The <strong>känslighet</strong> <span class="tr">(sensitivity)</span> bar sets how many hits it finds. Drag it right for more slices.</td></tr>
+    <tr><td><span class="k">Jämnt 8</span></td><td>8 equal slices on pads 1–8.</td></tr>
+    <tr><td><span class="k">Jämnt 16</span></td><td>16 equal slices on pads 1–16.</td></tr>
+  </tbody>
+</table>
+<p class="small">Chopping replaces the sounds on the pads it fills. You can also right-click a pad and choose <span class="k">Hacka detta ljud till alla pads</span> <span class="tr">(chop this sound to all pads)</span>, which uses the hits mode.</p>
+
+<h2><span class="n">07</span>The techno filter</h2>
+<p class="lead">Every one of the 8 tracks has its own filter, distortion and sends. The panel on the right shows the selected track. Its title says which one, for example <strong>TECHNO-FILTER · SPÅR 3</strong>.</p>
+<h3>Filter type</h3>
+<p><span class="k">LP 24</span> and <span class="k">LP 12</span> are low-pass (dark), <span class="k">HP</span> is high-pass (thin), <span class="k">BP</span> is band-pass (nasal) and <span class="k">Notch</span> cuts a narrow band. <span class="k">Av</span> <span class="tr">(off)</span> bypasses the filter.</p>
+<h3>Knobs</h3>
+<table>
+  <thead><tr><th>Knob</th><th>What it does</th><th>Range</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">CUTOFF</span></td><td>Where the filter cuts.</td><td class="r">30 Hz–18 kHz</td></tr>
+    <tr><td><span class="k">RESONANS</span></td><td>Boost at the cutoff. Turn it high and the filter starts to scream and distort.</td><td class="r">0–100 %</td></tr>
+    <tr><td><span class="k">DRIVE</span></td><td>Distortion into the filter.</td><td class="r">0–100 %</td></tr>
+    <tr><td><span class="k">ENVELOPE</span></td><td>Opens the filter on every hit, then closes it again. Accented steps open it more.</td><td class="r">0–100 %</td></tr>
+    <tr><td><span class="k">DECAY</span></td><td>How fast the envelope closes.</td><td class="r">5–1500 ms</td></tr>
+    <tr><td><span class="k">CRUSH</span></td><td>Bit crusher, down to 4 bit.</td><td class="r">0–100 %</td></tr>
+    <tr><td><span class="k">SÄND DELAY</span></td><td>How much of the track goes to the dub delay.</td><td class="r">0–100 %</td></tr>
+    <tr><td><span class="k">SÄND RUMBLE</span></td><td>How much goes to the rumble. Track 1 sends 90 % from the start.</td><td class="r">0–100 %</td></tr>
+    <tr><td><span class="k">VOLYM</span></td><td>Track volume. Above 100 % is boost.</td><td class="r">0–150 %</td></tr>
+    <tr><td><span class="k">PANORERING</span></td><td>Left and right.</td><td class="r">L–R</td></tr>
+  </tbody>
+</table>
+<div class="box">
+  <b class="h">Try this</b>
+  <p>Hats on LP 24, CUTOFF low, ENVELOPE high, DECAY short. Every hat gets a little wah. Then turn RESONANS up slowly.</p>
+</div>
+
+<h2><span class="n">08</span>The sequencer</h2>
+<p class="lead">Eight tracks, one per row. Each track plays one pad, with its own length and rate. This is where the polyrhythms come from.</p>
+<h3>One row, left to right</h3>
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Number and name</td><td>Click to select the track. Shows the sound it plays.</td></tr>
+    <tr><td>Pad</td><td>Which of the 16 pads the track plays.</td></tr>
+    <tr><td>Length</td><td>How many steps before the track starts over, 1–32. Drag up or down, or use the arrows.</td></tr>
+    <tr><td>Rate</td><td>How fast the steps go: <strong>1/16</strong>, <strong>1/8</strong>, <strong>1/16T</strong> (triplets), <strong>1/32</strong>, <strong>5-del</strong> (5 per beat) and <strong>7-del</strong> (7 per beat).</td></tr>
+    <tr><td><span class="k">E</span></td><td>Euclidean mode. See below.</td></tr>
+    <tr><td>Hits, rotation</td><td>Only used in Euclidean mode.</td></tr>
+    <tr><td>Steps</td><td>The step grid. Dim boxes are past the track's length.</td></tr>
+    <tr><td><span class="k">M</span> <span class="k">S</span> <span class="k">Lås</span></td><td>Mute, solo, and lock against the dice.</td></tr>
+  </tbody>
+</table>
+
+<h3>Editing steps</h3>
+<table>
+  <thead><tr><th>Do this</th><th>To get</th><th>Shows as</th></tr></thead>
+  <tbody>
+    <tr><td>Click</td><td>Step on or off. Drag to paint many steps.</td><td class="r">filled</td></tr>
+    <tr><td><kbd>Shift</kbd> + click</td><td>Accent: louder, and opens the filter envelope more.</td><td class="r">▲</td></tr>
+    <tr><td><kbd>Alt</kbd> + click</td><td>Probability. Each click steps 100 → 75 → 50 → 25 %.</td><td class="r">75</td></tr>
+    <tr><td><kbd>Cmd</kbd> + click (Mac)<br><kbd>Ctrl</kbd> + click (Win)</td><td>Ratchet: the step repeats 2, 3 or 4 times. Keep clicking to step through.</td><td class="r">×3</td></tr>
+    <tr><td>Right-click</td><td>Menu with all of the above, plus 10 % probability, <span class="k">Töm spåret</span> <span class="tr">(clear track)</span> and <span class="k">Fyll varje steg</span> <span class="tr">(fill every step)</span>.</td><td class="r"></td></tr>
+  </tbody>
+</table>
+<p class="small">Clicking a step past the end of a track makes the track longer, up to that step.</p>
+
+<h3>Polyrhythms in practice</h3>
+<p>Set the kick to 16 steps. Set a perc to 13 steps. The perc lands one step earlier against the kick each bar, and only lines up again after 13 bars. Now set a clap to <strong>5-del</strong>: five steps per beat against the kick's four. Small changes in length and rate give grooves that keep shifting for minutes.</p>
+
+<h3>Euclidean mode</h3>
+<p>Press <span class="k">E</span> on a row. Now you choose only <strong>how many hits</strong> and BETONG spreads them as evenly as possible over the track's length. <strong>Rotation</strong> shifts the whole pattern forward. Classic shapes: 3 hits in 8 steps, 5 in 8, 7 in 16. Editing a step by hand turns Euclidean mode off again.</p>
+
+<h3>Playing</h3>
+<p>BETONG follows your DAW: it starts and stops with the DAW and uses its tempo. Without a DAW, or in the standalone app, press <span class="k o">SPELA</span>. It changes to <span class="k">STOPP</span> while running. While the DAW plays, the button says <span class="k">DAW</span> and is locked.</p>
+
+<h2><span class="n">09</span>Effects and performance</h2>
+<p class="lead">The bottom row has two send effects, the master section and a performance panel.</p>
+
+<h3>Dub-delay</h3>
+<p>A ping-pong delay with a filter in the echoes. Feed it with <span class="k">SÄND DELAY</span> on each track.</p>
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td>Time menu</td><td>1/8, 1/8 punkt <span class="tr">(dotted)</span>, 3/16, 1/8T, 5/16 or 1/4. Always in time with the beat.</td></tr>
+    <tr><td><span class="k">Freeze</span></td><td>Holds what is in the delay and loops it forever. Great for breaks.</td></tr>
+    <tr><td><span class="k">ÅTERKOPPL.</span></td><td><span class="tr">(feedback)</span> How long the echoes last.</td></tr>
+    <tr><td><span class="k">TON</span></td><td><span class="tr">(tone)</span> Darker or thinner echoes.</td></tr>
+    <tr><td><span class="k">WOBBLE</span></td><td>Tape wobble on the echoes.</td></tr>
+    <tr><td><span class="k">NIVÅ</span></td><td><span class="tr">(level)</span> How loud the delay is in the mix.</td></tr>
+  </tbody>
+</table>
+
+<h3>Rumble</h3>
+<p>The low, distorted reverb that sits under the kick in warehouse techno. Every hit on <strong>track 1</strong> ducks it, so the kick always punches through. Track 1 is the kick in every kit.</p>
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">STORLEK</span></td><td><span class="tr">(size)</span> Size of the reverb.</td></tr>
+    <tr><td><span class="k">DRIVE</span></td><td>Distortion on the reverb.</td></tr>
+    <tr><td><span class="k">CUTOFF</span></td><td>Low-pass, 40–300 Hz. Keeps only the low end.</td></tr>
+    <tr><td><span class="k">DUCK</span></td><td>How much the kick pushes the rumble down.</td></tr>
+    <tr><td><span class="k">NIVÅ</span></td><td><span class="tr">(level)</span> How loud the rumble is.</td></tr>
+  </tbody>
+</table>
+
+<h3>Master</h3>
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">SVEP</span></td><td><span class="tr">(sweep)</span> A DJ filter on everything. Left is low-pass, right is high-pass, centre is off.</td></tr>
+    <tr><td><span class="k">GRUS</span></td><td><span class="tr">(grit)</span> Crunch on the whole mix.</td></tr>
+    <tr><td><span class="k">CLIPPER</span></td><td>Pushes the mix into a soft clipper for a louder, harder sound.</td></tr>
+    <tr><td><span class="k">UT</span></td><td><span class="tr">(output)</span> Output level, −24 to +6 dB.</td></tr>
+  </tbody>
+</table>
+<p class="small">The master also makes everything below about 120 Hz mono, so the low end stays solid on big systems.</p>
+
+<h3>Performance</h3>
+<p><span class="k o">STUTTER</span> loops a short piece of the output while you hold it down. Pick the length in the menu next to it: 1/4, 1/8, 1/16 or 1/32. <span class="k">TEMPO</span> sets BETONG's own tempo (60–200 BPM) when it plays without a DAW.</p>
+
+<h2><span class="n">10</span>MIDI and automation</h2>
+<h3>Play the pads from a keyboard</h3>
+<p>BETONG listens to MIDI notes 36–51, so 16 keys play pads 1–16. Note 36 is called C1 in most DAWs (C3 in FL Studio). Velocity sets how loud the pad plays. You can play pads by MIDI while the sequencer runs, for fills on top of the pattern.</p>
+<table>
+  <thead><tr><th>Notes</th><th>Pads</th></tr></thead>
+  <tbody>
+    <tr><td>36–43</td><td>Pads 1–8 (top row)</td></tr>
+    <tr><td>44–51</td><td>Pads 9–16 (bottom row)</td></tr>
+  </tbody>
+</table>
+<h3>Automation</h3>
+<p>Every knob and switch can be automated from your DAW: the effects, master, swing, all 8 track filters, and pitch, decay and reverse on all 16 pads. In the DAW they have Swedish names, for example <em>Spår 3 cutoff</em> (track 3 cutoff) or <em>Pad 5 pitch</em>.</p>
+
+<h2><span class="n">11</span>Recipes</h2>
+<h3>Hypnotic loop in five minutes</h3>
+<ol class="steps">
+  <li>Load the kit <strong>Industriell 909</strong> and turn <span class="k">GALENSKAP</span> to about half.</li>
+  <li>Lock the kick track with <span class="k">Lås</span>. Roll <span class="k">MÖNSTER</span> until you hear a groove you like.</li>
+  <li>Set one perc track to 7 or 13 steps, and another to <strong>5-del</strong>.</li>
+  <li>Send that perc to the delay with <span class="k">SÄND DELAY</span>, and set the delay to 3/16.</li>
+  <li>Automate <span class="k">SVEP</span> slowly over 32 bars.</li>
+</ol>
+<h3>Rebuild a loop</h3>
+<ol class="steps">
+  <li>Drag a drum loop onto pad 1.</li>
+  <li>Choose <span class="k">Anslag</span> and press <span class="k">Hacka till pads</span>.</li>
+  <li>Point the tracks at the slices and program a new order. Turn on <span class="k">Baklänges</span> on one slice.</li>
+</ol>
+<h3>The break</h3>
+<ol class="steps">
+  <li>Turn up <span class="k">SÄND DELAY</span> on the clap, then press <span class="k">Freeze</span> on the delay.</li>
+  <li>Turn <span class="k">SVEP</span> slowly to the right to thin out the whole mix.</li>
+  <li>Hold <span class="k">STUTTER</span> at 1/16 for the last bar, then let go and turn <span class="k">SVEP</span> back to the centre.</li>
+</ol>
+
+<h2><span class="n">12</span>Troubleshooting</h2>
+<table>
+  <thead><tr><th>Problem</th><th>Try this</th></tr></thead>
+  <tbody>
+    <tr><td>BETONG doesn't show up in my DAW</td><td>Rescan plugins, or restart the DAW. Check that your DAW looks in the standard VST3 folder. In Logic, use the AU version.</td></tr>
+    <tr><td>Mac says the plugin is damaged or can't be opened</td><td>Run <strong>installera.command</strong> again. It clears the macOS download block.</td></tr>
+    <tr><td>“Windows protected your PC”</td><td>Click <strong>More info</strong>, then <strong>Run anyway</strong>.</td></tr>
+    <tr><td>No sound</td><td>Press play in the DAW, or <span class="k">SPELA</span> in the standalone app. Check that no track has <span class="k">S</span> (solo) on by mistake, and that <span class="k">UT</span> isn't turned all the way down.</td></tr>
+    <tr><td>The sequencer doesn't follow my DAW tempo</td><td>Look at the tempo display. It should say BPM · VÄRD while the DAW plays.</td></tr>
+    <tr><td>A pad sounds cut off</td><td>Check <span class="k">DECAY</span> for the pad and the orange end edge in the waveform. Remember that one track plays one sound at a time.</td></tr>
+    <tr><td>Everything is too loud and crunchy</td><td>Turn down <span class="k">CLIPPER</span> and <span class="k">GRUS</span>, then lower <span class="k">UT</span>.</td></tr>
+    <tr><td>My own sample folder is gone</td><td>The folder was moved or renamed. Add it again with <span class="k">+ Lägg till mapp</span>.</td></tr>
+  </tbody>
+</table>
+<div class="box cold">
+  <b class="h">Contact and updates</b>
+  <p>Questions, bugs or ideas: get in touch through the store at <a href="https://payhip.com/MASKINHALLEN">payhip.com/MASKINHALLEN</a>. Try the other machines in your browser at <a href="https://phunkshunz.github.io/maskinhallen/">phunkshunz.github.io/maskinhallen</a>.</p>
+</div>
+<div class="end">BUILT IN A SHIPYARD · MASKIN<span>HALLEN</span></div>
+
+</body>
+</html>
