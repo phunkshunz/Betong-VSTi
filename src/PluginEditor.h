@@ -140,6 +140,57 @@ private:
 };
 
 //==============================================================================
+// EUKLID-fliken: euklid-magin för valt spår (rotation, andning, lager, luckor).
+class EuclidPanel : public juce::Component
+{
+public:
+    EuclidPanel (BetongProcessor& p, std::function<void()> onChange);
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void refresh();
+
+private:
+    void edit (std::function<void (betong::Lane&)> fn);
+    BetongProcessor& proc;
+    std::function<void()> changed;
+    juce::ComboBox rotEvery, breatheBars, fillOf;
+    juce::Slider breathe, accHits, accLen, ratHits, ratLen, ratCount, toneHits, toneLen, toneSemi;
+    juce::TextButton clearAll { utf8 ("Nollställ magin") };
+    std::array<juce::Rectangle<int>, 7> rows;
+    bool updating = false;
+};
+
+// Ring-vyn: spåren som koncentriska ringar. Dra runt = rotera, rulla eller dra upp/ner = antal slag.
+class RingView : public juce::Component
+{
+public:
+    RingView (BetongProcessor& p, std::function<void (int)> onSelect, std::function<void()> onChange)
+        : proc (p), selectLane (std::move (onSelect)), changed (std::move (onChange)) {}
+    void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override;
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override { dragLane = -1; }
+    void mouseDoubleClick (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
+
+private:
+    juce::Point<float> centre() const;
+    float outerRadius() const;
+    float ringRadius (int lane) const;
+    int laneAt (juce::Point<float> p) const;
+    float angleOf (juce::Point<float> p) const;
+    void changeHits (int lane, int delta);
+
+    BetongProcessor& proc;
+    std::function<void (int)> selectLane;
+    std::function<void()> changed;
+    int dragLane = -1, startRotate = 0, startHits = 0, lastStepDelta = 0;
+    float startAngle = 0.0f, startY = 0.0f;
+    std::array<betong::Step, betong::kMaxSteps> startSteps {};
+    float wheelAccum = 0.0f;
+};
+
+//==============================================================================
 class BetongContent : public juce::Component, private juce::Timer
 {
 public:
@@ -188,8 +239,15 @@ private:
     std::vector<std::unique_ptr<LaneRow>> rows;
     std::array<juce::TextButton, betong::kScenes> sceneButtons;
     juce::TextButton copyScene { "Kopiera till..." }, fillButton { "FILL" };
-    BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" };
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt;
+    BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" }, densSlider { "DENSITET" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt, densAtt;
+    juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" };
+    std::unique_ptr<EuclidPanel> euclidPanel;
+    std::unique_ptr<RingView> ringView;
+public:
+    void setSidePage (bool euclid);
+    void setRingMode (bool on);
+private:
     bool blinkOn = false;
     int blinkCount = 0;
 

@@ -683,6 +683,319 @@ void LaneRow::mouseDown (const juce::MouseEvent& e)
 }
 
 //==============================================================================
+// Euklid-fliken
+
+EuclidPanel::EuclidPanel (BetongProcessor& p, std::function<void()> onChange) : proc (p), changed (std::move (onChange))
+{
+    rotEvery.addItemList ({ "Av", "Varje takt", "Var 2:a takt", "Var 3:e takt", "Var 4:e takt", "Var 5:e takt", "Var 8:e takt", "Var 16:e takt" }, 1);
+    breatheBars.addItemList ({ "4 takter", "8 takter", "16 takter", "32 takter" }, 1);
+    fillOf.addItem ("Av", 1);
+    for (int i = 0; i < kLanes; ++i) fillOf.addItem (utf8 ("Spår ") + juce::String (i + 1), i + 2);
+    for (auto* c : { &rotEvery, &breatheBars, &fillOf }) addAndMakeVisible (*c);
+
+    auto setup = [this] (juce::Slider& sl, int lo, int hi, const juce::String& tip)
+    {
+        sl.setRange (lo, hi, 1);
+        styleIncDec (sl);
+        sl.setTooltip (tip);
+        addAndMakeVisible (sl);
+    };
+    setup (breathe, 0, 16, utf8 ("Hur många slag antalet sveper upp och ner (euklidiska spår), eller hur mycket tätheten andas"));
+    setup (accHits, 0, 32, utf8 ("Accentlager: antal starka slag"));
+    setup (accLen, 1, 32, utf8 ("Accentlager: längd i steg. Annan längd än spåret = accenterna vandrar"));
+    setup (ratHits, 0, 32, utf8 ("Ratchetlager: antal skurar"));
+    setup (ratLen, 1, 32, utf8 ("Ratchetlager: längd i steg"));
+    setup (ratCount, 2, 4, utf8 ("Ratchetlager: slag per skur"));
+    setup (toneHits, 0, 32, utf8 ("Tonlager: antal tonhopp"));
+    setup (toneLen, 1, 32, utf8 ("Tonlager: längd i steg"));
+    setup (toneSemi, -24, 24, utf8 ("Tonlager: tonhoppet i halvtoner"));
+    clearAll.setTooltip (utf8 ("Stäng av all euklid-magi på spåret"));
+    addAndMakeVisible (clearAll);
+
+    rotEvery.onChange = [this] { static const int v[] = { 0, 1, 2, 3, 4, 5, 8, 16 }; const int i = rotEvery.getSelectedItemIndex(); if (i >= 0) edit ([&] (Lane& l) { l.rotEvery = v[i]; }); };
+    breatheBars.onChange = [this] { static const int v[] = { 4, 8, 16, 32 }; const int i = breatheBars.getSelectedItemIndex(); if (i >= 0) edit ([&] (Lane& l) { l.breatheBars = v[i]; }); };
+    fillOf.onChange = [this] { const int id = fillOf.getSelectedId(); if (id > 0) edit ([&] (Lane& l) { l.fillOf = id - 2; }); };
+    breathe.onValueChange = [this] { edit ([&] (Lane& l) { l.breathe = (int) breathe.getValue(); }); };
+    accHits.onValueChange = [this] { edit ([&] (Lane& l) { l.accHits = (int) accHits.getValue(); }); };
+    accLen.onValueChange = [this] { edit ([&] (Lane& l) { l.accLen = (int) accLen.getValue(); }); };
+    ratHits.onValueChange = [this] { edit ([&] (Lane& l) { l.ratHits = (int) ratHits.getValue(); }); };
+    ratLen.onValueChange = [this] { edit ([&] (Lane& l) { l.ratLen = (int) ratLen.getValue(); }); };
+    ratCount.onValueChange = [this] { edit ([&] (Lane& l) { l.ratCount = (int) ratCount.getValue(); }); };
+    toneHits.onValueChange = [this] { edit ([&] (Lane& l) { l.toneHits = (int) toneHits.getValue(); }); };
+    toneLen.onValueChange = [this] { edit ([&] (Lane& l) { l.toneLen = (int) toneLen.getValue(); }); };
+    toneSemi.onValueChange = [this] { edit ([&] (Lane& l) { l.toneSemi = (int) toneSemi.getValue(); }); };
+    clearAll.onClick = [this]
+    {
+        edit ([] (Lane& l) { l.rotEvery = 0; l.breathe = 0; l.accHits = 0; l.ratHits = 0; l.toneHits = 0; l.fillOf = -1; });
+        refresh();
+    };
+}
+
+void EuclidPanel::edit (std::function<void (Lane&)> fn)
+{
+    if (updating) return;
+    proc.editLane (proc.selectedLane, [&] (Lane& l) { fn (l); });
+    if (changed) changed();
+}
+
+void EuclidPanel::refresh()
+{
+    const auto pat = proc.getPattern();
+    const auto& l = pat.lanes[(size_t) proc.selectedLane];
+    const juce::ScopedValueSetter<bool> svs (updating, true);
+    static const int rv[] = { 0, 1, 2, 3, 4, 5, 8, 16 };
+    rotEvery.setText (utf8 ("Var ") + juce::String (l.rotEvery) + utf8 (":e takt"), juce::dontSendNotification);
+    for (int i = 0; i < 8; ++i) if (rv[i] == l.rotEvery) rotEvery.setSelectedItemIndex (i, juce::dontSendNotification);
+    static const int bv[] = { 4, 8, 16, 32 };
+    int bi = 2; for (int i = 0; i < 4; ++i) if (bv[i] == l.breatheBars) bi = i;
+    breatheBars.setSelectedItemIndex (bi, juce::dontSendNotification);
+    fillOf.setSelectedId (l.fillOf + 2, juce::dontSendNotification);
+    breathe.setValue (l.breathe, juce::dontSendNotification);
+    accHits.setValue (l.accHits, juce::dontSendNotification); accLen.setValue (l.accLen, juce::dontSendNotification);
+    ratHits.setValue (l.ratHits, juce::dontSendNotification); ratLen.setValue (l.ratLen, juce::dontSendNotification);
+    ratCount.setValue (l.ratCount, juce::dontSendNotification);
+    toneHits.setValue (l.toneHits, juce::dontSendNotification); toneLen.setValue (l.toneLen, juce::dontSendNotification);
+    toneSemi.setValue (l.toneSemi, juce::dontSendNotification);
+    repaint();
+}
+
+void EuclidPanel::paint (juce::Graphics& g)
+{
+    static const char* labels[] = { "ROTERA SJÄLV", "ANDAS (slag · tid)", "ACCENTLAGER (slag/längd)", "RATCHETLAGER (slag/längd/×)",
+                                    "TONLAGER (slag/längd/ton)", "FYLL LUCKORNA I", "" };
+    for (size_t i = 0; i < rows.size(); ++i)
+    {
+        if (labels[i][0] == 0) continue;
+        g.setColour (muted);
+        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawText (utf8 (labels[i]), rows[i].withWidth (170), juce::Justification::centredLeft, true);
+    }
+}
+
+void EuclidPanel::resized()
+{
+    auto r = getLocalBounds();
+    const int rh = r.getHeight() / (int) rows.size();
+    for (auto& row : rows) row = r.removeFromTop (rh);
+    auto put = [] (juce::Rectangle<int> row, std::initializer_list<juce::Component*> cs)
+    {
+        row.removeFromLeft (172);
+        const int w = row.getWidth() / (int) cs.size();
+        for (auto* c : cs) c->setBounds (row.removeFromLeft (w).reduced (2, 2));
+    };
+    put (rows[0], { &rotEvery });
+    put (rows[1], { &breathe, &breatheBars });
+    put (rows[2], { &accHits, &accLen });
+    put (rows[3], { &ratHits, &ratLen, &ratCount });
+    put (rows[4], { &toneHits, &toneLen, &toneSemi });
+    put (rows[5], { &fillOf });
+    clearAll.setBounds (rows[6].withSizeKeepingCentre (150, rows[6].getHeight() - 4).withX (rows[6].getRight() - 150));
+}
+
+//==============================================================================
+// Ring-vyn
+
+juce::Point<float> RingView::centre() const
+{
+    const float R = outerRadius();
+    return { R + 14.0f, (float) getHeight() * 0.5f };
+}
+float RingView::outerRadius() const { return (float) getHeight() * 0.5f - 4.0f; }
+float RingView::ringRadius (int lane) const
+{
+    // spår 1 (kicken) ytterst, spår 8 innerst
+    const float R = outerRadius(), r0 = R * 0.2f;
+    return R - (R - r0) * ((float) lane + 0.5f) / (float) kLanes;
+}
+int RingView::laneAt (juce::Point<float> p) const
+{
+    const float d = p.getDistanceFrom (centre());
+    int best = -1; float bestD = 1.0e9f;
+    for (int l = 0; l < kLanes; ++l)
+    {
+        const float dd = std::abs (d - ringRadius (l));
+        if (dd < bestD) { bestD = dd; best = l; }
+    }
+    const float band = (outerRadius() * 0.8f) / (float) kLanes;
+    return bestD <= band * 0.6f ? best : -1;
+}
+float RingView::angleOf (juce::Point<float> p) const
+{
+    const auto c = centre();
+    return std::atan2 (p.y - c.y, p.x - c.x);
+}
+
+void RingView::paint (juce::Graphics& g)
+{
+    const auto pat = proc.getPattern();
+    const auto c = centre();
+    const float R = outerRadius();
+    const float band = (R * 0.8f) / (float) kLanes;
+    const bool running = proc.hostPlaying.load() || proc.internalPlay.load();
+
+    g.setColour (juce::Colour (0xff141516));
+    g.fillEllipse (juce::Rectangle<float> (R * 2.0f + 8.0f, R * 2.0f + 8.0f).withCentre (c));
+
+    for (int l = 0; l < kLanes; ++l)
+    {
+        const auto& ln = pat.lanes[(size_t) l];
+        const float r = ringRadius (l);
+        const auto col = BetongColours::lane (l);
+        const bool sel = proc.selectedLane == l;
+        g.setColour (sel ? col.withAlpha (0.35f) : line);
+        g.drawEllipse (juce::Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c), sel ? 2.0f : 1.0f);
+
+        const int len = juce::jlimit (1, kMaxSteps, ln.length);
+        const float dot = juce::jmin (band * 0.42f, juce::MathConstants<float>::twoPi * r / (float) len * 0.36f);
+        const int cur = proc.laneStep[(size_t) l].load();
+        for (int i = 0; i < len; ++i)
+        {
+            const float a = -juce::MathConstants<float>::halfPi + juce::MathConstants<float>::twoPi * (float) i / (float) len;
+            const juce::Point<float> p (c.x + r * std::cos (a), c.y + r * std::sin (a));
+            const auto& st = ln.steps[(size_t) i];
+            if (st.on)
+            {
+                const float s = dot * (st.accent ? 2.2f : st.ghost ? 1.3f : 1.8f);
+                g.setColour (col.withAlpha (st.ghost ? 0.5f : 1.0f));
+                g.fillEllipse (juce::Rectangle<float> (s, s).withCentre (p));
+                if (st.accent) { g.setColour (juce::Colours::white.withAlpha (0.8f)); g.drawEllipse (juce::Rectangle<float> (s, s).withCentre (p), 1.2f); }
+            }
+            else
+            {
+                g.setColour (juce::Colour (0xff3a3e42));
+                g.fillEllipse (juce::Rectangle<float> (dot * 0.7f, dot * 0.7f).withCentre (p));
+            }
+            if (running && i == cur)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.9f));
+                g.drawEllipse (juce::Rectangle<float> (dot * 2.8f, dot * 2.8f).withCentre (p), 1.5f);
+            }
+        }
+    }
+
+    // förklaring till höger: ett spår per rad med dess euklid-magi
+    auto info = getLocalBounds().withTrimmedLeft ((int) (R * 2.0f + 40.0f)).reduced (0, 2);
+    const int rh = info.getHeight() / kLanes;
+    for (int l = 0; l < kLanes; ++l)
+    {
+        auto row = info.removeFromTop (rh);
+        const auto& ln = pat.lanes[(size_t) l];
+        int on = 0; for (int i = 0; i < ln.length; ++i) on += ln.steps[(size_t) i].on ? 1 : 0;
+        g.setColour (BetongColours::lane (l));
+        g.fillRoundedRectangle (row.removeFromLeft (6).withSizeKeepingCentre (6, 14).toFloat(), 2.0f);
+        row.removeFromLeft (8);
+        auto info0 = proc.getPad (ln.pad);
+        g.setColour (proc.selectedLane == l ? sodium : text);
+        g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
+        g.drawText (juce::String (l + 1) + " " + (info0.sample ? info0.sample->name : utf8 ("Tom")), row.removeFromLeft (190), juce::Justification::centredLeft, true);
+        juce::String d = juce::String (on) + "/" + juce::String (ln.length) + "  " + kRates[juce::jlimit (0, kNumRates - 1, ln.rate)].name;
+        if (ln.euclid) d += "  E rot " + juce::String (ln.rotate);
+        juce::StringArray magic;
+        if (ln.rotEvery > 0) magic.add (utf8 ("roterar var ") + juce::String (ln.rotEvery));
+        if (ln.breathe > 0) magic.add (utf8 ("andas ±") + juce::String (ln.breathe));
+        if (ln.accHits > 0) magic.add ("acc " + juce::String (ln.accHits) + "/" + juce::String (ln.accLen));
+        if (ln.ratHits > 0) magic.add ("rat " + juce::String (ln.ratHits) + "/" + juce::String (ln.ratLen));
+        if (ln.toneHits > 0) magic.add ("ton " + juce::String (ln.toneHits) + "/" + juce::String (ln.toneLen));
+        if (ln.fillOf >= 0) magic.add (utf8 ("fyller luckor i ") + juce::String (ln.fillOf + 1));
+        g.setColour (muted);
+        g.setFont (juce::FontOptions (11.0f));
+        g.drawText (d, row.removeFromLeft (150), juce::Justification::centredLeft, true);
+        g.setColour (cold);
+        g.drawText (magic.joinIntoString (" · "), row, juce::Justification::centredLeft, true);
+    }
+    g.setColour (muted);
+    g.setFont (juce::FontOptions (10.0f));
+    g.drawText (utf8 ("Dra runt = rotera · dra upp/ner eller rulla = antal slag · dubbelklick = euklid på/av"),
+                getLocalBounds().removeFromBottom (14).withTrimmedLeft ((int) (R * 2.0f + 40.0f)), juce::Justification::centredLeft, true);
+}
+
+void RingView::mouseDown (const juce::MouseEvent& e)
+{
+    dragLane = laneAt (e.position);
+    if (dragLane < 0) return;
+    if (selectLane) selectLane (dragLane);
+    const auto pat = proc.getPattern();
+    const auto& ln = pat.lanes[(size_t) dragLane];
+    startAngle = angleOf (e.position);
+    startY = e.position.y;
+    startRotate = ln.rotate;
+    startSteps = ln.steps;
+    int on = 0; for (int i = 0; i < ln.length; ++i) on += ln.steps[(size_t) i].on ? 1 : 0;
+    startHits = ln.euclid ? ln.hits : on;
+    lastStepDelta = 0;
+    repaint();
+}
+
+void RingView::mouseDrag (const juce::MouseEvent& e)
+{
+    if (dragLane < 0) return;
+    const auto pat = proc.getPattern();
+    const auto& ln = pat.lanes[(size_t) dragLane];
+    const int len = juce::jlimit (1, kMaxSteps, ln.length);
+
+    if (std::abs (e.position.y - startY) > 24.0f && std::abs (e.getDistanceFromDragStartX()) < 12)
+    {
+        // dra rakt upp/ner = antal slag
+        const int target = juce::jlimit (0, len, startHits + (int) ((startY - e.position.y) / 14.0f));
+        proc.editLane (dragLane, [&] (Lane& l) { l.euclid = true; l.hits = target; });
+    }
+    else
+    {
+        float da = angleOf (e.position) - startAngle;
+        while (da > juce::MathConstants<float>::pi) da -= juce::MathConstants<float>::twoPi;
+        while (da < -juce::MathConstants<float>::pi) da += juce::MathConstants<float>::twoPi;
+        const int delta = juce::roundToInt (da / (juce::MathConstants<float>::twoPi / (float) len));
+        if (delta == lastStepDelta) return;
+        lastStepDelta = delta;
+        proc.editLane (dragLane, [&] (Lane& l)
+        {
+            if (l.euclid) l.rotate = ((startRotate + delta) % len + len) % len;
+            else for (int i = 0; i < len; ++i) l.steps[(size_t) ((i + delta) % len + len) % len] = startSteps[(size_t) i];
+        });
+    }
+    if (changed) changed();
+    repaint();
+}
+
+void RingView::changeHits (int lane, int delta)
+{
+    proc.editLane (lane, [&] (Lane& l)
+    {
+        int on = 0; for (int i = 0; i < l.length; ++i) on += l.steps[(size_t) i].on ? 1 : 0;
+        const int base = l.euclid ? l.hits : on;
+        l.euclid = true;
+        l.hits = juce::jlimit (0, l.length, base + delta);
+    });
+    if (changed) changed();
+    repaint();
+}
+
+void RingView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    const int lane = laneAt (e.position);
+    if (lane < 0) return;
+    wheelAccum += w.deltaY * (w.isReversed ? -1.0f : 1.0f);
+    const int dir = wheelAccum > 0.12f ? 1 : wheelAccum < -0.12f ? -1 : 0;
+    if (dir == 0) return;
+    wheelAccum = 0.0f;
+    if (selectLane) selectLane (lane);
+    changeHits (lane, dir);
+}
+
+void RingView::mouseDoubleClick (const juce::MouseEvent& e)
+{
+    const int lane = laneAt (e.position);
+    if (lane < 0) return;
+    proc.editLane (lane, [&] (Lane& l)
+    {
+        if (! l.euclid) { int on = 0; for (int i = 0; i < l.length; ++i) on += l.steps[(size_t) i].on ? 1 : 0; l.hits = juce::jmax (1, on); }
+        l.euclid = ! l.euclid;
+    });
+    if (changed) changed();
+    repaint();
+}
+
+//==============================================================================
 // Huvudvyn
 
 BetongContent::BetongContent (BetongProcessor& p)
@@ -803,7 +1116,10 @@ BetongContent::BetongContent (BetongProcessor& p)
     glitchAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "glitch", glitchSlider);
     svajSlider.setTooltip (utf8 ("Svaj: slagen släpar lite, styrkan varierar och tonen glider. Mönstret ändras inte."));
     glitchSlider.setTooltip (utf8 ("Glitch: slumpvisa skurar, baklängesslag, tonhopp och tappade slag. Mönstret ändras inte."));
-    for (auto* b : { &svajSlider, &glitchSlider })
+    densAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "dens", densSlider);
+    densSlider.setTooltip (utf8 ("Densitet: vrid upp för fler slag, ner för glesare. Euklidiska spår lägger till och tar bort slag jämnt fördelat."));
+    densSlider.setDoubleClickReturnValue (true, 0.0);
+    for (auto* b : { &svajSlider, &glitchSlider, &densSlider })
     {
         b->setColour (juce::Slider::trackColourId, cold.withAlpha (0.45f));
         b->setColour (juce::Slider::textBoxTextColourId, text);
@@ -811,6 +1127,24 @@ BetongContent::BetongContent (BetongProcessor& p)
         b->setColour (juce::Slider::textBoxOutlineColourId, line2);
         addAndMakeVisible (*b);
     }
+
+    // euklid-flik och ring-vy
+    euclidPanel = std::make_unique<EuclidPanel> (proc, [this] { for (auto& r : rows) r->refresh(); if (ringView) ringView->repaint(); });
+    addChildComponent (*euclidPanel);
+    ringView = std::make_unique<RingView> (proc, [this] (int ln) { selectLane (ln); }, [this] { for (auto& r : rows) r->refresh(); if (euclidPanel) euclidPanel->refresh(); });
+    addChildComponent (*ringView);
+    for (auto* b : { &tabFilter, &tabEuclid, &ringButton })
+    {
+        b->setClickingTogglesState (false);
+        addAndMakeVisible (*b);
+    }
+    tabFilter.setToggleState (true, juce::dontSendNotification);
+    tabFilter.onClick = [this] { setSidePage (false); };
+    tabEuclid.onClick = [this] { setSidePage (true); };
+    tabEuclid.setTooltip (utf8 ("Euklid-magi för valt spår: rotation som rör sig, andning, lager och fyll luckorna"));
+    ringButton.setTooltip (utf8 ("Visa spåren som euklidiska ringar"));
+    ringButton.onClick = [this] { setRingMode (! ringView->isVisible()); };
+    ringButton.setColour (juce::TextButton::buttonOnColourId, cold);
 
     // effekter
     delayTime.addItemList ({ "1/8", "1/8 punkt", "3/16", "1/8T", "5/16", "1/4" }, 1);
@@ -858,6 +1192,25 @@ void BetongContent::openFileForSelectedPad()
     });
 }
 
+void BetongContent::setSidePage (bool euclid)
+{
+    tabFilter.setToggleState (! euclid, juce::dontSendNotification);
+    tabEuclid.setToggleState (euclid, juce::dontSendNotification);
+    for (auto* c : std::initializer_list<juce::Component*> { &filterType, &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing })
+        c->setVisible (! euclid);
+    euclidPanel->setVisible (euclid);
+    if (euclid) euclidPanel->refresh();
+    repaint (sideArea);
+}
+
+void BetongContent::setRingMode (bool on)
+{
+    ringView->setVisible (on);
+    ringButton.setToggleState (on, juce::dontSendNotification);
+    for (auto& r : rows) r->setVisible (! on);
+    repaint (seqArea);
+}
+
 void BetongContent::selectLane (int lane)
 {
     proc.selectedLane = lane;
@@ -897,6 +1250,8 @@ void BetongContent::selectionChanged()
         revAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (s, BetongProcessor::padId (p, "rev"), revButton);
     }
     for (auto& r : rows) r->refresh();
+    if (euclidPanel != nullptr && euclidPanel->isVisible()) euclidPanel->refresh();
+    if (ringView != nullptr) ringView->repaint();
     refreshPresetBoxes();
     library.repaint();
     wave.refresh();
@@ -923,6 +1278,7 @@ void BetongContent::timerCallback()
     if (proc.stateVersion.load() != seenVersion) selectionChanged();
     pads.tick();
     for (auto& r : rows) r->grid.repaint();
+    if (ringView != nullptr && ringView->isVisible()) ringView->repaint();
 
     const bool host = proc.hostPlaying.load();
     playButton.setButtonText (host ? utf8 ("DAW") : (playButton.getToggleState() ? utf8 ("STOPP") : utf8 ("SPELA")));
@@ -969,14 +1325,13 @@ void BetongContent::paint (juce::Graphics& g)
     drawPanel (g, padsArea, "PADS", utf8 ("Klick spelar · högerklick väljer ljud · dra in filer"));
 
     // sidopanel
-    drawPanel (g, sideArea, utf8 ("TECHNO-FILTER · SPÅR ") + juce::String (proc.selectedLane + 1),
+    drawPanel (g, sideArea, utf8 ("SPÅR ") + juce::String (proc.selectedLane + 1),
                "PAD " + juce::String (proc.selectedPad + 1));
     g.setColour (line);
     g.drawHorizontalLine (sideArea.getY() + 206, (float) sideArea.getX() + 12, (float) sideArea.getRight() - 12);
 
     // sequencer
-    drawPanel (g, seqArea, "SEQUENCER",
-               utf8 ("Shift stark/svag · Alt sannolikhet · " CMD_KEY " ratchet · Rulla ton · Högerklick meny"));
+    drawPanel (g, seqArea, "SEQUENCER");
 
     // effekter
     const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
@@ -1040,7 +1395,11 @@ void BetongContent::resized()
     // sidopanel: spårets filter (2 rader rattar) + pad
     {
         auto s = sideArea.reduced (12, 8);
-        s.removeFromTop (24);
+        auto tabs = s.removeFromTop (24).withTrimmedBottom (3);
+        tabs.removeFromLeft (70);
+        tabFilter.setBounds (tabs.removeFromLeft (76)); tabs.removeFromLeft (4);
+        tabEuclid.setBounds (tabs.removeFromLeft (76));
+        euclidPanel->setBounds (s.withHeight (24 + 6 + 70 + 70));
         auto typeRow = s.removeFromTop (24);
         filterType.setBounds (typeRow.removeFromLeft (110));
         s.removeFromTop (6);
@@ -1070,7 +1429,12 @@ void BetongContent::resized()
         svajSlider.setBounds (head.removeFromLeft (124));
         head.removeFromLeft (6);
         glitchSlider.setBounds (head.removeFromLeft (124));
+        head.removeFromLeft (6);
+        densSlider.setBounds (head.removeFromLeft (140));
+        head.removeFromLeft (10);
+        ringButton.setBounds (head.removeFromLeft (60));
         const int rh = s.getHeight() / kLanes;
+        ringView->setBounds (s);
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));
     }
 

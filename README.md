@@ -48,7 +48,7 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 **Starta:** tryck Play i Bitwig. Sequencern följer DAW:ens tempo. Utan DAW, eller i den fristående appen, trycker du **SPELA** nere till höger.
 
 **Uppe i fönstret**
-- **Kit, Mönster och Effekter:** 38 kit, 155 mönster och 54 effekt-presets, sorterade i genremappar (Techno, Peak time, Hardgroove, Tech house, Tribal, Minimal, Dub, Polyrytm med flera). Börja med kiten under **Rena grundkit**.
+- **Kit, Mönster och Effekter:** 38 kit, 169 mönster och 54 effekt-presets, sorterade i genremappar (Techno, Peak time, Hardgroove, Tech house, Tribal, Minimal, Dub, Polyrytm, Euklid-magi med flera). Börja med kiten under **Rena grundkit**.
 - **Tärningarna:** slumpar kit, effekter, mönster eller allt. **Galenskap** styr hur vilt det blir.
 - **Ångra:** backar de senaste 20 slumpningarna.
 - **Lås** på ett spår gör att slumpen låter det spåret vara.
@@ -76,6 +76,15 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - **SVAJ:** slagen släpar lite, styrkan varierar och tonen glider, som en gammal maskin som driver.
 - **GLITCH:** slumpvisa skurar, baklängesslag, tonhopp och tappade slag. Varken svaj eller glitch ändrar mönstret.
 - **Swing per spår** i panelen till höger, till exempel shuffle på shakern medan kicken går rak.
+- **DENSITET:** vrid upp för fler slag, ner för glesare. Euklidiska spår fyller på eller glesar ut jämnt fördelat.
+- **RING:** visar spåren som euklidiska ringar. Dra runt en ring för att rotera, dra upp/ner eller rulla för antal slag, dubbelklicka för euklid på/av.
+
+**Euklid-magi (fliken EUKLID för valt spår)**
+- **Rotera själv:** mönstret flyttar sig ett steg var 1:a–16:e takt och glider hypnotiskt runt.
+- **Andas:** antalet slag sveper upp och ner över 4–32 takter, så uppbyggnader och breaks kommer av sig själva.
+- **Accent-, ratchet- och tonlager:** egna euklidiska mönster med egen längd ovanpå slagen. De landar olika varje varv, så basgångar trasslar ihop sig och reder ut sig igen.
+- **Fyll luckorna i:** spåret spelar bara där ett annat spår är tyst, för låsta afrikanska mönster.
+- Mönstermappen **Euklid-magi** har 14 färdiga exempel. Inget av detta ändrar själva mönstret.
 
 **Techno-filtret (valt spår)**
 - LP 24, LP 12, HP, BP och Notch.
