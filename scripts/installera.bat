@@ -1,5 +1,5 @@
 @echo off
-rem Installerar BETONG på Windows. Dubbelklicka på filen.
+rem Installerar maskinerna som ligger i den här mappen på Windows. Dubbelklicka på filen.
 rem Plugin-mappen för VST3 kräver administratör, så filen ber om det själv.
 
 net session >nul 2>&1
@@ -11,19 +11,25 @@ if errorlevel 1 (
 cd /d "%~dp0"
 set "DEST=%CommonProgramFiles%\VST3"
 if not exist "%DEST%" mkdir "%DEST%"
-if exist "%DEST%\BETONG.vst3" rmdir /s /q "%DEST%\BETONG.vst3"
-xcopy "BETONG.vst3" "%DEST%\BETONG.vst3\" /e /i /y /q >nul
 
-if errorlevel 1 (
+set "FOUND="
+for %%f in ("*.vst3") do (
+  set "FOUND=1"
+  if exist "%DEST%\%%~nxf" rmdir /s /q "%DEST%\%%~nxf"
+  xcopy "%%~ff" "%DEST%\%%~nxf\" /e /i /y /q >nul
+)
+
+if not defined FOUND (
   echo.
-  echo Nagot gick fel. Packade du upp zip-filen forst? Hogerklicka pa zip-filen och valj "Extrahera alla".
+  echo Hittar inga plugins har. Packade du upp zip-filen forst? Hogerklicka pa zip-filen och valj "Extrahera alla".
   pause
   exit /b 1
 )
 
 echo.
-echo Klart! BETONG ligger nu i:
+echo Klart! Maskinerna ligger nu i:
 echo   %DEST%
 echo Starta om Bitwig, eller tryck Rescan under Settings ^> Locations ^> Plug-ins.
+echo Sok pa BETONG eller SMIDET. Bada ligger under tillverkaren Phunkshunz.
 echo.
 pause
