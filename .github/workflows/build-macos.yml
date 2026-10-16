@@ -1,4 +1,4 @@
-name: Bygg BETONG för macOS och Windows
+name: Bygg maskinerna för macOS och Windows
 
 on:
   push:
@@ -11,6 +11,16 @@ permissions:
   contents: write # behövs för att skapa releaser
 
 jobs:
+  # Snabbkontroll: maskinerna måste ha egna namn, plugin-koder och bundle-id:n,
+  # annars kan DAW:en blanda ihop dem. Se tools/check_machines.py.
+  kontroll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kontrollera maskinerna
+        run: python3 tools/check_machines.py
+
   # Manualen görs till PDF av Chrome och läggs i både Mac- och Windows-zippen.
   manual:
     runs-on: ubuntu-latest
@@ -33,8 +43,12 @@ jobs:
           retention-days: 1
 
   macos:
-    needs: manual
+    needs: [manual, kontroll]
     runs-on: macos-14
+    env:
+      # CMake-målen, samma lista som BETONG_MACHINES i CMakeLists.txt.
+      # tools/check_machines.py kontrollerar att de stämmer.
+      MASKINER: "Betong Smidet"
     steps:
       - uses: actions/checkout@v4
 
@@ -56,14 +70,16 @@ jobs:
 
       - name: Paketera
         run: |
-          ART=build/Betong_artefacts/Release
           mkdir -p dist/BETONG
-          cp -R "$ART/VST3/BETONG.vst3" dist/BETONG/
-          cp -R "$ART/AU/BETONG.component" dist/BETONG/
-          cp -R "$ART/Standalone/BETONG.app" dist/BETONG/
+          for m in $MASKINER; do
+            ART=build/${m}_artefacts/Release
+            cp -R "$ART/VST3/"*.vst3 dist/BETONG/
+            cp -R "$ART/AU/"*.component dist/BETONG/
+            cp -R "$ART/Standalone/"*.app dist/BETONG/
+          done
           cp scripts/installera.command dist/BETONG/
           chmod +x dist/BETONG/installera.command
-          for b in dist/BETONG/BETONG.vst3 dist/BETONG/BETONG.component dist/BETONG/BETONG.app; do
+          for b in dist/BETONG/*.vst3 dist/BETONG/*.component dist/BETONG/*.app; do
             codesign --force --deep --sign - "$b"
           done
           cd dist && ditto -c -k --keepParent BETONG BETONG-macOS.zip
@@ -78,8 +94,10 @@ jobs:
   windows:
     # Bara Mac byggs automatiskt. Windows kan startas för hand under Actions.
     if: github.event_name == 'workflow_dispatch'
-    needs: manual
+    needs: [manual, kontroll]
     runs-on: windows-2022
+    env:
+      MASKINER: "Betong Smidet"
     steps:
       - uses: actions/checkout@v4
 
@@ -98,10 +116,12 @@ jobs:
       - name: Paketera
         shell: pwsh
         run: |
-          $ART = "build/Betong_artefacts/Release"
           New-Item -ItemType Directory -Force dist/BETONG | Out-Null
-          Copy-Item -Recurse "$ART/VST3/BETONG.vst3" dist/BETONG/
-          Copy-Item "$ART/Standalone/BETONG.exe" dist/BETONG/
+          foreach ($m in $env:MASKINER.Split(' ')) {
+            $ART = "build/${m}_artefacts/Release"
+            Copy-Item -Recurse "$ART/VST3/*.vst3" dist/BETONG/
+            Copy-Item "$ART/Standalone/*.exe" dist/BETONG/
+          }
           Copy-Item scripts/installera.bat dist/BETONG/
           Compress-Archive -Path dist/BETONG -DestinationPath dist/BETONG-Windows.zip
 
@@ -132,7 +152,7 @@ jobs:
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('BETONG bygge {0}', github.run_number) }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
+          body: "Zippen innehåller två maskiner, BETONG och SMIDET, och båda ligger under tillverkaren Phunkshunz i DAW:en. Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
           files: |
             dist/BETONG-macOS.zip
             dist/BETONG-Manual.pdf
