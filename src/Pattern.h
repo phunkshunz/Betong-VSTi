@@ -8,6 +8,7 @@ namespace betong
 constexpr int kLanes = 8;
 constexpr int kMaxSteps = 32;
 constexpr int kPads = 16;
+constexpr int kScenes = 4;
 
 // Takter per spår: steg per taktslag (fjärdedel). 5 och 7 ger kvintoler och septoler.
 struct RateInfo { const char* name; int stepsPerBeat; };
@@ -19,7 +20,9 @@ constexpr int kNumRates = (int) (sizeof (kRates) / sizeof (kRates[0]));
 struct Step
 {
     bool on = false;
-    bool accent = false;
+    bool accent = false;   // stark
+    bool ghost = false;    // svag (ghost-slag)
+    int8_t semi = 0;       // ton per steg i halvtoner (-24..+24)
     uint8_t prob = 100;    // sannolikhet i procent
     uint8_t ratchet = 1;   // 1..4 upprepningar inom steget
 };
@@ -41,6 +44,9 @@ struct Pattern
     std::array<Lane, kLanes> lanes {};
 };
 
+// Styrka per steg: svag, normal, stark
+inline float stepGain (const Step& s) { return s.accent ? 1.0f : s.ghost ? 0.42f : 0.78f; }
+
 // Björklunds algoritm (Bresenham-varianten): sprider hits jämnt över len steg.
 inline void applyEuclid (Lane& lane)
 {
@@ -55,7 +61,7 @@ inline void applyEuclid (Lane& lane)
     }
 }
 
-// Text <-> steg. Tecken: . av, x på, X accent, o 50 %, p 25 %, 2/3/4 ratchet.
+// Text <-> steg. Tecken: . av, x på, X accent, g svag, o 50 %, p 25 %, 2/3/4 ratchet.
 inline void setStepsFromString (Lane& lane, const juce::String& s)
 {
     lane.length = juce::jlimit (1, kMaxSteps, s.length());
@@ -67,6 +73,7 @@ inline void setStepsFromString (Lane& lane, const juce::String& s)
             const auto c = s[i];
             st.on = c != '.';
             st.accent = c == 'X';
+            st.ghost = c == 'g';
             st.prob = c == 'o' ? 50 : c == 'p' ? 25 : 100;
             st.ratchet = (c >= '2' && c <= '4') ? (uint8_t) (c - '0') : 1;
         }
@@ -86,7 +93,7 @@ inline juce::String stepsToString (const Lane& lane)
             if (st.ratchet > 1) c = (juce::juce_wchar) ('0' + st.ratchet);
             else if (st.prob <= 25) c = 'p';
             else if (st.prob < 100) c = 'o';
-            else c = st.accent ? 'X' : 'x';
+            else c = st.accent ? 'X' : st.ghost ? 'g' : 'x';
         }
         s += juce::String::charToString (c);
     }
@@ -98,12 +105,18 @@ inline juce::String laneToString (const Lane& l)
 {
     juce::String acc;
     for (int i = 0; i < l.length; ++i) acc += l.steps[(size_t) i].accent ? "1" : "0";
-    juce::String probs;
-    for (int i = 0; i < l.length; ++i) probs += juce::String ((int) l.steps[(size_t) i].prob) + ",";
+    juce::String probs, ghosts, semis;
+    for (int i = 0; i < l.length; ++i)
+    {
+        const auto& st = l.steps[(size_t) i];
+        probs += juce::String ((int) st.prob) + ",";
+        ghosts += st.ghost ? "1" : "0";
+        semis += juce::String ((int) st.semi) + ",";
+    }
     return juce::StringArray { juce::String (l.pad), juce::String (l.length), juce::String (l.rate),
                                l.euclid ? "1" : "0", juce::String (l.hits), juce::String (l.rotate),
                                l.mute ? "1" : "0", l.solo ? "1" : "0", l.lock ? "1" : "0",
-                               stepsToString (l), acc, probs }.joinIntoString ("|");
+                               stepsToString (l), acc, probs, ghosts, semis }.joinIntoString ("|");
 }
 
 inline void laneFromString (Lane& l, const juce::String& s)
@@ -127,6 +140,16 @@ inline void laneFromString (Lane& l, const juce::String& s)
         for (int i = 0; i < probs.size() && i < kMaxSteps; ++i)
             if (probs[i].isNotEmpty())
                 l.steps[(size_t) i].prob = (uint8_t) juce::jlimit (0, 100, probs[i].getIntValue());
+    }
+    if (t.size() > 12)
+        for (int i = 0; i < t[12].length() && i < kMaxSteps; ++i)
+            l.steps[(size_t) i].ghost = t[12][i] == '1' && ! l.steps[(size_t) i].accent;
+    if (t.size() > 13)
+    {
+        auto semis = juce::StringArray::fromTokens (t[13], ",", {});
+        for (int i = 0; i < semis.size() && i < kMaxSteps; ++i)
+            if (semis[i].isNotEmpty())
+                l.steps[(size_t) i].semi = (int8_t) juce::jlimit (-24, 24, semis[i].getIntValue());
     }
     if (l.euclid) applyEuclid (l);
 }
