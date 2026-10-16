@@ -1,0 +1,6 @@
+# Installatörerna ska ha rätt radslut på respektive system.
+*.bat text eol=crlf
+*.command text eol=lf
+
+# Ljudbiblioteket får aldrig normaliseras.
+*.flac binary

@@ -2,3 +2,11 @@ build/
 dist/
 .DS_Store
 *.xcuserdata
+
+# demos renderas fram av tools/render_demo.py (wav och mellanlagring slängs)
+.venv/
+demo/*.wav
+demo/*.npy
+# python
+__pycache__/
+*.pyc
