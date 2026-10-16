@@ -5,6 +5,7 @@
 #include "Dsp.h"
 #include "Pattern.h"
 #include "Library.h"
+#include "Identity.h"
 
 // BETONG: techno-sampler med 16 pads, 8-spårs polyrytmisk sequencer,
 // techno-filter, dub-delay, rumble och slump.
@@ -22,7 +23,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
 
-    const juce::String getName() const override { return "BETONG"; }
+    const juce::String getName() const override { return BETONG_PRODUCT_NAME; }
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
