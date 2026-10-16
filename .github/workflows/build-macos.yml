@@ -30,6 +30,7 @@ jobs:
         with:
           name: BETONG-Manual
           path: dist/BETONG-Manual.pdf
+          retention-days: 1
 
   macos:
     needs: manual
@@ -72,8 +73,11 @@ jobs:
         with:
           name: BETONG-macOS
           path: dist/BETONG-macOS.zip
+          retention-days: 1
 
   windows:
+    # Bara Mac byggs automatiskt. Windows kan startas för hand under Actions.
+    if: github.event_name == 'workflow_dispatch'
     needs: manual
     runs-on: windows-2022
     steps:
@@ -106,13 +110,14 @@ jobs:
         with:
           name: BETONG-Windows
           path: dist/BETONG-Windows.zip
+          retention-days: 1
 
   # Varje bygge på main blir en release, så att
   # .../releases/latest/download/BETONG-macOS.zip och BETONG-Windows.zip
   # alltid ger senaste versionen.
   release:
     if: github.event_name == 'push'
-    needs: [manual, macos, windows]
+    needs: [manual, macos]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -130,5 +135,4 @@ jobs:
           body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
           files: |
             dist/BETONG-macOS.zip
-            dist/BETONG-Windows.zip
             dist/BETONG-Manual.pdf

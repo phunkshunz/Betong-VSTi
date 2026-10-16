@@ -122,7 +122,8 @@ private:
         bool releasing = false;
         int64_t samplesLeft = 0;
     };
-    void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, int semi = 0);
+    // flags: 1 = spela baklänges (växlar padens läge), 2 = kort slag (glitch)
+    void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi = 0.0f, int flags = 0);
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
 
@@ -172,6 +173,8 @@ private:
     std::atomic<float>* pRSize = nullptr; std::atomic<float>* pRDrive = nullptr; std::atomic<float>* pRCut = nullptr;
     std::atomic<float>* pRDuck = nullptr; std::atomic<float>* pRRet = nullptr;
     std::atomic<float>* pStutter = nullptr; std::atomic<float>* pStutLen = nullptr; std::atomic<float>* pFill = nullptr;
+    std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr;
+    juce::uint32 glitchSeed = 0x5eed;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
                         std::atomic<float>* sendA; std::atomic<float>* sendB; std::atomic<float>* vol; std::atomic<float>* pan;

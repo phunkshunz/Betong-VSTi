@@ -692,9 +692,24 @@ BetongContent::BetongContent (BetongProcessor& p)
     auto& s = proc.apvts;
 
     // header
-    for (int i = 0; i < kNumKits; ++i) kitBox.addItem (utf8 (kKits[i].name), i + 1);
-    for (int i = 0; i < kNumPatterns; ++i) patternBox.addItem (utf8 (kPatterns[i].name), i + 1);
-    for (int i = 0; i < kNumFx; ++i) fxBox.addItem (utf8 (kFx[i].name), i + 1);
+    // presets i genremappar (undermenyer), i den ordning grupperna står i Presets.h
+    auto fillGrouped = [] (juce::ComboBox& box, auto& table, int count)
+    {
+        juce::StringArray groups;
+        for (int i = 0; i < count; ++i)
+            groups.addIfNotAlreadyThere (utf8 (table[i].group != nullptr ? table[i].group : "Övrigt"));
+        for (const auto& g : groups)
+        {
+            juce::PopupMenu sub;
+            for (int i = 0; i < count; ++i)
+                if (utf8 (table[i].group != nullptr ? table[i].group : "Övrigt") == g)
+                    sub.addItem (i + 1, utf8 (table[i].name));
+            box.getRootMenu()->addSubMenu (g, sub);
+        }
+    };
+    fillGrouped (kitBox, kKits, kNumKits);
+    fillGrouped (patternBox, kPatterns, kNumPatterns);
+    fillGrouped (fxBox, kFx, kNumFx);
     kitBox.onChange = [this] { if (kitBox.getSelectedId() > 0) { proc.applyKit (kitBox.getSelectedId() - 1); selectionChanged(); } };
     patternBox.onChange = [this] { if (patternBox.getSelectedId() > 0) { proc.applyPattern (patternBox.getSelectedId() - 1); selectionChanged(); } };
     fxBox.onChange = [this] { if (fxBox.getSelectedId() > 0) { proc.applyFx (fxBox.getSelectedId() - 1); selectionChanged(); } };
@@ -784,6 +799,18 @@ BetongContent::BetongContent (BetongProcessor& p)
     fillButton.setColour (juce::TextButton::textColourOffId, sodium);
     fillButton.onStateChange = [this] { proc.fillHeld.store (fillButton.isDown()); };
     addAndMakeVisible (fillButton);
+    svajAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "svaj", svajSlider);
+    glitchAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "glitch", glitchSlider);
+    svajSlider.setTooltip (utf8 ("Svaj: slagen släpar lite, styrkan varierar och tonen glider. Mönstret ändras inte."));
+    glitchSlider.setTooltip (utf8 ("Glitch: slumpvisa skurar, baklängesslag, tonhopp och tappade slag. Mönstret ändras inte."));
+    for (auto* b : { &svajSlider, &glitchSlider })
+    {
+        b->setColour (juce::Slider::trackColourId, cold.withAlpha (0.45f));
+        b->setColour (juce::Slider::textBoxTextColourId, text);
+        b->setColour (juce::Slider::backgroundColourId, raised);
+        b->setColour (juce::Slider::textBoxOutlineColourId, line2);
+        addAndMakeVisible (*b);
+    }
 
     // effekter
     delayTime.addItemList ({ "1/8", "1/8 punkt", "3/16", "1/8T", "5/16", "1/4" }, 1);
@@ -949,7 +976,7 @@ void BetongContent::paint (juce::Graphics& g)
 
     // sequencer
     drawPanel (g, seqArea, "SEQUENCER",
-               utf8 ("Klick på/av · Shift stark/svag · Alt sannolikhet · " CMD_KEY " ratchet · Rulla = ton · Högerklick meny"));
+               utf8 ("Shift stark/svag · Alt sannolikhet · " CMD_KEY " ratchet · Rulla ton · Högerklick meny"));
 
     // effekter
     const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
@@ -1039,6 +1066,10 @@ void BetongContent::resized()
         copyScene.setBounds (head.removeFromLeft (104));
         head.removeFromLeft (8);
         fillButton.setBounds (head.removeFromLeft (64));
+        head.removeFromLeft (10);
+        svajSlider.setBounds (head.removeFromLeft (124));
+        head.removeFromLeft (6);
+        glitchSlider.setBounds (head.removeFromLeft (124));
         const int rh = s.getHeight() / kLanes;
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));
     }

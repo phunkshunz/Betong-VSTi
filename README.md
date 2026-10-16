@@ -1,6 +1,6 @@
 # BETONG
 
-Techno-sampler som VST3 och AU för macOS, och VST3 för Windows. Den hackar upp ljud och gör skeva, polyrytmiska beats. Allt ska låta som ett fuktigt betonggolv.
+Techno-sampler som VST3 och AU för macOS. Den hackar upp ljud och gör skeva, polyrytmiska beats. Allt ska låta som ett fuktigt betonggolv.
 
 Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i pluginet för att läsa om båtvarvet Docklands, där allt började.
 
@@ -48,14 +48,14 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 **Starta:** tryck Play i Bitwig. Sequencern följer DAW:ens tempo. Utan DAW, eller i den fristående appen, trycker du **SPELA** nere till höger.
 
 **Uppe i fönstret**
-- **Kit, Mönster och Effekter:** 26 kit, 74 mönster och 54 effekt-presets.
+- **Kit, Mönster och Effekter:** 38 kit, 155 mönster och 54 effekt-presets, sorterade i genremappar (Techno, Peak time, Hardgroove, Tech house, Tribal, Minimal, Dub, Polyrytm med flera). Börja med kiten under **Rena grundkit**.
 - **Tärningarna:** slumpar kit, effekter, mönster eller allt. **Galenskap** styr hur vilt det blir.
 - **Ångra:** backar de senaste 20 slumpningarna.
 - **Lås** på ett spår gör att slumpen låter det spåret vara.
 
 **Sampling och pads**
 - **Klick på en pad:** spelar den och väljer den.
-- **Högerklick på en pad:** välj ett av de 145 inbyggda ljuden eller en egen fil.
+- **Högerklick på en pad:** välj ett av de 215 inbyggda ljuden eller en egen fil.
 - **Dra in filer** på en pad, eller dra flera filer på en gång.
 - **Hacka till pads:** delar ljudet på vald pad i bitar och lägger dem på pad 1–16. Läget **Anslag** hittar slagen automatiskt.
 - **Dra i de orange kanterna** i vågformen för att flytta start och slut.
@@ -65,11 +65,17 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - Varje spår har egen **pad**, **längd** (1–32 steg) och **takt** (1/16, 1/8, trioler, 1/32, 5-del och 7-del). Olika längder och takter glider mot varandra och blir polyrytmer.
 - **E** = euklidiskt läge. Du väljer antal slag och rotation.
 - **Klick** slår på och av ett steg, och du kan dra för att måla.
-- **Shift-klick** = accent.
+- **Shift-klick** = stark, svag (ghost) eller normal.
+- **Rulla** över ett steg = ton i halvtoner (för basgångar). Högerklick har också en Ton-meny.
 - **Alt-klick** = sannolikhet.
 - **Cmd-klick** (Ctrl-klick på Windows) = ratchet.
 - **Högerklick** = meny med allt.
 - **M / S / Lås** = mute, solo och lås mot slump.
+- **Scener A–D:** fyra mönster att växla mellan live. Bytet sker på nästa takt. **Kopiera till...** kopierar scenen.
+- **FILL:** håll inne för en virvel på clap, snare och toms.
+- **SVAJ:** slagen släpar lite, styrkan varierar och tonen glider, som en gammal maskin som driver.
+- **GLITCH:** slumpvisa skurar, baklängesslag, tonhopp och tappade slag. Varken svaj eller glitch ändrar mönstret.
+- **Swing per spår** i panelen till höger, till exempel shuffle på shakern medan kicken går rak.
 
 **Techno-filtret (valt spår)**
 - LP 24, LP 12, HP, BP och Notch.
@@ -86,9 +92,10 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 
 ## Ljuden
 
-145 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. De är fria att använda i egna låtar.
+215 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. Grunden är en kärna av rena, feta trummaskinstrummor (kickar, hats, clap, snare, rim, toms och ride) som alla ligger på jämna nivåer. De är fria att använda i egna låtar.
 
 - Kickar, hats, clap, perc
+- Tech house och tribal: bongos, congas, djembe, timbales, tamburin, log drums, agogo, orgelbas och marimba
 - Rå och hård ångvälts-techno: distade kickar, rumble, smutsiga hats och smällande clap. Kiten Ångvälten, Hardgroove 97, Rostfabriken, Valsverk 140, Lagerlokal och Stålpressen.
 - Bas, stabs, leads
 - Texturer och drönare
