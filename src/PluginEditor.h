@@ -259,7 +259,7 @@ private:
     Knob kDFb, kDTone, kDWob, kDRet, kRSize, kRDrive, kRCut, kRDuck, kRRet, kSweep, kMCrush, kClip, kOut;
 
     std::unique_ptr<juce::FileChooser> chooser;
-    AboutOverlay about { "BETONG", juce::String::fromUTF8 ("techno-sampler · v1.0") };
+    AboutOverlay about { BETONG_PRODUCT_NAME, juce::String::fromUTF8 (BETONG_ABOUT_LINE " · v1.0") };
     juce::Rectangle<int> logoArea;
     int seenVersion = -1;
     int shownPad = -1, shownLane = -1;
