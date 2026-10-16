@@ -95,6 +95,8 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     b ("stutter", "Stutter", false);
     c ("stutLen", "Stutter-längd", kStutterLens, 2);
     b ("fill", "Fill", false);
+    f ("svaj", "Svaj", { 0.0f, 1.0f }, 0.0f);
+    f ("glitch", "Glitch", { 0.0f, 1.0f }, 0.0f);
 
     for (int l = 0; l < kLanes; ++l)
     {
@@ -145,6 +147,8 @@ BetongProcessor::BetongProcessor()
     pDFreeze = raw ("dFreeze"); pDRet = raw ("dRet");
     pRSize = raw ("rSize"); pRDrive = raw ("rDrive"); pRCut = raw ("rCut"); pRDuck = raw ("rDuck"); pRRet = raw ("rRet");
     pStutter = raw ("stutter"); pStutLen = raw ("stutLen"); pFill = raw ("fill");
+    pSvaj = raw ("svaj"); pGlitch = raw ("glitch");
+    glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     for (int l = 0; l < kLanes; ++l)
         lp[(size_t) l] = { raw (laneId (l, "type")), raw (laneId (l, "cut")), raw (laneId (l, "res")), raw (laneId (l, "drive")),
                            raw (laneId (l, "env")), raw (laneId (l, "dec")), raw (laneId (l, "crush")),
@@ -154,14 +158,14 @@ BetongProcessor::BetongProcessor()
         pp[(size_t) p] = { raw (padId (p, "pitch")), raw (padId (p, "decay")), raw (padId (p, "rev")),
                            raw (padId (p, "vol")), raw (padId (p, "pan")) };
 
-    // Startläge: ångvälts-kit, mönster och fuktigt betonggolv
+    // Startläge: rena grundkitet, grundmönstret och fuktigt betonggolv
     auto findIndex = [] (auto& table, int count, const char* name)
     {
         for (int i = 0; i < count; ++i) if (juce::String::fromUTF8 (table[i].name) == juce::String::fromUTF8 (name)) return i;
         return 0;
     };
-    applyKit (findIndex (kKits, kNumKits, "Ångvälten"));
-    applyPattern (findIndex (kPatterns, kNumPatterns, "Ångvält 138"));
+    applyKit (findIndex (kKits, kNumKits, "Betong Grund"));
+    applyPattern (findIndex (kPatterns, kNumPatterns, "Grund 130"));
     applyFx (findIndex (kFx, kNumFx, "Fuktigt Betonggolv"));
 
     startTimerHz (1);
@@ -286,7 +290,7 @@ int BetongProcessor::laneForPad (int pad) const
     return kLanes; // direktbussen
 }
 
-void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane, int semi)
+void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi, int flags)
 {
     auto& slot = padSlots[(size_t) pad];
     const Sample* s = slot.sample.load();
@@ -316,8 +320,8 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
     }
 
     const auto& prm = pp[(size_t) pad];
-    const float semis = prm.pitch->load() + (float) semi;
-    const bool reverse = prm.rev->load() > 0.5f;
+    const float semis = prm.pitch->load() + semi;
+    const bool reverse = (prm.rev->load() > 0.5f) != ((flags & 1) != 0);
     const float decay = prm.decay->load();
 
     Voice v;
@@ -334,6 +338,7 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
     v.amp = 1.0f; v.fade = 1.0f; v.releasing = false;
     v.decayCoef = decay >= 0.999f ? 1.0f
                                   : std::exp (-1.0f / (float) ((0.015 * std::pow (250.0, (double) decay)) * sr));
+    if (flags & 2) v.decayCoef = std::exp (-1.0f / (float) (0.025 * sr)); // glitch: avhugget slag
     v.samplesLeft = (int64_t) (sr * 40.0);
     *target = v;
     padHits[(size_t) pad].fetch_add (1);
@@ -351,6 +356,7 @@ void BetongProcessor::renderVoices (int numSamples)
         const float* inR = v.s->data.getNumChannels() > 1 ? v.s->data.getReadPointer (1) : inL;
         const int lo = v.start, hi = v.end - 1;
 
+        if (v.delay >= numSamples) { v.delay -= numSamples; continue; } // svaj: slaget kommer i ett senare block
         for (int i = v.delay; i < numSamples; ++i)
         {
             const int idx = (int) std::floor (v.pos);
@@ -389,6 +395,7 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
     const double ppqEnd = ppqStart + numSamples / samplesPerBeat;
     const float swing = pSwing->load();
     const bool fill = fillHeld.load() || pFill->load() > 0.5f;
+    const float svaj = pSvaj->load(), glitch = pGlitch->load();
 
     bool anySolo = false;
     for (auto& l : audioPattern.lanes) anySolo |= l.solo;
@@ -422,18 +429,50 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
             else if (fillDouble && st.on)
                 st.ratchet = (uint8_t) juce::jmax (2, (int) st.ratchet);
             if (! st.on) continue;
+
+            // deterministisk slump per steg, så att ratchets över blockgränser fattar samma beslut
+            auto h01 = [&] (juce::uint32 salt)
+            {
+                juce::uint32 x = (juce::uint32) n * 2654435761u ^ (juce::uint32) (li + 1) * 40503u ^ salt * 0x9E3779B9u ^ glitchSeed;
+                x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+                return (float) (x & 0xFFFFFF) / 16777216.0f;
+            };
+            int flags = 0;
+            float semiF = (float) st.semi;
+            int ratOverride = 0;
+            if (glitch > 0.001f && ! fillRoll && h01 (1) < glitch * 0.25f * (li == 0 ? 0.2f : 1.0f))
+            {
+                static const float jumps[] = { -12.0f, -7.0f, -5.0f, 5.0f, 7.0f, 12.0f };
+                switch ((int) (h01 (2) * 5.0f))
+                {
+                    case 0: ratOverride = 2 + (int) (h01 (3) * 3.0f); break;   // skur
+                    case 1: flags |= 1; break;                                // baklänges
+                    case 2: semiF += jumps[(int) (h01 (4) * 6.0f) % 6]; break; // tonhopp
+                    case 3: flags |= 2; break;                                // avhugget
+                    default: if (li > 0) continue; break;                     // tappat slag
+                }
+            }
             double t0 = (double) n / spb;
             if (swingable && (n & 1)) t0 += sw * 0.5 / spb;
-            const int rat = juce::jlimit (1, 4, (int) st.ratchet);
+            const int rat = ratOverride > 0 ? ratOverride : juce::jlimit (1, 4, (int) st.ratchet);
             for (int k = 0; k < rat; ++k)
             {
                 const double tk = t0 + (double) k / (spb * rat);
                 if (tk < ppqStart || tk >= ppqEnd) continue;
                 if (st.prob < 100 && audioRng.nextInt (100) >= st.prob) continue;
-                const int offset = juce::jlimit (0, numSamples - 1, (int) ((tk - ppqStart) * samplesPerBeat));
+                int offset = juce::jlimit (0, numSamples - 1, (int) ((tk - ppqStart) * samplesPerBeat));
                 float gain = stepGain (st) * (k == 0 ? 1.0f : 0.85f);
                 if (fillRoll) gain *= 0.45f + 0.55f * (float) (std::fmod (tk, 4.0) / 4.0);
-                startVoice (lane.pad, li, gain, offset, true, st.semi);
+                float semiHit = semiF;
+                if (svaj > 0.001f)
+                {
+                    // svaj: slaget släpar upp till 16 ms, styrkan varierar och tonen glider några cent
+                    const juce::uint32 kk = (juce::uint32) k;
+                    offset += (int) (h01 (10 + kk) * svaj * 0.016 * sr * (li == 0 ? 0.4 : 1.0));
+                    gain *= 1.0f - svaj * 0.35f * h01 (20 + kk);
+                    semiHit += (h01 (30) - 0.5f) * svaj * 0.3f;
+                }
+                startVoice (lane.pad, li, gain, offset, true, semiHit, flags);
                 laneTriggered[(size_t) li] = true;
                 laneTrigAmount[(size_t) li] = juce::jmax (laneTrigAmount[(size_t) li], st.accent ? 1.0f : st.ghost ? 0.35f : 0.7f);
             }
@@ -592,7 +631,7 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         const float clip = pClip->load();
         const float outGain = juce::Decibels::decibelsToGain (pOut->load());
         // clipper: drive in, men nästan oförändrad nivå för svaga signaler
-        const float clipG = 1.0f + clip * clip * 6.0f;
+        const float clipG = 1.0f + clip * clip * 1.6f; // max ca +8 dB in i mättningen: rakar toppar, plattar inte till
         const float clipNorm = 0.97f; // tak strax under 0 dBFS
 
         // -6 dB headroom på mixbussen innan mastern, så clippern får jobba med marginal

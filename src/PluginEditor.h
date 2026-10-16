@@ -188,6 +188,8 @@ private:
     std::vector<std::unique_ptr<LaneRow>> rows;
     std::array<juce::TextButton, betong::kScenes> sceneButtons;
     juce::TextButton copyScene { "Kopiera till..." }, fillButton { "FILL" };
+    BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt;
     bool blinkOn = false;
     int blinkCount = 0;
 

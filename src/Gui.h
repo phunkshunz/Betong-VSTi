@@ -182,6 +182,19 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
 };
 
+// Liggande reglage med namn framför värdet, t.ex. "SVAJ  20 %".
+class BarSlider : public juce::Slider
+{
+public:
+    explicit BarSlider (const juce::String& label) : prefix (label)
+    {
+        setSliderStyle (juce::Slider::LinearBar);
+        setTextBoxStyle (juce::Slider::TextBoxAbove, false, 0, 0);
+    }
+    juce::String getTextFromValue (double v) override { return prefix + "  " + juce::Slider::getTextFromValue (v); }
+    juce::String prefix;
+};
+
 // Rubrik + mörk ruta, återanvänds för alla paneler.
 inline void drawPanel (juce::Graphics& g, juce::Rectangle<int> r, const juce::String& title, const juce::String& sub = {})
 {

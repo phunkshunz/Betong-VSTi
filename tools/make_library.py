@@ -124,8 +124,8 @@ def kick(f0=230, f1=48, pdec=0.035, dec=0.35, length=0.6, click=0.6, drive=1.5, 
     body = np.sin(ph) * amp
     if sub: body += sub * np.sin(2 * np.pi * f1 * tt) * np.minimum(tt / 0.01, 1) * np.where(tt < hold, 1.0, np.exp(-(tt - hold) / (dec * 1.4)))
     # beater-klick: kort brus i övre mellanregistret, inget gnistrande över 9 kHz
-    c = filt(filt(noise(length), "band", [1500, 7000], 2), "low", 9000) * np.exp(-tt / 0.0025) * click * 1.2
-    c += 0.35 * click * np.sin(2 * np.pi * 1800 * tt) * np.exp(-tt / 0.0018)   # beater-knack
+    c = filt(filt(noise(length), "band", [1500, 7000], 2), "low", 9000) * np.exp(-tt / 0.0025) * click * 2.0
+    c += 0.6 * click * np.sin(2 * np.pi * 1800 * tt) * np.exp(-tt / 0.0018)   # beater-knack
     x = tanhd(body + c, drive)
     x = peak_cut(x, 320, -4.0)                      # mindre kartong
     x = filt(x, "high", 24)                         # bort med ultrabas under 24 Hz
