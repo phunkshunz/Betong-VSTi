@@ -11,7 +11,7 @@
 
 <section class="cover">
   <div class="stripe"></div>
-  <div class="kicker">MASKINHALLEN · USER MANUAL · VERSION 1.0</div>
+  <div class="kicker">MASKINHALLEN · USER MANUAL · VERSION 1.1</div>
   <h1>BETONG</h1>
   <div class="what">TECHNO SAMPLER · DRUM MACHINE</div>
   <p class="tag">Chops up sounds and makes crooked, polyrhythmic beats. Eight tracks, each with its own length and rate, sliding against each other. Rumble under everything. It should all sound like a damp concrete floor.</p>
@@ -41,11 +41,13 @@
 <p class="lead">BETONG is a drum machine and sampler for hard, hypnotic techno. You load sounds onto 16 pads, play them from an 8-track step sequencer, and push everything through a filter, a dub delay and a rumble that ducks under the kick.</p>
 <p>The idea is simple: give every track its own length and its own rate. A 16-step hat against a 13-step perc against a 5-tuplet clap. They drift apart and meet again, so the groove keeps moving without you touching anything.</p>
 <ul>
-  <li>16 pads and 145 original 24-bit sounds, free to use in your own tracks</li>
-  <li>8-track sequencer with Euclidean mode, ratchets, accents and probability</li>
+  <li>16 pads and 215 original 24-bit sounds, built around a core of clean, fat drum-machine drums, free to use in your own tracks</li>
+  <li>8-track sequencer with accents and ghost notes, pitch per step, ratchets, probability and swing per track</li>
+  <li>Four scenes, a fill button, and <strong>SVAJ</strong> and <strong>GLITCH</strong> to make the machine sway and break up</li>
+  <li>Euclidean magic: patterns that rotate and breathe by themselves, accent, ratchet and pitch layers, tracks that fill each other's gaps, and a ring view</li>
   <li>A techno filter on every track with drive, envelope and bit crush</li>
   <li>Dub delay, rumble, master sweep, clipper and stutter</li>
-  <li>26 kits, 74 patterns and 54 effect presets, plus dice that invent new ones</li>
+  <li>38 kits, 169 patterns and 54 effect presets in genre folders, plus dice that invent new ones</li>
 </ul>
 
 <div class="box">
@@ -63,6 +65,10 @@
       <tr><td><span class="k">VOLYM</span></td><td>Volume</td><td><span class="k">PANORERING</span></td><td>Pan</td></tr>
       <tr><td><span class="k">SVEP</span></td><td>Sweep</td><td><span class="k">GRUS</span></td><td>Grit</td></tr>
       <tr><td><span class="k">UT</span></td><td>Output</td><td><span class="k">STORLEK</span></td><td>Size</td></tr>
+      <tr><td><span class="k">SVAJ</span></td><td>Sway</td><td><span class="k">DENSITET</span></td><td>Density</td></tr>
+      <tr><td><span class="k">Scen</span></td><td>Scene</td><td><span class="k">Kopiera till...</span></td><td>Copy to...</td></tr>
+      <tr><td><span class="k">Rotera själv</span></td><td>Rotate by itself</td><td><span class="k">Andas</span></td><td>Breathe</td></tr>
+      <tr><td><span class="k">Fyll luckorna i</span></td><td>Fill the gaps in</td><td><span class="k">Stark / Svag</span></td><td>Strong / Weak (ghost)</td></tr>
     </tbody>
   </table>
 </div>
@@ -104,14 +110,14 @@
 <ol class="steps">
   <li>Put BETONG on an instrument track in your DAW and open it.</li>
   <li>Press play in the DAW. BETONG follows the DAW tempo and starts playing right away. In the standalone app, press <span class="k o">SPELA</span> <span class="tr">(play)</span> at the bottom right.</li>
-  <li>Pick a kit in the first menu at the top, and a pattern in the second.</li>
+  <li>Pick a kit in the first menu at the top, and a pattern in the second. The menus are sorted in genre folders. Start with the kits under <strong>Rena grundkit</strong> <span class="tr">(clean basic kits)</span>.</li>
   <li>Press the <span class="k">ALLT</span> <span class="tr">(everything)</span> dice. You get a new kit, pattern and effects in one go.</li>
   <li>Turn <span class="k">GALENSKAP</span> <span class="tr">(madness)</span> up and press <span class="k">ALLT</span> again. It gets weirder. Didn't like it? Press <span class="k">Ångra</span> <span class="tr">(undo)</span>.</li>
   <li>Hold <span class="k">STUTTER</span> on a build-up, and turn <span class="k">SVEP</span> <span class="tr">(sweep)</span> left to filter the whole mix.</li>
 </ol>
 <div class="box">
   <b class="h">Good to know</b>
-  <p>Everything in BETONG is saved with your DAW project: sounds, pads, patterns and knobs. The window can be resized from the bottom right corner.</p>
+  <p>Everything in BETONG is saved with your DAW project: sounds, pads, all four scenes, the Euclidean settings and every knob. The window can be resized from the bottom right corner.</p>
 </div>
 
 <h2><span class="n">04</span>The window</h2>
@@ -119,9 +125,9 @@
 <div class="map" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
   <div style="grid-column: 1 / 5"><i>1</i>TOP BAR<small>Logo, preset menus, dice, undo, GALENSKAP, SWING, BPM</small></div>
   <div style="grid-column: 1 / 3"><i>2</i>SAMPLING · PAD<small>Waveform of the selected pad, load, library, chop</small></div>
-  <div style="grid-column: 3 / 5; grid-row: 2 / 4"><i>4</i>TECHNO-FILTER · SPÅR<small>Filter and sends for the selected track. Pitch, decay and reverse for the selected pad.</small></div>
+  <div style="grid-column: 3 / 5; grid-row: 2 / 4"><i>4</i>SPÅR · FILTER / EUKLID<small>Two tabs for the selected track: the filter and sends, or the Euclidean magic. Below them: pitch, decay, volume, pan and reverse for the selected pad.</small></div>
   <div style="grid-column: 1 / 3"><i>3</i>PADS<small>16 pads in two rows</small></div>
-  <div style="grid-column: 1 / 5"><i>5</i>SEQUENCER<small>8 tracks, up to 32 steps each</small></div>
+  <div style="grid-column: 1 / 5"><i>5</i>SEQUENCER<small>8 tracks, up to 32 steps each. Scenes, fill, SVAJ, GLITCH, DENSITET and the RING view along the top.</small></div>
   <div><i>6</i>DUB-DELAY</div><div>RUMBLE</div><div>MASTER</div><div>PERFORMANCE<small>Stutter, play, tempo</small></div>
 </div>
 <p><strong>Selected pad and selected track.</strong> Many controls act on what is selected. Click a pad to select it. Click the name at the left of a sequencer row to select that track. Selecting a track also selects the pad it plays, and clicking a pad selects the track that plays it.</p>
@@ -133,11 +139,13 @@
 <table>
   <thead><tr><th>Menu</th><th>What it loads</th><th></th></tr></thead>
   <tbody>
-    <tr><td>Kit (first menu)</td><td>16 sounds onto the pads.</td><td class="r">26 kits</td></tr>
-    <tr><td>Pattern (second)</td><td>A full sequencer pattern, all 8 tracks, plus swing.</td><td class="r">74 patterns</td></tr>
+    <tr><td>Kit (first menu)</td><td>16 sounds onto the pads.</td><td class="r">38 kits</td></tr>
+    <tr><td>Pattern (second)</td><td>A full sequencer pattern, all 8 tracks, plus swing. Goes into the scene you are on.</td><td class="r">169 patterns</td></tr>
     <tr><td>Effects (third)</td><td>Delay, rumble, clipper, master grit, and the sends and distortion on each track.</td><td class="r">54 presets</td></tr>
   </tbody>
 </table>
+
+<p class="small">Each menu opens in genre folders: Techno, Peak time, Hardgroove, Tech house, Tribal, Minimal, Dub, Polyrytm <span class="tr">(polyrhythm)</span>, Euklid-magi <span class="tr">(Euclidean magic)</span> and the classic sets.</p>
 
 <h3>The dice</h3>
 <table>
@@ -188,7 +196,7 @@
   <li><strong>Click inside the waveform</strong> to hear the pad.</li>
   <li>Thin lines with numbers show other pads that use the same sound, for example after chopping.</li>
 </ul>
-<p>Under the filter on the right there are three controls for the selected pad: <span class="k">PITCH</span> (±24 semitones), <span class="k">DECAY</span> (shortens the sound) and <span class="k">Baklänges</span> <span class="tr">(reverse)</span>.</p>
+<p>Under the filter on the right there are five controls for the selected pad: <span class="k">PITCH</span> (±24 semitones), <span class="k">DECAY</span> (shortens the sound), <span class="k">PAD VOLYM</span> (−30 to +6 dB), <span class="k">PAD PAN</span> and <span class="k">Baklänges</span> <span class="tr">(reverse)</span>. Use pad volume to balance a kit.</p>
 
 <h3>Chopping a sound onto the pads</h3>
 <p>Chopping cuts one sound into pieces and puts them on pads 1–16. It is the fastest way to turn a loop or a vocal into a new beat.</p>
@@ -208,7 +216,7 @@
 <p class="small">Chopping replaces the sounds on the pads it fills. You can also right-click a pad and choose <span class="k">Hacka detta ljud till alla pads</span> <span class="tr">(chop this sound to all pads)</span>, which uses the hits mode.</p>
 
 <h2><span class="n">07</span>The techno filter</h2>
-<p class="lead">Every one of the 8 tracks has its own filter, distortion and sends. The panel on the right shows the selected track. Its title says which one, for example <strong>TECHNO-FILTER · SPÅR 3</strong>.</p>
+<p class="lead">Every one of the 8 tracks has its own filter, distortion and sends. The panel on the right shows the selected track, for example <strong>SPÅR 3</strong>. Make sure the <span class="k">FILTER</span> tab is chosen. The <span class="k">EUKLID</span> tab is explained in chapter 08.</p>
 <h3>Filter type</h3>
 <p><span class="k">LP 24</span> and <span class="k">LP 12</span> are low-pass (dark), <span class="k">HP</span> is high-pass (thin), <span class="k">BP</span> is band-pass (nasal) and <span class="k">Notch</span> cuts a narrow band. <span class="k">Av</span> <span class="tr">(off)</span> bypasses the filter.</p>
 <h3>Knobs</h3>
@@ -225,6 +233,7 @@
     <tr><td><span class="k">SÄND RUMBLE</span></td><td>How much goes to the rumble. Track 1 sends 90 % from the start.</td><td class="r">0–100 %</td></tr>
     <tr><td><span class="k">VOLYM</span></td><td>Track volume. Above 100 % is boost.</td><td class="r">0–150 %</td></tr>
     <tr><td><span class="k">PANORERING</span></td><td>Left and right.</td><td class="r">L–R</td></tr>
+    <tr><td><span class="k">SWING SPÅR</span></td><td><span class="tr">(track swing)</span> Swing for this track only. <strong>Global</strong> follows the main SWING. Shuffle the shaker while the kick stays straight.</td><td class="r">Global, 50–88 %</td></tr>
   </tbody>
 </table>
 <div class="box">
@@ -254,10 +263,11 @@
   <thead><tr><th>Do this</th><th>To get</th><th>Shows as</th></tr></thead>
   <tbody>
     <tr><td>Click</td><td>Step on or off. Drag to paint many steps.</td><td class="r">filled</td></tr>
-    <tr><td><kbd>Shift</kbd> + click</td><td>Accent: louder, and opens the filter envelope more.</td><td class="r">▲</td></tr>
+    <tr><td><kbd>Shift</kbd> + click</td><td>Strength. Each click steps normal → strong (louder, opens the filter more) → weak (a soft ghost note) → normal.</td><td class="r">white bar / dim</td></tr>
+    <tr><td>Scroll over a step</td><td>Pitch of that step in semitones. Use it to play basslines and melodies on bass and stab pads. You hear each new note.</td><td class="r">+3</td></tr>
     <tr><td><kbd>Alt</kbd> + click</td><td>Probability. Each click steps 100 → 75 → 50 → 25 %.</td><td class="r">75</td></tr>
     <tr><td><kbd>Cmd</kbd> + click (Mac)<br><kbd>Ctrl</kbd> + click (Win)</td><td>Ratchet: the step repeats 2, 3 or 4 times. Keep clicking to step through.</td><td class="r">×3</td></tr>
-    <tr><td>Right-click</td><td>Menu with all of the above, plus 10 % probability, <span class="k">Töm spåret</span> <span class="tr">(clear track)</span> and <span class="k">Fyll varje steg</span> <span class="tr">(fill every step)</span>.</td><td class="r"></td></tr>
+    <tr><td>Right-click</td><td>Menu with all of the above: <span class="k">Styrka</span> <span class="tr">(strength)</span>, <span class="k">Ton</span> <span class="tr">(pitch, −12 to +12)</span>, probability, ratchet, plus <span class="k">Töm spåret</span> <span class="tr">(clear track)</span> and <span class="k">Fyll varje steg</span> <span class="tr">(fill every step)</span>.</td><td class="r"></td></tr>
   </tbody>
 </table>
 <p class="small">Clicking a step past the end of a track makes the track longer, up to that step.</p>
@@ -270,6 +280,45 @@
 
 <h3>Playing</h3>
 <p>BETONG follows your DAW: it starts and stops with the DAW and uses its tempo. Without a DAW, or in the standalone app, press <span class="k o">SPELA</span>. It changes to <span class="k">STOPP</span> while running. While the DAW plays, the button says <span class="k">DAW</span> and is locked.</p>
+
+<h3>Scenes and fill</h3>
+<p><strong>A B C D</strong> above the tracks are four scenes: four complete patterns in the same kit. Click a scene while the beat plays and it blinks until the next bar, then switches exactly on the downbeat. When stopped it switches at once. <span class="k">Kopiera till...</span> <span class="tr">(copy to...)</span> copies the scene you see to another one, so you can make a variation and keep the original.</p>
+<p>Hold <span class="k o">FILL</span> for a drum roll: the clap, snare and tom tracks (pads 5–8) roll in sixteenths and get louder towards the end of the bar, and the other tracks double their hits. The kick keeps going. Let go and the pattern is back.</p>
+
+<h3>SVAJ, GLITCH and DENSITET</h3>
+<p>Three bars along the top of the sequencer change how the pattern plays, without changing the pattern itself. Turn them down and everything is clean again.</p>
+<table>
+  <thead><tr><th>Bar</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">SVAJ</span></td><td><span class="tr">(sway)</span> Hits drag a little behind the beat, their strength varies and the pitch drifts a few cents, like an old machine that wanders. The kick sways only half as much, so the groove holds.</td></tr>
+    <tr><td><span class="k">GLITCH</span></td><td>Random bursts, reversed hits, pitch jumps, cut-off hits and dropped hits. The kick glitches rarely.</td></tr>
+    <tr><td><span class="k">DENSITET</span></td><td><span class="tr">(density)</span> Thins out or fills up the whole beat. Euclidean tracks add or remove hits and keep them evenly spread. Other tracks drop or add soft hits. Turn it up into a drop, down into a break.</td></tr>
+  </tbody>
+</table>
+
+<h3>Euclidean magic: the EUKLID tab</h3>
+<p>Select a track and choose the <span class="k">EUKLID</span> tab in the panel on the right. Everything here is calculated while the beat plays. The pattern itself never changes.</p>
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">ROTERA SJÄLV</span></td><td><span class="tr">(rotate by itself)</span> The track moves one step every 1, 2, 3, 4, 5, 8 or 16 bars. A Euclidean pattern always stays Euclidean, so it keeps grooving while it slowly turns.</td></tr>
+    <tr><td><span class="k">ANDAS</span></td><td><span class="tr">(breathe)</span> The number of hits sweeps up and down by the amount you set, over 4–32 bars. Build-ups and breaks happen by themselves. On normal tracks it makes the density breathe instead.</td></tr>
+    <tr><td><span class="k">ACCENTLAGER</span></td><td><span class="tr">(accent layer)</span> Its own Euclidean pattern of strong hits, with its own length. Give it a length that differs from the track, for example 3 in 8 over a 16-step track, and the accents walk around.</td></tr>
+    <tr><td><span class="k">RATCHETLAGER</span></td><td><span class="tr">(ratchet layer)</span> Its own pattern of bursts: how many, over how many steps, and 2–4 hits per burst.</td></tr>
+    <tr><td><span class="k">TONLAGER</span></td><td><span class="tr">(pitch layer)</span> Its own pattern of pitch jumps, in semitones. On a bass track the line tangles itself up and untangles again, because the layer lands in a new place each time round.</td></tr>
+    <tr><td><span class="k">FYLL LUCKORNA I</span></td><td><span class="tr">(fill the gaps in)</span> The track only plays where another track is silent. If the track has no steps of its own, it fills every gap. Gives tight, interlocking African patterns that never collide.</td></tr>
+    <tr><td><span class="k">Nollställ magin</span></td><td><span class="tr">(reset the magic)</span> Turns all of the above off for the track.</td></tr>
+  </tbody>
+</table>
+
+<h3>The ring view</h3>
+<p>Press <span class="k">RING</span> above the tracks. The tracks turn into rings inside each other, with track 1 on the outside. Each dot is a step: big dots are hits, ringed dots are strong, faint dots are weak. A white circle shows where each track is playing, so you can watch a 7-step ring turn against a 16-step ring.</p>
+<ul>
+  <li><strong>Drag around a ring</strong> to rotate that track.</li>
+  <li><strong>Drag straight up or down, or scroll,</strong> to add or remove hits. This turns on Euclidean mode.</li>
+  <li><strong>Double-click a ring</strong> to turn Euclidean mode on or off.</li>
+</ul>
+<p>Next to the rings each track shows its length, rate and any Euclidean magic it has. Press <span class="k">RING</span> again to go back to the step grid. The pattern folder <strong>Euklid-magi</strong> has 14 examples to start from.</p>
 
 <h2><span class="n">09</span>Effects and performance</h2>
 <p class="lead">The bottom row has two send effects, the master section and a performance panel.</p>
@@ -327,7 +376,7 @@
   </tbody>
 </table>
 <h3>Automation</h3>
-<p>Every knob and switch can be automated from your DAW: the effects, master, swing, all 8 track filters, and pitch, decay and reverse on all 16 pads. In the DAW they have Swedish names, for example <em>Spår 3 cutoff</em> (track 3 cutoff) or <em>Pad 5 pitch</em>.</p>
+<p>Every knob and switch can be automated from your DAW: the effects, master, swing, <span class="k">SVAJ</span>, <span class="k">GLITCH</span>, <span class="k">DENSITET</span>, <span class="k">FILL</span>, all 8 track filters and track swing, and pitch, decay, volume, pan and reverse on all 16 pads. In the DAW they have Swedish names, for example <em>Spår 3 cutoff</em> (track 3 cutoff) or <em>Pad 5 pitch</em>.</p>
 
 <h2><span class="n">11</span>Recipes</h2>
 <h3>Hypnotic loop in five minutes</h3>
@@ -337,6 +386,14 @@
   <li>Set one perc track to 7 or 13 steps, and another to <strong>5-del</strong>.</li>
   <li>Send that perc to the delay with <span class="k">SÄND DELAY</span>, and set the delay to 3/16.</li>
   <li>Automate <span class="k">SVEP</span> slowly over 32 bars.</li>
+</ol>
+<h3>Euclidean hypnosis</h3>
+<ol class="steps">
+  <li>Load the kit <strong>Betong Grund</strong> and the pattern <strong>Grund 130</strong>.</li>
+  <li>Select the perc track, press <span class="k">E</span> and set 5 hits in 13 steps.</li>
+  <li>On the <span class="k">EUKLID</span> tab set <span class="k">ROTERA SJÄLV</span> to every 2nd bar and <span class="k">ANDAS</span> to 3 over 16 bars.</li>
+  <li>Select the bass track and give it a <span class="k">TONLAGER</span> of 2 in 7 at +12.</li>
+  <li>Open <span class="k">RING</span> and watch it turn. Ride <span class="k">DENSITET</span> into the drop.</li>
 </ol>
 <h3>Rebuild a loop</h3>
 <ol class="steps">
@@ -362,6 +419,7 @@
     <tr><td>The sequencer doesn't follow my DAW tempo</td><td>Look at the tempo display. It should say BPM · VÄRD while the DAW plays.</td></tr>
     <tr><td>A pad sounds cut off</td><td>Check <span class="k">DECAY</span> for the pad and the orange end edge in the waveform. Remember that one track plays one sound at a time.</td></tr>
     <tr><td>Everything is too loud and crunchy</td><td>Turn down <span class="k">CLIPPER</span> and <span class="k">GRUS</span>, then lower <span class="k">UT</span>.</td></tr>
+    <tr><td>The beat plays differently from the steps I see</td><td>Check <span class="k">SVAJ</span>, <span class="k">GLITCH</span> and <span class="k">DENSITET</span>, and the <span class="k">EUKLID</span> tab of each track. Turn them down, or press <span class="k">Nollställ magin</span>.</td></tr>
     <tr><td>My own sample folder is gone</td><td>The folder was moved or renamed. Add it again with <span class="k">+ Lägg till mapp</span>.</td></tr>
   </tbody>
 </table>

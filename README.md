@@ -115,7 +115,7 @@ Allt tonalt ligger i F-moll.
 
 ## Bygga själv
 
-Pluginet byggs automatiskt av GitHub Actions och läggs upp som release. Det blir en universell binär för Intel och Apple Silicon och kräver macOS 11 Big Sur eller nyare. Samtidigt byggs en 64-bitars Windows-version.
+Pluginet byggs automatiskt av GitHub Actions och läggs upp som release. Det blir en universell binär för Intel och Apple Silicon och kräver macOS 11 Big Sur eller nyare. Windows-versionen byggs bara när man startar bygget för hand under Actions.
 
 ```
 cmake -B build -DCMAKE_BUILD_TYPE=Release
