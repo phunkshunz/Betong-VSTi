@@ -37,7 +37,7 @@ constexpr int kDefaultLanePads[kLanes] = { 0, 2, 3, 4, 6, 8, 12, 13 };
 } // namespace
 
 //==============================================================================
-enum class Unit { Pct, Hz, Ms, Db, Semi, Bpm, Pan, Sweep, Swing, LaneSwing };
+enum class Unit { Pct, Hz, Ms, Db, Semi, Bpm, Pan, Sweep, Swing, LaneSwing, Dens };
 
 static juce::String formatValue (Unit u, float v)
 {
@@ -53,6 +53,7 @@ static juce::String formatValue (Unit u, float v)
         case Unit::Pan:   return std::abs (v) < 0.02f ? String ("C") : (v < 0 ? "V " : "H ") + String (juce::roundToInt (std::abs (v) * 100.0f));
         case Unit::Sweep: return std::abs (v) < 0.02f ? String::fromUTF8 ("Av") : (v < 0 ? "LP " : "HP ") + String (juce::roundToInt (std::abs (v) * 100.0f)) + " %";
         case Unit::Swing: return String (juce::roundToInt (50.0f + v * 50.0f)) + " %";
+        case Unit::Dens: return std::abs (v) < 0.02f ? String ("0") : (v > 0 ? "+" : "-") + String (juce::roundToInt (std::abs (v) * 100.0f)) + " %";
         case Unit::LaneSwing: return v < 0.0f ? String ("Global") : String (juce::roundToInt (50.0f + v * 50.0f)) + " %";
     }
     return String (v, 2);
@@ -97,6 +98,7 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     b ("fill", "Fill", false);
     f ("svaj", "Svaj", { 0.0f, 1.0f }, 0.0f);
     f ("glitch", "Glitch", { 0.0f, 1.0f }, 0.0f);
+    f ("dens", "Densitet", { -1.0f, 1.0f }, 0.0f, Unit::Dens);
 
     for (int l = 0; l < kLanes; ++l)
     {
@@ -147,7 +149,7 @@ BetongProcessor::BetongProcessor()
     pDFreeze = raw ("dFreeze"); pDRet = raw ("dRet");
     pRSize = raw ("rSize"); pRDrive = raw ("rDrive"); pRCut = raw ("rCut"); pRDuck = raw ("rDuck"); pRRet = raw ("rRet");
     pStutter = raw ("stutter"); pStutLen = raw ("stutLen"); pFill = raw ("fill");
-    pSvaj = raw ("svaj"); pGlitch = raw ("glitch");
+    pSvaj = raw ("svaj"); pGlitch = raw ("glitch"); pDens = raw ("dens");
     glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     for (int l = 0; l < kLanes; ++l)
         lp[(size_t) l] = { raw (laneId (l, "type")), raw (laneId (l, "cut")), raw (laneId (l, "res")), raw (laneId (l, "drive")),
@@ -389,6 +391,80 @@ void BetongProcessor::renderVoices (int numSamples)
 }
 
 //==============================================================================
+float BetongProcessor::hash01 (juce::int64 n, int lane, juce::uint32 salt) const
+{
+    juce::uint32 x = (juce::uint32) n * 2654435761u ^ (juce::uint32) (lane + 1) * 40503u ^ salt * 0x9E3779B9u ^ glitchSeed;
+    x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+    return (float) (x & 0xFFFFFF) / 16777216.0f;
+}
+
+// Räknar fram vad spår li spelar på sitt steg n: rotation som rör sig, andning, densitet,
+// euklid-lager och "fyll luckorna". Mönstret självt ändras aldrig.
+Step BetongProcessor::effectiveStep (int li, juce::int64 n, int depth) const
+{
+    const auto& lane = audioPattern.lanes[(size_t) li];
+    const int spb = kRates[juce::jlimit (0, kNumRates - 1, lane.rate)].stepsPerBeat;
+    const int len = juce::jlimit (1, kMaxSteps, lane.length);
+    const double bar = (double) n / spb / 4.0;
+    const auto barI = (juce::int64) std::floor (bar);
+    const int rot = lane.rotEvery > 0 ? (int) ((barI / lane.rotEvery) % len) : 0;
+    const int i = (int) ((((n - rot) % len) + len) % len);
+    Step st = lane.steps[(size_t) i];
+
+    const float dens = pDens->load();
+    const float breath = lane.breathe > 0
+        ? (float) lane.breathe * (float) std::sin (juce::MathConstants<double>::twoPi * bar / juce::jmax (1, lane.breatheBars))
+        : 0.0f;
+
+    if (lane.euclid)
+    {
+        float h = (float) lane.hits + breath;
+        if (dens < 0.0f) h *= 1.0f + dens;
+        else h += dens * ((float) len - h);
+        const int hits = juce::jlimit (0, len, juce::roundToInt (h));
+        st.on = euclidOn (i - lane.rotate, hits, len);
+    }
+    else
+    {
+        const float d = dens + breath / (float) len;
+        if (d < 0.0f && st.on && ! st.accent && li > 0 && hash01 (n, li, 77) < -d) st.on = false;
+        if (d > 0.0f && ! st.on && li > 0 && hash01 (n, li, 78) < d * 0.5f)
+        {
+            st.on = true; st.ghost = true; st.accent = false; st.prob = 100; st.ratchet = 1;
+        }
+    }
+
+    // lagren räknas på det globala steget, så att de glider mot spårets egen längd
+    if (lane.accHits > 0)
+    {
+        const bool a = euclidOn ((int) (n % juce::jmax (1, lane.accLen)), lane.accHits, lane.accLen);
+        st.accent = a;
+        if (a) st.ghost = false;
+    }
+    if (lane.ratHits > 0 && euclidOn ((int) (n % juce::jmax (1, lane.ratLen)), lane.ratHits, lane.ratLen))
+        st.ratchet = (uint8_t) juce::jmax ((int) st.ratchet, lane.ratCount);
+    if (lane.toneHits > 0 && euclidOn ((int) (n % juce::jmax (1, lane.toneLen)), lane.toneHits, lane.toneLen))
+        st.semi = (int8_t) juce::jlimit (-24, 24, st.semi + lane.toneSemi);
+
+    // fyll luckorna: spela bara där målspåret är tyst
+    if (depth == 0 && lane.fillOf >= 0 && lane.fillOf != li)
+    {
+        bool own = lane.euclid && lane.hits > 0;
+        for (int k = 0; k < len && ! own; ++k) own = lane.steps[(size_t) k].on;
+        if (! own) { st.on = true; st.prob = 100; }
+        if (st.on)
+        {
+            const auto& tl = audioPattern.lanes[(size_t) lane.fillOf];
+            const int tspb = kRates[juce::jlimit (0, kNumRates - 1, tl.rate)].stepsPerBeat;
+            const double pos = (double) n / spb * tspb;
+            const double rp = std::round (pos);
+            if (std::abs (pos - rp) < 1.0e-6 && effectiveStep (lane.fillOf, (juce::int64) rp, 1).on)
+                st.on = false;
+        }
+    }
+    return st;
+}
+
 void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
 {
     const double samplesPerBeat = sr * 60.0 / bpm;
@@ -405,7 +481,11 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
         const auto& lane = audioPattern.lanes[(size_t) li];
         const int spb = kRates[juce::jlimit (0, kNumRates - 1, lane.rate)].stepsPerBeat;
         const int len = juce::jlimit (1, kMaxSteps, lane.length);
-        laneStep[(size_t) li].store ((int) ((juce::int64) std::floor (ppqStart * spb) % len));
+        {
+            const auto cur = (juce::int64) std::floor (ppqStart * spb);
+            const int rot = lane.rotEvery > 0 ? (int) (((juce::int64) std::floor ((double) cur / spb / 4.0) / lane.rotEvery) % len) : 0;
+            laneStep[(size_t) li].store ((int) ((((cur - rot) % len) + len) % len));
+        }
 
         if (lane.mute || (anySolo && ! lane.solo)) continue;
         const bool swingable = (spb % 2) == 0;
@@ -419,7 +499,7 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
         const auto last = (juce::int64) std::floor (ppqEnd * spb);
         for (auto n = juce::jmax ((juce::int64) 0, first); n <= last; ++n)
         {
-            Step st = lane.steps[(size_t) (n % len)];
+            Step st = effectiveStep (li, n, 0);
             if (fillRoll)
             {
                 const double inBar = std::fmod ((double) n / spb, 4.0) / 4.0; // 0..1 genom takten
@@ -431,12 +511,7 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
             if (! st.on) continue;
 
             // deterministisk slump per steg, så att ratchets över blockgränser fattar samma beslut
-            auto h01 = [&] (juce::uint32 salt)
-            {
-                juce::uint32 x = (juce::uint32) n * 2654435761u ^ (juce::uint32) (li + 1) * 40503u ^ salt * 0x9E3779B9u ^ glitchSeed;
-                x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
-                return (float) (x & 0xFFFFFF) / 16777216.0f;
-            };
+            auto h01 = [&] (juce::uint32 salt) { return hash01 (n, li, salt); };
             int flags = 0;
             float semiF = (float) st.semi;
             int ratOverride = 0;
@@ -793,6 +868,20 @@ void BetongProcessor::applyPattern (int index)
                     lane.steps[(size_t) i].semi = (int8_t) juce::jlimit (-24, 24, v[i].getIntValue());
             }
             else if (x.startsWith ("s")) laneSwing[(size_t) l] = juce::jlimit (0.0f, 0.75f, x.substring (1).getFloatValue() / 100.0f);
+            else
+            {
+                // euklid-magi: r4 = rotera var 4:e takt, b3/16 = andas ±3 slag över 16 takter,
+                // a3/8 = accentlager, q2/8/3 = ratchetlager, t2/5/7 = tonlager, f1 = fyll luckorna i spår 1
+                auto v = juce::StringArray::fromTokens (x.substring (1), "/", {});
+                auto at = [&] (int i, int def) { return i < v.size() && v[i].isNotEmpty() ? v[i].getIntValue() : def; };
+                const auto c = x[0];
+                if (c == 'r') lane.rotEvery = juce::jlimit (0, 16, at (0, 0));
+                else if (c == 'b') { lane.breathe = juce::jlimit (0, kMaxSteps, at (0, 0)); lane.breatheBars = juce::jlimit (1, 64, at (1, 16)); }
+                else if (c == 'a') { lane.accHits = at (0, 0); lane.accLen = juce::jlimit (1, kMaxSteps, at (1, 8)); }
+                else if (c == 'q') { lane.ratHits = at (0, 0); lane.ratLen = juce::jlimit (1, kMaxSteps, at (1, 8)); lane.ratCount = juce::jlimit (2, 4, at (2, 2)); }
+                else if (c == 't') { lane.toneHits = at (0, 0); lane.toneLen = juce::jlimit (1, kMaxSteps, at (1, 5)); lane.toneSemi = juce::jlimit (-24, 24, at (2, 12)); }
+                else if (c == 'f') lane.fillOf = juce::jlimit (-1, kLanes - 1, at (0, 0) - 1);
+            }
         }
     }
     setPattern (p);

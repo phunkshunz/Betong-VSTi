@@ -37,7 +37,23 @@ struct Lane
     int rotate = 0;
     bool mute = false, solo = false, lock = false;
     std::array<Step, kMaxSteps> steps {};
+
+    // Euklid-magi (räknas fram medan det spelar, mönstret i sig ändras inte)
+    int rotEvery = 0;                        // flytta rotationen ett steg var N:e takt (0 = av)
+    int breathe = 0, breatheBars = 16;       // andning: antal slag sveper ±breathe över breatheBars takter
+    int accHits = 0, accLen = 8;             // accentlager: accentHits av accLen
+    int ratHits = 0, ratLen = 8, ratCount = 2; // ratchetlager
+    int toneHits = 0, toneLen = 5, toneSemi = 12; // tonlager: tonhopp på toneHits av toneLen
+    int fillOf = -1;                         // spela bara där spår fillOf är tyst (-1 = av)
 };
+
+// Euklidiskt slag på plats idx (0..len-1) med hits slag. Samma formel som applyEuclid.
+inline bool euclidOn (int idx, int hits, int len)
+{
+    if (len <= 0 || hits <= 0) return false;
+    idx = ((idx % len) + len) % len;
+    return ((idx * juce::jmin (hits, len)) % len) < juce::jmin (hits, len);
+}
 
 struct Pattern
 {
@@ -116,7 +132,12 @@ inline juce::String laneToString (const Lane& l)
     return juce::StringArray { juce::String (l.pad), juce::String (l.length), juce::String (l.rate),
                                l.euclid ? "1" : "0", juce::String (l.hits), juce::String (l.rotate),
                                l.mute ? "1" : "0", l.solo ? "1" : "0", l.lock ? "1" : "0",
-                               stepsToString (l), acc, probs, ghosts, semis }.joinIntoString ("|");
+                               stepsToString (l), acc, probs, ghosts, semis,
+                               juce::StringArray { juce::String (l.rotEvery), juce::String (l.breathe), juce::String (l.breatheBars),
+                                                   juce::String (l.accHits), juce::String (l.accLen),
+                                                   juce::String (l.ratHits), juce::String (l.ratLen), juce::String (l.ratCount),
+                                                   juce::String (l.toneHits), juce::String (l.toneLen), juce::String (l.toneSemi),
+                                                   juce::String (l.fillOf) }.joinIntoString (",") }.joinIntoString ("|");
 }
 
 inline void laneFromString (Lane& l, const juce::String& s)
@@ -150,6 +171,17 @@ inline void laneFromString (Lane& l, const juce::String& s)
         for (int i = 0; i < semis.size() && i < kMaxSteps; ++i)
             if (semis[i].isNotEmpty())
                 l.steps[(size_t) i].semi = (int8_t) juce::jlimit (-24, 24, semis[i].getIntValue());
+    }
+    if (t.size() > 14)
+    {
+        auto e = juce::StringArray::fromTokens (t[14], ",", {});
+        auto at = [&] (int i, int def) { return i < e.size() && e[i].isNotEmpty() ? e[i].getIntValue() : def; };
+        l.rotEvery = juce::jlimit (0, 16, at (0, 0));
+        l.breathe = juce::jlimit (0, kMaxSteps, at (1, 0)); l.breatheBars = juce::jlimit (1, 64, at (2, 16));
+        l.accHits = juce::jlimit (0, kMaxSteps, at (3, 0)); l.accLen = juce::jlimit (1, kMaxSteps, at (4, 8));
+        l.ratHits = juce::jlimit (0, kMaxSteps, at (5, 0)); l.ratLen = juce::jlimit (1, kMaxSteps, at (6, 8)); l.ratCount = juce::jlimit (2, 4, at (7, 2));
+        l.toneHits = juce::jlimit (0, kMaxSteps, at (8, 0)); l.toneLen = juce::jlimit (1, kMaxSteps, at (9, 5)); l.toneSemi = juce::jlimit (-24, 24, at (10, 12));
+        l.fillOf = juce::jlimit (-1, kLanes - 1, at (11, -1));
     }
     if (l.euclid) applyEuclid (l);
 }

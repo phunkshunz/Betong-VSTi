@@ -126,6 +126,8 @@ private:
     void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi = 0.0f, int flags = 0);
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
+    betong::Step effectiveStep (int lane, juce::int64 n, int depth) const;   // steget som faktiskt spelas
+    float hash01 (juce::int64 n, int lane, juce::uint32 salt) const;
 
     juce::SharedResourcePointer<betong::BuiltInLibrary> builtIn;
     std::unique_ptr<juce::PropertiesFile> settings;
@@ -173,7 +175,7 @@ private:
     std::atomic<float>* pRSize = nullptr; std::atomic<float>* pRDrive = nullptr; std::atomic<float>* pRCut = nullptr;
     std::atomic<float>* pRDuck = nullptr; std::atomic<float>* pRRet = nullptr;
     std::atomic<float>* pStutter = nullptr; std::atomic<float>* pStutLen = nullptr; std::atomic<float>* pFill = nullptr;
-    std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr;
+    std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr; std::atomic<float>* pDens = nullptr;
     juce::uint32 glitchSeed = 0x5eed;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
