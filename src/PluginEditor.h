@@ -107,9 +107,11 @@ public:
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
+    void mouseWheelMove (const juce::MouseEvent&, const juce::MouseWheelDetails&) override;
 
 private:
     int stepAt (int x) const;
+    float wheelAccum = 0.0f;
     void showStepMenu (int step);
     BetongProcessor& proc;
     int lane;
@@ -177,13 +179,17 @@ private:
     // sidopanel
     juce::ComboBox filterType;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> filterTypeAtt;
-    Knob kCut, kRes, kDrive, kEnv, kDec, kCrush, kSendA, kSendB, kVol, kPan;
-    Knob kPitch, kDecay;
+    Knob kCut, kRes, kDrive, kEnv, kDec, kCrush, kSendA, kSendB, kVol, kPan, kLaneSwing;
+    Knob kPitch, kDecay, kPadVol, kPadPan;
     juce::TextButton revButton { utf8 ("Baklänges") };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> revAtt;
 
     // sequencer
     std::vector<std::unique_ptr<LaneRow>> rows;
+    std::array<juce::TextButton, betong::kScenes> sceneButtons;
+    juce::TextButton copyScene { "Kopiera till..." }, fillButton { "FILL" };
+    bool blinkOn = false;
+    int blinkCount = 0;
 
     // effekter
     juce::ComboBox delayTime, stutLen;

@@ -433,8 +433,14 @@ void StepGrid::paint (juce::Graphics& g)
             continue;
         }
         const bool beat = (i % 4) == 0;
-        g.setColour (st.on ? col.withAlpha (st.prob < 100 ? 0.45f + st.prob * 0.004f : 1.0f) : (beat ? juce::Colour (0xff2a2d30) : raised));
+        const float alpha = st.ghost ? 0.38f : (st.prob < 100 ? 0.45f + st.prob * 0.004f : 1.0f);
+        g.setColour (st.on ? col.withAlpha (alpha) : (beat ? juce::Colour (0xff2a2d30) : raised));
         g.fillRoundedRectangle (r, 3.0f);
+        if (st.on && st.accent)
+        {
+            g.setColour (juce::Colours::white.withAlpha (0.85f));
+            g.fillRect (r.withHeight (2.5f).reduced (2.0f, 0.0f));
+        }
         if (running && i == cur)
         {
             g.setColour (juce::Colours::white.withAlpha (0.55f));
@@ -446,8 +452,15 @@ void StepGrid::paint (juce::Graphics& g)
             g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
             juce::String mark = st.ratchet > 1 ? juce::String::charToString (0xd7) + juce::String ((int) st.ratchet)
                               : st.prob < 100 ? juce::String ((int) st.prob)
-                              : st.accent ? juce::String::charToString (0x25b2) : juce::String();
+                              : st.semi != 0 ? (st.semi > 0 ? "+" : "") + juce::String ((int) st.semi)
+                              : juce::String();
+            g.setColour (st.ghost ? text : ground);
             g.drawText (mark, r, juce::Justification::centred, false);
+            if (st.semi != 0 && (st.ratchet > 1 || st.prob < 100))
+            {
+                g.setColour (sodium);
+                g.fillEllipse (juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ r.getRight() - 4.0f, r.getBottom() - 4.0f }));
+            }
         }
     }
 }
@@ -462,10 +475,18 @@ void StepGrid::mouseDown (const juce::MouseEvent& e)
         l.euclid = false;
         if (s >= l.length) l.length = s + 1;
         auto& st = l.steps[(size_t) s];
-        if (mods.isShiftDown()) { st.on = true; st.accent = ! st.accent; paintValue = st.on; }
+        if (mods.isShiftDown())
+        {
+            // normal -> stark -> svag -> normal
+            if (! st.on) { st.on = true; st.accent = true; st.ghost = false; }
+            else if (st.accent) { st.accent = false; st.ghost = true; }
+            else if (st.ghost) st.ghost = false;
+            else st.accent = true;
+            paintValue = true;
+        }
         else if (mods.isAltDown()) { st.on = true; st.prob = st.prob == 100 ? 75 : st.prob == 75 ? 50 : st.prob == 50 ? 25 : 100; }
         else if (mods.isCommandDown()) { st.on = true; st.ratchet = (uint8_t) (st.ratchet >= 4 ? 1 : st.ratchet + 1); }
-        else { st.on = ! st.on; paintValue = st.on; if (! st.on) { st.accent = false; st.prob = 100; st.ratchet = 1; } }
+        else { st.on = ! st.on; paintValue = st.on; if (! st.on) { st.accent = false; st.ghost = false; st.prob = 100; st.ratchet = 1; st.semi = 0; } }
     });
     lastPainted = s;
     repaint();
@@ -481,12 +502,40 @@ void StepGrid::mouseDrag (const juce::MouseEvent& e)
     repaint();
 }
 
+void StepGrid::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
+{
+    // rulla över ett tänt steg = ändra tonen en halvton i taget
+    wheelAccum += w.deltaY * (w.isReversed ? -1.0f : 1.0f);
+    const int dir = wheelAccum > 0.12f ? 1 : wheelAccum < -0.12f ? -1 : 0;
+    if (dir == 0) return;
+    wheelAccum = 0.0f;
+    const int s = stepAt (e.x);
+    bool changed = false;
+    proc.editLane (lane, [&] (Lane& l)
+    {
+        auto& st = l.steps[(size_t) s];
+        if (s < l.length && st.on) { st.semi = (int8_t) juce::jlimit (-24, 24, st.semi + dir); changed = true; }
+    });
+    if (changed)
+    {
+        proc.triggerPadPitched (proc.getPattern().lanes[(size_t) lane].pad, proc.getPattern().lanes[(size_t) lane].steps[(size_t) s].semi);
+        repaint();
+    }
+}
+
 void StepGrid::showStepMenu (int s)
 {
     juce::PopupMenu m;
     m.addSectionHeader ("STEG " + juce::String (s + 1));
     m.addItem (1, utf8 ("På / av"));
-    m.addItem (2, "Accent");
+    juce::PopupMenu lvl;
+    lvl.addItem (21, "Stark");
+    lvl.addItem (22, "Normal");
+    lvl.addItem (23, "Svag (ghost)");
+    m.addSubMenu ("Styrka", lvl);
+    juce::PopupMenu tone;
+    for (int v = 12; v >= -12; --v) tone.addItem (200 + v + 24, (v > 0 ? "+" : "") + juce::String (v) + utf8 (v == 0 ? " (grundton)" : ""));
+    m.addSubMenu ("Ton", tone);
     juce::PopupMenu prob;
     for (int v : { 100, 75, 50, 25, 10 }) prob.addItem (100 + v, juce::String (v) + " %");
     m.addSubMenu ("Sannolikhet", prob);
@@ -504,10 +553,13 @@ void StepGrid::showStepMenu (int s)
             l.euclid = false;
             auto& st = l.steps[(size_t) s];
             if (r == 1) st.on = ! st.on;
-            else if (r == 2) { st.on = true; st.accent = ! st.accent; }
+            else if (r == 21) { st.on = true; st.accent = true; st.ghost = false; }
+            else if (r == 22) { st.on = true; st.accent = false; st.ghost = false; }
+            else if (r == 23) { st.on = true; st.accent = false; st.ghost = true; }
+            else if (r >= 176) { st.on = true; st.semi = (int8_t) (r - 200 - 24); }
             else if (r == 3) for (auto& x : l.steps) x = Step {};
             else if (r == 4) for (int i = 0; i < l.length; ++i) l.steps[(size_t) i].on = true;
-            else if (r > 100) { st.on = true; st.prob = (uint8_t) (r - 100); }
+            else if (r > 100 && r <= 200) { st.on = true; st.prob = (uint8_t) (r - 100); }
             else if (r > 10 && r <= 14) { st.on = true; st.ratchet = (uint8_t) (r - 10); }
         });
         repaint();
@@ -698,7 +750,8 @@ BetongContent::BetongContent (BetongProcessor& p)
     // sidopanel
     filterType.addItemList ({ "LP 24", "LP 12", "HP", "BP", "Notch", "Av" }, 1);
     addAndMakeVisible (filterType);
-    for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kPitch, &kDecay }) addAndMakeVisible (*k);
+    for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing, &kPitch, &kDecay, &kPadVol, &kPadPan }) addAndMakeVisible (*k);
+    kLaneSwing.setAccent (cold);
     revButton.setClickingTogglesState (true);
     addAndMakeVisible (revButton);
     kEnv.setAccent (cold); kDec.setAccent (cold);
@@ -710,6 +763,27 @@ BetongContent::BetongContent (BetongProcessor& p)
         rows.push_back (std::make_unique<LaneRow> (proc, l, [this] (int ln) { selectLane (ln); }));
         addAndMakeVisible (*rows.back());
     }
+    for (int i = 0; i < kScenes; ++i)
+    {
+        auto& b = sceneButtons[(size_t) i];
+        b.setButtonText (juce::String::charToString ((juce::juce_wchar) ('A' + i)));
+        b.setTooltip (utf8 ("Scen ") + b.getButtonText() + utf8 (": byter på nästa takt när det spelar"));
+        b.onClick = [this, i] { proc.queueScene (i); selectionChanged(); };
+        addAndMakeVisible (b);
+    }
+    copyScene.setTooltip (utf8 ("Kopiera scenen du ser till en annan scen"));
+    copyScene.onClick = [this]
+    {
+        juce::PopupMenu m;
+        for (int i = 0; i < kScenes; ++i)
+            if (i != proc.getScene()) m.addItem (i + 1, utf8 ("Kopiera till scen ") + juce::String::charToString ((juce::juce_wchar) ('A' + i)));
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&copyScene), [this] (int r) { if (r > 0) proc.copySceneTo (r - 1); });
+    };
+    addAndMakeVisible (copyScene);
+    fillButton.setTooltip (utf8 ("Håll inne: trumvirvel på clap, snare och toms, dubbla slag på resten"));
+    fillButton.setColour (juce::TextButton::textColourOffId, sodium);
+    fillButton.onStateChange = [this] { proc.fillHeld.store (fillButton.isDown()); };
+    addAndMakeVisible (fillButton);
 
     // effekter
     delayTime.addItemList ({ "1/8", "1/8 punkt", "3/16", "1/8T", "5/16", "1/4" }, 1);
@@ -783,12 +857,15 @@ void BetongContent::selectionChanged()
         kSendB.attach (s, BetongProcessor::laneId (l, "sendB"), utf8 ("SÄND RUMBLE"));
         kVol.attach (s, BetongProcessor::laneId (l, "vol"), "VOLYM");
         kPan.attach (s, BetongProcessor::laneId (l, "pan"), "PANORERING");
+        kLaneSwing.attach (s, BetongProcessor::laneId (l, "swing"), utf8 ("SWING SPÅR"));
     }
     if (p != shownPad)
     {
         shownPad = p;
         kPitch.attach (s, BetongProcessor::padId (p, "pitch"), "PITCH");
         kDecay.attach (s, BetongProcessor::padId (p, "decay"), "DECAY");
+        kPadVol.attach (s, BetongProcessor::padId (p, "vol"), "PAD VOLYM");
+        kPadPan.attach (s, BetongProcessor::padId (p, "pan"), "PAD PAN");
         revAtt.reset();
         revAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (s, BetongProcessor::padId (p, "rev"), revButton);
     }
@@ -824,6 +901,15 @@ void BetongContent::timerCallback()
     playButton.setButtonText (host ? utf8 ("DAW") : (playButton.getToggleState() ? utf8 ("STOPP") : utf8 ("SPELA")));
     playButton.setEnabled (! host);
     undoButton.setEnabled (proc.canUndo());
+    // scenknappar: aktiv = fylld, köad = blinkar
+    if (++blinkCount >= 8) { blinkCount = 0; blinkOn = ! blinkOn; }
+    for (int i = 0; i < kScenes; ++i)
+    {
+        auto& b = sceneButtons[(size_t) i];
+        const bool active = proc.getScene() == i, queued = proc.getQueuedScene() == i;
+        b.setToggleState (active || (queued && blinkOn), juce::dontSendNotification);
+        b.setColour (juce::TextButton::buttonOnColourId, queued ? cold : sodium);
+    }
     auto hr = headerArea;
     repaint (hr.removeFromRight (120));
 }
@@ -863,7 +949,7 @@ void BetongContent::paint (juce::Graphics& g)
 
     // sequencer
     drawPanel (g, seqArea, "SEQUENCER",
-               utf8 ("Klick på/av · Shift accent · Alt sannolikhet · " CMD_KEY " ratchet · Högerklick meny"));
+               utf8 ("Klick på/av · Shift stark/svag · Alt sannolikhet · " CMD_KEY " ratchet · Rulla = ton · Högerklick meny"));
 
     // effekter
     const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
@@ -933,22 +1019,26 @@ void BetongContent::resized()
         s.removeFromTop (6);
         auto row1 = s.removeFromTop (70);
         auto row2 = s.removeFromTop (70);
-        const int kw = row1.getWidth() / 5;
+        const int kw = row1.getWidth() / 6;
         for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec }) k->setBounds (row1.removeFromLeft (kw));
-        for (auto* k : { &kCrush, &kSendA, &kSendB, &kVol, &kPan }) k->setBounds (row2.removeFromLeft (kw));
+        for (auto* k : { &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing }) k->setBounds (row2.removeFromLeft (kw));
         s.removeFromTop (8);
         auto padRow = s.removeFromTop (70);
-        padRow.removeFromLeft (4);
-        kPitch.setBounds (padRow.removeFromLeft (kw));
-        kDecay.setBounds (padRow.removeFromLeft (kw));
+        for (auto* k : { &kPitch, &kDecay, &kPadVol, &kPadPan }) k->setBounds (padRow.removeFromLeft (kw));
         padRow.removeFromLeft (10);
-        revButton.setBounds (padRow.removeFromLeft (110).withSizeKeepingCentre (110, 30));
+        revButton.setBounds (padRow.withSizeKeepingCentre (padRow.getWidth(), 30));
     }
 
     // sequencer
     {
         auto s = seqArea.reduced (12, 8);
-        s.removeFromTop (24);
+        auto head = s.removeFromTop (24).withTrimmedBottom (3);
+        head.removeFromLeft (110);
+        for (auto& b : sceneButtons) { b.setBounds (head.removeFromLeft (30)); head.removeFromLeft (3); }
+        head.removeFromLeft (6);
+        copyScene.setBounds (head.removeFromLeft (104));
+        head.removeFromLeft (8);
+        fillButton.setBounds (head.removeFromLeft (64));
         const int rh = s.getHeight() / kLanes;
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));
     }

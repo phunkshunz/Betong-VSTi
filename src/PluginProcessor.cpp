@@ -37,7 +37,7 @@ constexpr int kDefaultLanePads[kLanes] = { 0, 2, 3, 4, 6, 8, 12, 13 };
 } // namespace
 
 //==============================================================================
-enum class Unit { Pct, Hz, Ms, Db, Semi, Bpm, Pan, Sweep, Swing };
+enum class Unit { Pct, Hz, Ms, Db, Semi, Bpm, Pan, Sweep, Swing, LaneSwing };
 
 static juce::String formatValue (Unit u, float v)
 {
@@ -53,6 +53,7 @@ static juce::String formatValue (Unit u, float v)
         case Unit::Pan:   return std::abs (v) < 0.02f ? String ("C") : (v < 0 ? "V " : "H ") + String (juce::roundToInt (std::abs (v) * 100.0f));
         case Unit::Sweep: return std::abs (v) < 0.02f ? String::fromUTF8 ("Av") : (v < 0 ? "LP " : "HP ") + String (juce::roundToInt (std::abs (v) * 100.0f)) + " %";
         case Unit::Swing: return String (juce::roundToInt (50.0f + v * 50.0f)) + " %";
+        case Unit::LaneSwing: return v < 0.0f ? String ("Global") : String (juce::roundToInt (50.0f + v * 50.0f)) + " %";
     }
     return String (v, 2);
 }
@@ -93,6 +94,7 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     f ("rRet", "Rumble-nivå", { 0.0f, 1.0f }, 0.7f);
     b ("stutter", "Stutter", false);
     c ("stutLen", "Stutter-längd", kStutterLens, 2);
+    b ("fill", "Fill", false);
 
     for (int l = 0; l < kLanes; ++l)
     {
@@ -108,6 +110,7 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         f (BetongProcessor::laneId (l, "sendB"), n + "sänd rumble", { 0.0f, 1.0f }, l == 0 ? 0.9f : 0.0f);
         f (BetongProcessor::laneId (l, "vol"), n + "volym", { 0.0f, 1.5f }, 1.0f);
         f (BetongProcessor::laneId (l, "pan"), n + "panorering", { -1.0f, 1.0f }, 0.0f, Unit::Pan);
+        f (BetongProcessor::laneId (l, "swing"), n + "swing", { -0.05f, 0.75f }, -0.05f, Unit::LaneSwing);
     }
     for (int p = 0; p < kPads; ++p)
     {
@@ -115,6 +118,8 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         f (BetongProcessor::padId (p, "pitch"), n + "pitch", { -24.0f, 24.0f, 0.01f }, 0.0f, Unit::Semi);
         f (BetongProcessor::padId (p, "decay"), n + "decay", { 0.0f, 1.0f }, 1.0f);
         b (BetongProcessor::padId (p, "rev"), n + "baklänges", false);
+        f (BetongProcessor::padId (p, "vol"), n + "volym", { -30.0f, 6.0f, 0.1f }, 0.0f, Unit::Db);
+        f (BetongProcessor::padId (p, "pan"), n + "panorering", { -1.0f, 1.0f }, 0.0f, Unit::Pan);
     }
     return layout;
 }
@@ -139,13 +144,15 @@ BetongProcessor::BetongProcessor()
     pDTime = raw ("dTime"); pDFb = raw ("dFb"); pDTone = raw ("dTone"); pDWob = raw ("dWob");
     pDFreeze = raw ("dFreeze"); pDRet = raw ("dRet");
     pRSize = raw ("rSize"); pRDrive = raw ("rDrive"); pRCut = raw ("rCut"); pRDuck = raw ("rDuck"); pRRet = raw ("rRet");
-    pStutter = raw ("stutter"); pStutLen = raw ("stutLen");
+    pStutter = raw ("stutter"); pStutLen = raw ("stutLen"); pFill = raw ("fill");
     for (int l = 0; l < kLanes; ++l)
         lp[(size_t) l] = { raw (laneId (l, "type")), raw (laneId (l, "cut")), raw (laneId (l, "res")), raw (laneId (l, "drive")),
                            raw (laneId (l, "env")), raw (laneId (l, "dec")), raw (laneId (l, "crush")),
-                           raw (laneId (l, "sendA")), raw (laneId (l, "sendB")), raw (laneId (l, "vol")), raw (laneId (l, "pan")) };
+                           raw (laneId (l, "sendA")), raw (laneId (l, "sendB")), raw (laneId (l, "vol")), raw (laneId (l, "pan")),
+                           raw (laneId (l, "swing")) };
     for (int p = 0; p < kPads; ++p)
-        pp[(size_t) p] = { raw (padId (p, "pitch")), raw (padId (p, "decay")), raw (padId (p, "rev")) };
+        pp[(size_t) p] = { raw (padId (p, "pitch")), raw (padId (p, "decay")), raw (padId (p, "rev")),
+                           raw (padId (p, "vol")), raw (padId (p, "pan")) };
 
     // Startläge: ångvälts-kit, mönster och fuktigt betonggolv
     auto findIndex = [] (auto& table, int count, const char* name)
@@ -260,12 +267,15 @@ int BetongProcessor::chopToPads (int sourcePad, int mode, float sensitivity)
     return n;
 }
 
-void BetongProcessor::triggerPad (int pad)
+void BetongProcessor::triggerPad (int pad) { triggerPadPitched (pad, 0); }
+
+void BetongProcessor::triggerPadPitched (int pad, int semi)
 {
+    const int value = pad + (juce::jlimit (-24, 24, semi) + 24) * 32;
     int s1, n1, s2, n2;
     padFifo.prepareToWrite (1, s1, n1, s2, n2);
-    if (n1 > 0) padFifoData[(size_t) s1] = pad;
-    else if (n2 > 0) padFifoData[(size_t) s2] = pad;
+    if (n1 > 0) padFifoData[(size_t) s1] = value;
+    else if (n2 > 0) padFifoData[(size_t) s2] = value;
     padFifo.finishedWrite (n1 + n2);
 }
 
@@ -276,7 +286,7 @@ int BetongProcessor::laneForPad (int pad) const
     return kLanes; // direktbussen
 }
 
-void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane)
+void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane, int semi)
 {
     auto& slot = padSlots[(size_t) pad];
     const Sample* s = slot.sample.load();
@@ -306,7 +316,7 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
     }
 
     const auto& prm = pp[(size_t) pad];
-    const float semis = prm.pitch->load();
+    const float semis = prm.pitch->load() + (float) semi;
     const bool reverse = prm.rev->load() > 0.5f;
     const float decay = prm.decay->load();
 
@@ -314,7 +324,12 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
     v.s = s; v.start = start; v.end = end; v.pad = pad; v.lane = lane;
     v.inc = std::exp2 (semis / 12.0) * s->sampleRate / sr * (reverse ? -1.0 : 1.0);
     v.pos = reverse ? (double) end - 1.001 : (double) start;
-    v.gain = gain;
+    v.gain = gain * juce::Decibels::decibelsToGain (prm.vol->load(), -30.0f);
+    {
+        const float pan = prm.pan->load();
+        v.gl = std::cos ((pan + 1.0f) * juce::MathConstants<float>::pi * 0.25f) * 1.4142f;
+        v.gr = std::sin ((pan + 1.0f) * juce::MathConstants<float>::pi * 0.25f) * 1.4142f;
+    }
     v.delay = offset;
     v.amp = 1.0f; v.fade = 1.0f; v.releasing = false;
     v.decayCoef = decay >= 0.999f ? 1.0f
@@ -355,8 +370,8 @@ void BetongProcessor::renderVoices (int numSamples)
 
             // mjuk start (1 ms) mot klick när en slice börjar mitt i ett ljud
             const float g = v.gain * v.amp * v.fade;
-            oL[i] += l * g;
-            oR[i] += r * g;
+            oL[i] += l * g * v.gl;
+            oR[i] += r * g * v.gr;
 
             v.pos += v.inc;
             v.amp *= v.decayCoef;
@@ -373,6 +388,7 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
     const double samplesPerBeat = sr * 60.0 / bpm;
     const double ppqEnd = ppqStart + numSamples / samplesPerBeat;
     const float swing = pSwing->load();
+    const bool fill = fillHeld.load() || pFill->load() > 0.5f;
 
     bool anySolo = false;
     for (auto& l : audioPattern.lanes) anySolo |= l.solo;
@@ -386,15 +402,28 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
 
         if (lane.mute || (anySolo && ! lane.solo)) continue;
         const bool swingable = (spb % 2) == 0;
+        const float laneSw = lp[(size_t) li].swing->load();
+        const float sw = laneSw >= 0.0f ? laneSw : swing;
+        // Fill: clap, snare och toms (pad 5-8) rullar 1/16 med stigande styrka, övriga spår dubblar sina slag.
+        const bool fillRoll = fill && li > 0 && lane.pad >= 4 && lane.pad <= 7;
+        const bool fillDouble = fill && li > 0 && ! fillRoll;
 
         const auto first = (juce::int64) std::floor (ppqStart * spb) - 1;
         const auto last = (juce::int64) std::floor (ppqEnd * spb);
         for (auto n = juce::jmax ((juce::int64) 0, first); n <= last; ++n)
         {
-            const auto& st = lane.steps[(size_t) (n % len)];
+            Step st = lane.steps[(size_t) (n % len)];
+            if (fillRoll)
+            {
+                const double inBar = std::fmod ((double) n / spb, 4.0) / 4.0; // 0..1 genom takten
+                st.on = true; st.prob = 100; st.ghost = false; st.accent = inBar > 0.7;
+                st.ratchet = (uint8_t) (inBar > 0.75 ? 2 : 1);
+            }
+            else if (fillDouble && st.on)
+                st.ratchet = (uint8_t) juce::jmax (2, (int) st.ratchet);
             if (! st.on) continue;
             double t0 = (double) n / spb;
-            if (swingable && (n & 1)) t0 += swing * 0.5 / spb;
+            if (swingable && (n & 1)) t0 += sw * 0.5 / spb;
             const int rat = juce::jlimit (1, 4, (int) st.ratchet);
             for (int k = 0; k < rat; ++k)
             {
@@ -402,10 +431,11 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
                 if (tk < ppqStart || tk >= ppqEnd) continue;
                 if (st.prob < 100 && audioRng.nextInt (100) >= st.prob) continue;
                 const int offset = juce::jlimit (0, numSamples - 1, (int) ((tk - ppqStart) * samplesPerBeat));
-                const float gain = (st.accent ? 1.0f : 0.78f) * (k == 0 ? 1.0f : 0.85f);
-                startVoice (lane.pad, li, gain, offset, true);
+                float gain = stepGain (st) * (k == 0 ? 1.0f : 0.85f);
+                if (fillRoll) gain *= 0.45f + 0.55f * (float) (std::fmod (tk, 4.0) / 4.0);
+                startVoice (lane.pad, li, gain, offset, true, st.semi);
                 laneTriggered[(size_t) li] = true;
-                laneTrigAmount[(size_t) li] = juce::jmax (laneTrigAmount[(size_t) li], st.accent ? 1.0f : 0.7f);
+                laneTrigAmount[(size_t) li] = juce::jmax (laneTrigAmount[(size_t) li], st.accent ? 1.0f : st.ghost ? 0.35f : 0.7f);
             }
         }
     }
@@ -418,9 +448,9 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const int total = buffer.getNumSamples();
     buffer.clear();
 
-    {   // senaste mönstret från GUI:t
+    {   // senaste mönstren från GUI:t
         const juce::SpinLock::ScopedTryLockType tl (patternLock);
-        if (tl.isLocked()) audioPattern = pattern;
+        if (tl.isLocked()) audioScenes = scenes;
     }
 
     // tempo och position
@@ -446,6 +476,20 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const bool sequencing = hostIsPlaying || useInternal;
     const double beatSec = 60.0 / bpm;
 
+    // scenbyte: på nästa takt (4 taktslag) när det spelar, direkt annars
+    if (const int q = queuedScene.load(); q >= 0)
+    {
+        bool now = ! sequencing;
+        if (sequencing)
+        {
+            const double endPpq = ppq + (double) total / (sr * beatSec);
+            const double nextBar = std::ceil (ppq / 4.0 - 1.0e-9) * 4.0;
+            now = nextBar < endPpq;
+        }
+        if (now) { scene.store (q); queuedScene.store (-1); ++stateVersion; }
+    }
+    audioPattern = audioScenes[(size_t) juce::jlimit (0, kScenes - 1, scene.load())];
+
     int done = 0;
     while (done < total)
     {
@@ -458,8 +502,10 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         {
             int s1, n1, s2, n2;
             padFifo.prepareToRead (padFifo.getNumReady(), s1, n1, s2, n2);
-            for (int i = 0; i < n1; ++i) { const int p = padFifoData[(size_t) (s1 + i)]; startVoice (p, laneForPad (p), 0.9f, 0, false); }
-            for (int i = 0; i < n2; ++i) { const int p = padFifoData[(size_t) (s2 + i)]; startVoice (p, laneForPad (p), 0.9f, 0, false); }
+            // värdet bär pad (0-31) och ton: pad + (ton + 24) * 32
+            auto play = [this] (int v) { const int p = v % 32, semi = v / 32 - 24; if (juce::isPositiveAndBelow (p, kPads)) startVoice (p, laneForPad (p), 0.9f, 0, false, semi); };
+            for (int i = 0; i < n1; ++i) play (padFifoData[(size_t) (s1 + i)]);
+            for (int i = 0; i < n2; ++i) play (padFifoData[(size_t) (s2 + i)]);
             padFifo.finishedRead (n1 + n2);
         }
 
@@ -616,14 +662,29 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
 Pattern BetongProcessor::getPattern() const
 {
     const juce::SpinLock::ScopedLockType sl (patternLock);
-    return pattern;
+    return scenes[(size_t) scene.load()];
 }
 
 void BetongProcessor::setPattern (const Pattern& p)
 {
     const juce::SpinLock::ScopedLockType sl (patternLock);
-    pattern = p;
-    for (auto& l : pattern.lanes) if (l.euclid) applyEuclid (l);
+    auto& dst = scenes[(size_t) scene.load()];
+    dst = p;
+    for (auto& l : dst.lanes) if (l.euclid) applyEuclid (l);
+}
+
+void BetongProcessor::queueScene (int s)
+{
+    s = juce::jlimit (0, kScenes - 1, s);
+    if (s == scene.load()) { queuedScene.store (-1); return; }
+    queuedScene.store (s);
+}
+
+void BetongProcessor::copySceneTo (int target)
+{
+    target = juce::jlimit (0, kScenes - 1, target);
+    const juce::SpinLock::ScopedLockType sl (patternLock);
+    scenes[(size_t) target] = scenes[(size_t) scene.load()];
 }
 
 //==============================================================================
@@ -638,6 +699,8 @@ void BetongProcessor::applyKit (int index)
         setParam (padId (p, "pitch"), 0.0f);
         setParam (padId (p, "decay"), 1.0f);
         setParam (padId (p, "rev"), 0.0f);
+        setParam (padId (p, "vol"), 0.0f);
+        setParam (padId (p, "pan"), 0.0f);
     }
     currentKit = juce::String::fromUTF8 (kKits[index].name);
     ++stateVersion;
@@ -648,6 +711,8 @@ void BetongProcessor::applyPattern (int index)
     index = juce::jlimit (0, kNumPatterns - 1, index);
     const auto& pr = kPatterns[index];
     Pattern p = getPattern();
+    std::array<float, kLanes> laneSwing;
+    laneSwing.fill (-0.05f); // följer global swing
     for (int l = 0; l < kLanes; ++l)
     {
         auto& lane = p.lanes[(size_t) l];
@@ -660,10 +725,11 @@ void BetongProcessor::applyPattern (int index)
         for (int k = 0; k < l; ++k) if (pr.lanes[k] == nullptr) spec = nullptr; // listan tog slut tidigare
         if (spec == nullptr) { lane.length = 16; continue; }
 
-        auto parts = juce::StringArray::fromTokens (juce::String (spec), ":", {});
+        auto parts = juce::StringArray::fromTokens (juce::String::fromUTF8 (spec), ":", {});
         if (parts.size() < 3) continue;
         lane.pad = juce::jlimit (0, kPads - 1, parts[0].getIntValue() - 1);
         lane.rate = rateFromCode (parts[1]);
+        int extra = 3;
         if (parts[2] == "e" && parts.size() >= 6)
         {
             lane.euclid = true;
@@ -671,14 +737,29 @@ void BetongProcessor::applyPattern (int index)
             lane.length = juce::jlimit (1, kMaxSteps, parts[4].getIntValue());
             lane.rotate = parts[5].getIntValue();
             applyEuclid (lane);
+            extra = 6;
         }
         else
         {
             setStepsFromString (lane, parts[2]);
         }
+        // tillägg: "n0,0,12,3" = ton per steg, "s35" = swing för spåret i procent (0-75)
+        for (int k = extra; k < parts.size(); ++k)
+        {
+            const auto& x = parts[k];
+            if (x.startsWith ("n"))
+            {
+                auto v = juce::StringArray::fromTokens (x.substring (1), ",", {});
+                for (int i = 0; i < v.size() && i < kMaxSteps; ++i)
+                    lane.steps[(size_t) i].semi = (int8_t) juce::jlimit (-24, 24, v[i].getIntValue());
+            }
+            else if (x.startsWith ("s")) laneSwing[(size_t) l] = juce::jlimit (0.0f, 0.75f, x.substring (1).getFloatValue() / 100.0f);
+        }
     }
     setPattern (p);
     setParam ("swing", pr.swing);
+    for (int l = 0; l < kLanes; ++l)
+        if (! p.lanes[(size_t) l].lock) setParam (laneId (l, "swing"), laneSwing[(size_t) l]);
     currentPatternName = juce::String::fromUTF8 (pr.name);
     ++stateVersion;
 }
@@ -825,12 +906,22 @@ void BetongProcessor::randomPattern()
             auto& st = lane.steps[(size_t) s];
             if (! st.on) continue;
             st.accent = rng.nextFloat() < 0.2f;
+            st.ghost = ! st.accent && rng.nextFloat() < 0.25f;
+            // bas och stabs (pad 13-16) får en basgång i F-moll
+            if (lane.pad >= 12)
+            {
+                static const int scale[] = { 0, 0, 0, 3, 5, 7, 10, 12, -2, -5 };
+                if (rng.nextFloat() < 0.3f + crazy * 0.5f) st.semi = (int8_t) scale[rng.nextInt (10)];
+            }
             if (rng.nextFloat() < crazy * 0.35f) st.prob = (uint8_t) (rng.nextBool() ? 50 : 25);
             if (rng.nextFloat() < crazy * 0.15f) st.ratchet = (uint8_t) (2 + rng.nextInt (3));
         }
     }
     setPattern (p);
     setParam ("swing", rng.nextFloat() * (0.15f + crazy * 0.35f));
+    for (int li = 0; li < kLanes; ++li)
+        if (! p.lanes[(size_t) li].lock)
+            setParam (laneId (li, "swing"), (li > 0 && rng.nextFloat() < 0.15f + crazy * 0.3f) ? 0.2f + rng.nextFloat() * 0.4f : -0.05f);
     currentPatternName = juce::String::fromUTF8 ("Slump-mönster");
     ++stateVersion;
 }
@@ -934,15 +1025,34 @@ juce::ValueTree BetongProcessor::buildState()
     }
     tree.appendChild (pads, nullptr);
 
-    juce::ValueTree pat ("PATTERN");
-    const auto p = getPattern();
+    std::array<Pattern, kScenes> all;
+    {
+        const juce::SpinLock::ScopedLockType sl (patternLock);
+        all = scenes;
+    }
+    juce::ValueTree pat ("PATTERN");   // aktiv scen (bakåtkompatibelt)
     for (int l = 0; l < kLanes; ++l)
     {
         juce::ValueTree lane ("LANE");
-        lane.setProperty ("data", laneToString (p.lanes[(size_t) l]), nullptr);
+        lane.setProperty ("data", laneToString (all[(size_t) scene.load()].lanes[(size_t) l]), nullptr);
         pat.appendChild (lane, nullptr);
     }
     tree.appendChild (pat, nullptr);
+    juce::ValueTree sc ("SCENES");
+    sc.setProperty ("active", scene.load(), nullptr);
+    for (int i = 0; i < kScenes; ++i)
+    {
+        juce::ValueTree one ("SCENE");
+        for (int l = 0; l < kLanes; ++l)
+        {
+            juce::ValueTree lane ("LANE");
+            lane.setProperty ("data", laneToString (all[(size_t) i].lanes[(size_t) l]), nullptr);
+            one.appendChild (lane, nullptr);
+        }
+        sc.appendChild (one, nullptr);
+    }
+    tree.removeChild (tree.getChildWithName ("SCENES"), nullptr);
+    tree.appendChild (sc, nullptr);
     tree.setProperty ("kit", currentKit, nullptr);
     tree.setProperty ("patternName", currentPatternName, nullptr);
     tree.setProperty ("fx", currentFx, nullptr);
@@ -957,6 +1067,7 @@ void BetongProcessor::restoreState (const juce::ValueTree& tree)
     auto paramsOnly = tree.createCopy();
     paramsOnly.removeChild (paramsOnly.getChildWithName ("PADS"), nullptr);
     paramsOnly.removeChild (paramsOnly.getChildWithName ("PATTERN"), nullptr);
+    paramsOnly.removeChild (paramsOnly.getChildWithName ("SCENES"), nullptr);
     apvts.replaceState (paramsOnly);
 
     auto pads = tree.getChildWithName ("PADS");
@@ -973,12 +1084,27 @@ void BetongProcessor::restoreState (const juce::ValueTree& tree)
         if (s) setPad (p, s, start, end);
     }
 
+    auto sc = tree.getChildWithName ("SCENES");
     auto pat = tree.getChildWithName ("PATTERN");
-    if (pat.isValid())
+    if (sc.isValid())
+    {
+        std::array<Pattern, kScenes> all;
+        for (int i = 0; i < kScenes && i < sc.getNumChildren(); ++i)
+            for (int l = 0; l < kLanes && l < sc.getChild (i).getNumChildren(); ++l)
+                laneFromString (all[(size_t) i].lanes[(size_t) l], sc.getChild (i).getChild (l).getProperty ("data").toString());
+        {
+            const juce::SpinLock::ScopedLockType sl (patternLock);
+            scenes = all;
+        }
+        scene.store (juce::jlimit (0, kScenes - 1, (int) sc.getProperty ("active", 0)));
+        queuedScene.store (-1);
+    }
+    else if (pat.isValid())
     {
         Pattern p;
         for (int l = 0; l < kLanes && l < pat.getNumChildren(); ++l)
             laneFromString (p.lanes[(size_t) l], pat.getChild (l).getProperty ("data").toString());
+        scene.store (0);
         setPattern (p);
     }
     currentKit = tree.getProperty ("kit").toString();

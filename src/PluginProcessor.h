@@ -50,9 +50,17 @@ public:
     template <typename Fn> void editLane (int lane, Fn&& fn)
     {
         const juce::SpinLock::ScopedLockType sl (patternLock);
-        fn (pattern.lanes[(size_t) lane]);
-        if (pattern.lanes[(size_t) lane].euclid) betong::applyEuclid (pattern.lanes[(size_t) lane]);
+        auto& l = scenes[(size_t) scene.load()].lanes[(size_t) lane];
+        fn (l);
+        if (l.euclid) betong::applyEuclid (l);
     }
+
+    // Scener A-D. Byte sker på nästa takt när det spelar, direkt annars.
+    int getScene() const { return scene.load(); }
+    int getQueuedScene() const { return queuedScene.load(); }
+    void queueScene (int s);
+    void copySceneTo (int target);
+    std::atomic<bool> fillHeld { false };
 
     std::array<std::atomic<int>, betong::kLanes> laneStep {};
     std::array<std::atomic<int>, betong::kPads> padHits {};
@@ -66,6 +74,7 @@ public:
     void loadBuiltInToPad (int pad, const juce::String& name);
     int chopToPads (int sourcePad, int mode, float sensitivity); // returnerar antal bitar
     void triggerPad (int pad);                                    // från GUI:t
+    void triggerPadPitched (int pad, int semi);                   // provlyssna en ton
     int laneForPad (int pad) const;
 
     // Presets och slump
@@ -109,11 +118,11 @@ private:
         const betong::Sample* s = nullptr;
         double pos = 0, inc = 1;
         int start = 0, end = 0, delay = 0, lane = 0, pad = 0;
-        float gain = 1, amp = 1, decayCoef = 1, fade = 1, fadeStep = 0;
+        float gain = 1, gl = 1, gr = 1, amp = 1, decayCoef = 1, fade = 1, fadeStep = 0;
         bool releasing = false;
         int64_t samplesLeft = 0;
     };
-    void startVoice (int pad, int lane, float gain, int offset, bool chokeLane);
+    void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, int semi = 0);
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
 
@@ -121,7 +130,10 @@ private:
     std::unique_ptr<juce::PropertiesFile> settings;
 
     mutable juce::SpinLock patternLock;
-    betong::Pattern pattern, audioPattern;
+    std::array<betong::Pattern, betong::kScenes> scenes;
+    betong::Pattern audioPattern;
+    std::array<betong::Pattern, betong::kScenes> audioScenes;
+    std::atomic<int> scene { 0 }, queuedScene { -1 };
 
     struct PadSlot { std::atomic<const betong::Sample*> sample { nullptr }; std::atomic<int> start { 0 }, end { 0 }; };
     std::array<PadSlot, betong::kPads> padSlots;
@@ -159,12 +171,14 @@ private:
     std::atomic<float>* pDWob = nullptr; std::atomic<float>* pDFreeze = nullptr; std::atomic<float>* pDRet = nullptr;
     std::atomic<float>* pRSize = nullptr; std::atomic<float>* pRDrive = nullptr; std::atomic<float>* pRCut = nullptr;
     std::atomic<float>* pRDuck = nullptr; std::atomic<float>* pRRet = nullptr;
-    std::atomic<float>* pStutter = nullptr; std::atomic<float>* pStutLen = nullptr;
+    std::atomic<float>* pStutter = nullptr; std::atomic<float>* pStutLen = nullptr; std::atomic<float>* pFill = nullptr;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
-                        std::atomic<float>* sendA; std::atomic<float>* sendB; std::atomic<float>* vol; std::atomic<float>* pan; };
+                        std::atomic<float>* sendA; std::atomic<float>* sendB; std::atomic<float>* vol; std::atomic<float>* pan;
+                        std::atomic<float>* swing; };
     std::array<LaneParams, betong::kLanes> lp {};
-    struct PadParams { std::atomic<float>* pitch; std::atomic<float>* decay; std::atomic<float>* rev; };
+    struct PadParams { std::atomic<float>* pitch; std::atomic<float>* decay; std::atomic<float>* rev;
+                       std::atomic<float>* vol; std::atomic<float>* pan; };
     std::array<PadParams, betong::kPads> pp {};
 
     std::deque<juce::String> undoStack;
