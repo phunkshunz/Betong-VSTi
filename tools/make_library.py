@@ -47,14 +47,19 @@ def saw(f, sec, phase=0.0):
     m = ph < dt; tt = ph[m] / dt[m]; y[m] -= tt + tt - tt * tt - 1
     m = ph > 1 - dt; tt = (ph[m] - 1) / dt[m]; y[m] -= tt * tt + tt + tt + 1
     return y
-def square(f, sec, pw=0.5):
+def saw_ph(f, sec, phase):
+    """BLEP-sågtand med fasförskjutning per sampel (array eller tal)."""
     f = np.full(N(sec), f) if np.isscalar(f) else f
-    pw = np.full(len(f), pw) if np.isscalar(pw) else pw
-    a = saw(f, sec); b = saw(f, sec, phase=0.5)
-    # skillnad mellan två fasförskjutna sågtänder = puls; fasen styrs av pw
-    ph2 = (np.cumsum(f) / FS + pw) % 1.0
-    b = 2 * ph2 - 1
-    return np.clip(a - b + (2 * pw - 1), -1.5, 1.5) * 0.66
+    ph = (np.cumsum(f) / FS + phase) % 1.0
+    dt = f / FS; y = 2 * ph - 1
+    m = ph < dt; tt = ph[m] / dt[m]; y[m] -= tt + tt - tt * tt - 1
+    m = ph > 1 - dt; tt = (ph[m] - 1) / dt[m]; y[m] -= tt * tt + tt + tt + 1
+    return y
+def square(f, sec, pw=0.5):
+    """Band-begränsad puls: skillnaden mellan två BLEP-sågtänder. Ingen aliasing, inget klipp."""
+    f = np.full(N(sec), f) if np.isscalar(f) else f
+    pw = np.full(len(f), pw) if np.isscalar(pw) else np.asarray(pw)
+    return 0.5 * (saw_ph(f, sec, 0.0) - saw_ph(f, sec, pw)) + (pw - 0.5) * 0.0
 def tanhd(x, d): return np.tanh(x * d) / np.tanh(d)
 def softclip(x, knee=0.72):
     """Klipper mjukt ovanför knät: slagen behåller sin attack i stället för att bli fyrkant."""
@@ -103,13 +108,28 @@ def add(name, x):
     lib[name] = x
 
 # ---------------------------------------------------------------- KICKS
-def kick(f0=230, f1=48, pdec=0.035, dec=0.35, length=0.6, click=0.6, drive=1.5, sub=0.0):
+def peak_cut(x, f, gain_db, width=0.7):
+    """Enkel peak-EQ: lägger till eller drar bort ett band runt f."""
+    lo, hi = f * (1 - width / 2), f * (1 + width / 2)
+    return x + (10 ** (gain_db / 20) - 1) * filt(x, "band", [lo, hi])
+def kick(f0=230, f1=48, pdec=0.035, dec=0.35, length=0.6, click=0.6, drive=1.5, sub=0.0, hold=None):
+    """Trummaskins-kick: tvåstegs tonfall (klick + punch), hold-fas, ren beater-klick och mild mättnad."""
     tt = t(length)
-    freq = f1 + (f0 - f1) * np.exp(-tt / pdec)
-    body = np.sin(2 * np.pi * np.cumsum(freq) / FS) * np.exp(-tt / dec)
-    if sub: body += sub * np.sin(2 * np.pi * f1 * tt) * np.exp(-tt / (dec * 1.6))
-    c = filt(noise(length), "high", 2500) * np.exp(-tt / 0.003) * click
-    return tanhd(body + c, drive)
+    hold = 0.018 + 0.5 * pdec if hold is None else hold
+    # tonfall: ett mycket snabbt steg (klicket i själva vågen) + punch-steget ner till grundtonen
+    freq = f1 + (f0 - f1) * np.exp(-tt / pdec) + 6.0 * f1 * np.exp(-tt / 0.0016)
+    ph = 2 * np.pi * np.cumsum(freq) / FS
+    amp = np.where(tt < hold, 1.0, np.exp(-(tt - hold) / dec))
+    amp *= np.minimum(tt / 0.0004, 1.0)
+    body = np.sin(ph) * amp
+    if sub: body += sub * np.sin(2 * np.pi * f1 * tt) * np.minimum(tt / 0.01, 1) * np.where(tt < hold, 1.0, np.exp(-(tt - hold) / (dec * 1.4)))
+    # beater-klick: kort brus i övre mellanregistret, inget gnistrande över 9 kHz
+    c = filt(filt(noise(length), "band", [1500, 7000], 2), "low", 9000) * np.exp(-tt / 0.0025) * click * 1.2
+    c += 0.35 * click * np.sin(2 * np.pi * 1800 * tt) * np.exp(-tt / 0.0018)   # beater-knack
+    x = tanhd(body + c, drive)
+    x = peak_cut(x, 320, -4.0)                      # mindre kartong
+    x = filt(x, "high", 24)                         # bort med ultrabas under 24 Hz
+    return x
 
 kk = kick()
 add("K01_909_Punch", kk)
@@ -131,10 +151,13 @@ add("K10_Click_Thump", kick(400, 70, 0.012, 0.09, 0.25, 1.4, 2))
 
 # ---------------------------------------------------------------- HATS
 def metal(length, dec, hp=7000, fr=(205.3, 304.4, 369.6, 522.7, 540.0, 800.0)):
-    tt = t(length)
-    m = sum(square(f * 1.0, length) for f in fr)
-    m = filt(m, "band", [hp, 18000]) + 0.4 * filt(noise(length), "high", hp)
-    return m * env(length, dec)
+    """808/909-cymbalkärna: sex pulsoscillatorer, bandpass + branta högpass, en liten brusdel."""
+    m = sum(square(f, length) for f in fr) / 3.0
+    m = filt(m, "band", [hp * 0.95, 12500], 2)
+    m = filt(m, "high", hp, 4)
+    n = filt(filt(noise(length), "high", hp, 4), "low", 12000)
+    x = (m + 0.3 * n) * env(length, dec, 0.0003)
+    return filt(x, "low", 13000, 2)
 add("H01_Closed", metal(0.16, 0.03))
 add("H02_Closed_Short", metal(0.08, 0.011))
 add("H03_Open", metal(0.75, 0.2))
@@ -149,26 +172,46 @@ add("H08_Open_Long_Metal", metal(1.4, 0.45, 5000, (180, 263, 411, 587, 702, 913)
 
 # ---------------------------------------------------------------- CLAPS / SNARES
 def clap(dec=0.18):
-    L = 0.6; x = np.zeros(int(L * FS)); n = filt(noise(L), "band", [900, 2600])
-    for i, off in enumerate([0, 0.011, 0.022, 0.032]):
-        s = int(off * FS); x[s:] += n[s:] * env((len(x) - s) / FS, 0.006 if i < 3 else dec)
-    return x
+    """909-clap: fyra snabba smällar och en svans, bandpass runt 1,2 kHz med luft upptill."""
+    L = 0.6; x = np.zeros(N(L))
+    n = filt(noise(L), "band", [700, 2400], 2) + 0.35 * filt(noise(L), "band", [2400, 7000], 2)
+    for i, off in enumerate([0, 0.0095, 0.0195, 0.029]):
+        s = N(off); last = i == 3
+        x[s:] += n[s:] * env((len(x) - s) / FS, dec if last else 0.0055, 0.0002) * (1.0 if last else 0.85)
+    x = filt(x, "high", 350)
+    return tanhd(x / (np.max(np.abs(x)) + 1e-9), 1.3)
 cl = clap()
 add("C01_Clap_909ish", cl)
 g = fftconvolve(cl, reverb_ir(0.6, 0.3, 7000))[: len(cl)]
 gate = (t(0.6) < 0.18).astype(float); gate = filt(gate, "low", 60, 1)
 add("C02_Clap_Gated", cl + 1.5 * g / (np.max(np.abs(g)) + 1e-9) * gate)
 tt = t(0.4)
-add("C03_Snare_Tight", np.sin(2 * np.pi * 185 * tt) * env(0.4, 0.06) + 0.8 * filt(noise(0.4), "band", [1500, 9000]) * env(0.4, 0.12))
+def snare(t1=180, t2=330, tone_dec=0.06, noise_dec=0.14, L=0.45, snap=1.0):
+    """909-snare: två tonande moder med tonfall + filtrerat brus (snärjan)."""
+    tt = t(L); bend = 1 + 0.35 * np.exp(-tt / 0.008)
+    tone = (np.sin(2 * np.pi * np.cumsum(t1 * bend) / FS) + 0.6 * np.sin(2 * np.pi * np.cumsum(t2 * bend) / FS)) * env(L, tone_dec, 0.0003)
+    nz = filt(filt(noise(L), "high", 1200, 2), "low", 11000) * env(L, noise_dec, 0.0004)
+    x = 0.55 * tone + 0.7 * snap * nz
+    return tanhd(x / (np.max(np.abs(x)) + 1e-9), 1.5)
+add("C03_Snare_Tight", snare())
 add("C04_Snare_Noise_Industrial", tanhd(filt(noise(0.35), "band", [600, 7000]) * env(0.35, 0.09, 0.004) * 1.5, 3))
 tt = t(0.09)
-add("C05_Rim", (np.sin(2 * np.pi * 1700 * tt) + 0.6 * np.sin(2 * np.pi * 480 * tt)) * env(0.09, 0.007))
+def rim(L=0.09):
+    """909-rim: kort ringande bandpass på 1,7 kHz och 500 Hz plus klick."""
+    tt = t(L)
+    x = np.sin(2 * np.pi * 1720 * tt) * env(L, 0.011, 0.0002) + 0.7 * np.sin(2 * np.pi * 505 * tt) * env(L, 0.007, 0.0002)
+    x += 0.35 * filt(noise(L), "band", [2500, 8000]) * env(L, 0.0015, 0.0001)
+    return tanhd(x, 1.6)
+add("C05_Rim", rim())
 cv = fit(cl, int(1.6 * FS)); add("C06_Clap_Layer_Verb", cv + 0.6 * fftconvolve(cv, reverb_ir(1.6, 0.5))[: len(cv)] / 0.02 * 0.02)
 
 # ---------------------------------------------------------------- PERC
 def tom(f0, f1, dec=0.3):
-    L = dec * 3; tt = t(L); fr = f1 + (f0 - f1) * np.exp(-tt / 0.05)
-    return np.sin(2 * np.pi * np.cumsum(fr) / FS) * env(L, dec) + 0.12 * filt(noise(L), "band", [f1 * 2, f1 * 8]) * env(L, 0.02)
+    L = dec * 3; tt = t(L); fr = f1 + (f0 - f1) * np.exp(-tt / 0.04)
+    ph = 2 * np.pi * np.cumsum(fr) / FS
+    x = (np.sin(ph) + 0.15 * np.sin(2 * ph)) * env(L, dec, 0.0004)
+    x += 0.18 * filt(noise(L), "band", [f1 * 3, f1 * 14]) * env(L, 0.012, 0.0003)
+    return tanhd(x, 1.4)
 def fm(fc, fm_, idx, dec, L=0.6, idec=0.04):
     tt = t(L); i = idx * np.exp(-tt / idec)
     return np.sin(2 * np.pi * fc * tt + i * np.sin(2 * np.pi * fm_ * tt)) * env(L, dec)
@@ -514,6 +557,50 @@ for s in range(32):
 add("Lp10_Angvalt_Top_138", ploop138(top))
 full = ploop138([(b * B138, ak, 1.0) for b in range(8)]) + 0.9 * lib["B11_Rumble_Angvalt_138"][: N(BAR138 * 2)] * 0.6 + 0.7 * lib["Lp09_Hardgroove_Perc_138"]
 add("Lp11_Angvalt_Groove_138", hardclip(full / (np.max(np.abs(full)) + 1e-9) * 1.4, 1.0))
+
+# ---------------------------------------------------------------- KÄRNAN: RENA, FETA HUVUDTRUMMOR
+# Grunden i alla kit. Rena slag, fullt tryck, ingen konstig dist. Det skeva skruvas fram i pluginet.
+add("K22_Grund_Techno_F", kick(260, 43.65, 0.03, 0.34, 0.75, 0.55, 1.7, 0.25, hold=0.03))
+add("K23_Peak_Punch", kick(300, 50, 0.026, 0.26, 0.55, 0.8, 2.2, 0.2, hold=0.025))
+add("K24_Berlin_Deep_F", kick(200, 43.65, 0.045, 0.6, 1.3, 0.35, 1.4, 0.45, hold=0.04))
+add("K25_Hardgroove_Tight", kick(340, 55, 0.02, 0.17, 0.4, 0.9, 2.4, 0.0, hold=0.015))
+add("K26_Rund_Minimal", kick(170, 52, 0.035, 0.2, 0.45, 0.25, 1.2, 0.15, hold=0.02))
+add("K27_909_Classic", kick(250, 49, 0.032, 0.3, 0.6, 0.7, 1.8, 0.0, hold=0.02))
+add("K28_Lang_Svans_F", kick(230, 43.65, 0.04, 0.9, 1.8, 0.4, 1.5, 0.5, hold=0.05))
+
+add("H17_Closed_Clean", metal(0.14, 0.032))
+add("H18_Closed_Tight", metal(0.08, 0.014, 8000))
+add("H19_Open_Clean", metal(0.7, 0.19))
+rc = metal(1.8, 0.75, 5200, (271.3, 402.0, 488.4, 690.7, 713.6, 1057.0))
+bell = (np.sin(2 * np.pi * 3420 * t(1.8)) + 0.6 * np.sin(2 * np.pi * 5130 * t(1.8))) * env(1.8, 0.55)
+add("H20_Ride_Clean", rc + 0.12 * bell)
+add("H21_Hat_Pedal", metal(0.12, 0.024, 6500) * np.minimum(t(0.12) / 0.004, 1))
+add("H22_Shaker_Clean", filt(filt(noise(0.2), "high", 5500, 4), "low", 13000) * adsr(0.2, 0.018, 0.03, 0.25, 0.035, 0.06))
+
+add("C15_Clap_Clean", clap(0.16))
+cwide = fit(clap(0.2), N(0.9))
+add("C16_Clap_Wide_Room", cwide + 0.5 * fftconvolve(cwide, reverb_ir(0.9, 0.22, 7000))[: len(cwide)] / 0.02 * 0.02)
+add("C17_Snare_909_Clean", snare(185, 335, 0.055, 0.13))
+add("C18_Snare_Fat", snare(165, 300, 0.08, 0.18, 0.55, 1.2))
+add("C19_Rim_909", rim())
+
+add("P43_Tom_909_Low", tom(150, 85, 0.24))
+add("P44_Tom_909_Mid", tom(220, 125, 0.2))
+add("P45_Tom_909_High", tom(320, 180, 0.16))
+cb8 = filt(square(540, 0.5) + square(800, 0.5), "band", [450, 3000], 2)
+add("P46_Cowbell_808", cb8 * np.where(t(0.5) < 0.012, 1.0, np.exp(-(t(0.5) - 0.012) / 0.07)))
+add("P47_Clave_Clean", filt(np.sin(2 * np.pi * 2500 * t(0.07)), "band", [2000, 3200]) * env(0.07, 0.01, 0.0002))
+
+crash = metal(3.0, 1.1, 3500, (311, 457, 563, 743, 811, 1171)) + 0.4 * filt(filt(noise(3.0), "high", 4000, 4), "low", 14000) * env(3.0, 0.9)
+add("X14_Crash_Clean", crash)
+
+# basar för basgångar (ton per steg i sequencern)
+L = 0.4; tt = t(L)
+tb = np.sin(2 * np.pi * mtof(F2) * tt) + 0.35 * np.sin(4 * np.pi * mtof(F2) * tt) * np.exp(-tt / 0.06)
+add("B21_Techno_Bas_F", tanhd(tb, 1.3) * adsr(L, 0.002, 0.08, 0.6, 0.05, 0.22))
+L = 0.3
+ofb = svf_lp(saw(mtof(F2), L) + 0.5 * saw(mtof(F2) * 1.005, L), 250 + 1400 * np.exp(-t(L) / 0.04), 0.35)
+add("B22_Offbeat_Ren_F", tanhd(ofb, 1.2) * env(L, 0.11, 0.0015))
 
 # ---------------------------------------------------------------- TECH HOUSE & TRIBAL (124-126 BPM)
 B125 = 60 / 125; S125 = B125 / 4; BAR125 = B125 * 4
