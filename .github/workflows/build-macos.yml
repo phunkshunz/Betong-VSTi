@@ -92,8 +92,6 @@ jobs:
           retention-days: 1
 
   windows:
-    # Bara Mac byggs automatiskt. Windows kan startas för hand under Actions.
-    if: github.event_name == 'workflow_dispatch'
     needs: [manual, kontroll]
     runs-on: windows-2022
     env:
@@ -137,7 +135,7 @@ jobs:
   # alltid ger senaste versionen.
   release:
     if: github.event_name == 'push'
-    needs: [manual, macos]
+    needs: [manual, macos, windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -155,4 +153,5 @@ jobs:
           body: "Zippen innehåller två maskiner, BETONG och SMIDET, och båda ligger under tillverkaren Phunkshunz i DAW:en. Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
           files: |
             dist/BETONG-macOS.zip
+            dist/BETONG-Windows.zip
             dist/BETONG-Manual.pdf

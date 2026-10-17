@@ -103,3 +103,13 @@ foreach(machine IN LISTS BETONG_MACHINES)
     list(GET parts 6 pattern)
     betong_add_machine(${target} "${product}" "${code}" "${bundle}" "${about}" "${tagline}" "${pattern}")
 endforeach()
+
+# MSVC: läs källkoden som UTF-8, så att å, ä och ö blir rätt
+if(MSVC)
+    if(TARGET Betong)
+        target_compile_options(Betong PRIVATE /utf-8 /bigobj)
+    endif()
+    if(TARGET Smidet)
+        target_compile_options(Smidet PRIVATE /utf-8 /bigobj)
+    endif()
+endif()
