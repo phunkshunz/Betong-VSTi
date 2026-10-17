@@ -834,6 +834,70 @@ int RingView::laneAt (juce::Point<float> p) const
     const float band = (outerRadius() * 0.8f) / (float) kLanes;
     return bestD <= band * 0.6f ? best : -1;
 }
+RingView::LegendRow RingView::legendRow (int lane) const
+{
+    const float R = outerRadius();
+    auto info = getLocalBounds().withTrimmedLeft ((int) (R * 2.0f + 40.0f)).reduced (0, 2);
+    const int rh = info.getHeight() / kLanes;
+    LegendRow lr;
+    lr.row = info.withTop (info.getY() + rh * lane).withHeight (rh);
+    lr.narrow = lr.row.getWidth() < 330;
+    auto line = lr.narrow ? lr.row.withHeight (rh / 2) : lr.row;
+    line = line.withSizeKeepingCentre (line.getWidth(), 18);
+    lr.load = line.removeFromRight (22); line.removeFromRight (3);
+    lr.solo = line.removeFromRight (20); line.removeFromRight (3);
+    lr.mute = line.removeFromRight (20);
+    return lr;
+}
+
+int RingView::legendRowAt (juce::Point<float> p) const
+{
+    for (int l = 0; l < kLanes; ++l)
+        if (legendRow (l).row.toFloat().contains (p)) return l;
+    return -1;
+}
+
+bool RingView::audible (const betong::Pattern& pat, int lane) const
+{
+    bool anySolo = false;
+    for (auto& l : pat.lanes) anySolo = anySolo || l.solo;
+    const auto& l = pat.lanes[(size_t) lane];
+    return ! l.mute && (! anySolo || l.solo);
+}
+
+juce::String RingView::getTooltip()
+{
+    const auto p = getMouseXYRelative().toFloat();
+    for (int l = 0; l < kLanes; ++l)
+    {
+        const auto lr = legendRow (l);
+        if (lr.mute.toFloat().contains (p)) return "Mute spår " + juce::String (l + 1);
+        if (lr.solo.toFloat().contains (p)) return "Solo spår " + juce::String (l + 1);
+        if (lr.load.toFloat().contains (p)) return utf8 ("Ladda egen sampling till spår ") + juce::String (l + 1) + utf8 (" (eller dra in en fil)");
+    }
+    if (laneOrRowAt (p) >= 0) return utf8 ("Högerklick = mute, solo och ljud · dra in en fil för att byta ljud");
+    return {};
+}
+
+void RingView::filesDropped (const juce::StringArray& files, int x, int y)
+{
+    const int target = laneOrRowAt ({ (float) x, (float) y });
+    int lane = target >= 0 ? target : proc.selectedLane;
+    const int first = lane;
+    dropLane = -1;
+    const auto pat = proc.getPattern();
+    for (auto& f : files)
+    {
+        if (lane >= kLanes) break;
+        const int pad = pat.lanes[(size_t) lane].pad;
+        if (proc.loadFileToPad (pad, juce::File (f))) ++lane;
+    }
+    proc.triggerPad (pat.lanes[(size_t) first].pad);
+    if (selectLane) selectLane (first);
+    if (changed) changed();
+    repaint();
+}
+
 float RingView::angleOf (juce::Point<float> p) const
 {
     const auto c = centre();
@@ -855,7 +919,8 @@ void RingView::paint (juce::Graphics& g)
     {
         const auto& ln = pat.lanes[(size_t) l];
         const float r = ringRadius (l);
-        const auto col = BetongColours::lane (l);
+        const bool on = audible (pat, l);
+        const auto col = on ? BetongColours::lane (l) : BetongColours::lane (l).withSaturation (0.15f).withAlpha (0.35f);
         const bool sel = proc.selectedLane == l;
         g.setColour (sel ? col.withAlpha (0.35f) : line);
         g.drawEllipse (juce::Rectangle<float> (r * 2.0f, r * 2.0f).withCentre (c), sel ? 2.0f : 1.0f);
@@ -871,7 +936,7 @@ void RingView::paint (juce::Graphics& g)
             if (st.on)
             {
                 const float s = dot * (st.accent ? 2.2f : st.ghost ? 1.3f : 1.8f);
-                g.setColour (col.withAlpha (st.ghost ? 0.5f : 1.0f));
+                g.setColour (col.withMultipliedAlpha (st.ghost ? 0.5f : 1.0f));
                 g.fillEllipse (juce::Rectangle<float> (s, s).withCentre (p));
                 if (st.accent) { g.setColour (juce::Colours::white.withAlpha (0.8f)); g.drawEllipse (juce::Rectangle<float> (s, s).withCentre (p), 1.2f); }
             }
@@ -889,21 +954,39 @@ void RingView::paint (juce::Graphics& g)
     }
 
     // förklaring till höger: ett spår per rad med dess euklid-magi
-    auto info = getLocalBounds().withTrimmedLeft ((int) (R * 2.0f + 40.0f)).reduced (0, 2);
-    const int rh = info.getHeight() / kLanes;
     for (int l = 0; l < kLanes; ++l)
     {
-        auto row = info.removeFromTop (rh);
+        const auto lr = legendRow (l);
+        auto row = lr.row;
         const auto& ln = pat.lanes[(size_t) l];
+        const bool live = audible (pat, l);
+        if (dropLane == l)
+        {
+            g.setColour (sodium.withAlpha (0.18f));
+            g.fillRoundedRectangle (row.toFloat(), 4.0f);
+        }
+        auto badge = [&] (juce::Rectangle<int> b, const juce::String& t, bool active, juce::Colour onCol)
+        {
+            g.setColour (active ? onCol : juce::Colour (0xff2a2d30));
+            g.fillRoundedRectangle (b.toFloat(), 3.0f);
+            g.setColour (active ? juce::Colours::white : muted);
+            g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+            g.drawText (t, b, juce::Justification::centred, false);
+        };
+        badge (lr.mute, "M", ln.mute, juce::Colour (0xff8a8f94));
+        badge (lr.solo, "S", ln.solo, cold.darker (0.2f));
+        badge (lr.load, "+", false, sodium);
+        if (! lr.narrow) row.setRight (lr.mute.getX() - 6);
         int on = 0; for (int i = 0; i < ln.length; ++i) on += ln.steps[(size_t) i].on ? 1 : 0;
         g.setColour (BetongColours::lane (l));
         g.fillRoundedRectangle (row.removeFromLeft (6).withSizeKeepingCentre (6, 14).toFloat(), 2.0f);
         row.removeFromLeft (8);
         auto info0 = proc.getPad (ln.pad);
-        g.setColour (proc.selectedLane == l ? sodium : text);
+        g.setColour (proc.selectedLane == l ? sodium : live ? text : muted.withAlpha (0.6f));
         g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-        const bool narrow = row.getWidth() < 330;   // smal förklaring (SMIDET): namn på första raden, resten under
-        auto nameArea = narrow ? row.removeFromTop (row.getHeight() / 2) : row.removeFromLeft (190);
+        const bool narrow = lr.narrow;   // smal förklaring (SMIDET): namn på första raden, resten under
+        auto nameArea = narrow ? row.removeFromTop (row.getHeight() / 2) : row.removeFromLeft (juce::jmin (190, row.getWidth() / 2));
+        if (narrow) nameArea.setRight (lr.mute.getX() - 4);
         g.drawText (juce::String (l + 1) + " " + (info0.sample ? info0.sample->name : utf8 ("Tom")), nameArea, juce::Justification::centredLeft, true);
         juce::String d = juce::String (on) + "/" + juce::String (ln.length) + "  " + kRates[juce::jlimit (0, kNumRates - 1, ln.rate)].name;
         if (ln.euclid) d += "  E rot " + juce::String (ln.rotate);
@@ -939,7 +1022,33 @@ void RingView::paint (juce::Graphics& g)
 
 void RingView::mouseDown (const juce::MouseEvent& e)
 {
-    dragLane = laneAt (e.position);
+    dragLane = -1;
+    for (int l = 0; l < kLanes; ++l)
+    {
+        const auto lr = legendRow (l);
+        if (! lr.row.toFloat().contains (e.position)) continue;
+        if (lr.mute.toFloat().contains (e.position)) proc.editLane (l, [] (Lane& ln) { ln.mute = ! ln.mute; });
+        else if (lr.solo.toFloat().contains (e.position)) proc.editLane (l, [] (Lane& ln) { ln.solo = ! ln.solo; });
+        else if (lr.load.toFloat().contains (e.position)) { if (selectLane) selectLane (l); if (onLoadFile) onLoadFile (l); return; }
+        else
+        {
+            if (selectLane) selectLane (l);
+            if (e.mods.isPopupMenu() && onLaneMenu) onLaneMenu (l);
+            repaint();
+            return;
+        }
+        if (changed) changed();
+        repaint();
+        return;
+    }
+    const int hit = laneAt (e.position);
+    if (hit >= 0 && e.mods.isPopupMenu())
+    {
+        if (selectLane) selectLane (hit);
+        if (onLaneMenu) onLaneMenu (hit);
+        return;
+    }
+    dragLane = hit;
     if (dragLane < 0) return;
     if (selectLane) selectLane (dragLane);
     const auto pat = proc.getPattern();
@@ -1012,6 +1121,7 @@ void RingView::mouseWheelMove (const juce::MouseEvent& e, const juce::MouseWheel
 
 void RingView::mouseDoubleClick (const juce::MouseEvent& e)
 {
+    if (legendRowAt (e.position) >= 0) return;
     const int lane = laneAt (e.position);
     if (lane < 0) return;
     proc.editLane (lane, [&] (Lane& l)
@@ -1161,6 +1271,8 @@ BetongContent::BetongContent (BetongProcessor& p)
     addChildComponent (*euclidPanel);
     ringView = std::make_unique<RingView> (proc, [this] (int ln) { selectLane (ln); }, [this] { for (auto& r : rows) r->refresh(); if (euclidPanel) euclidPanel->refresh(); });
     addChildComponent (*ringView);
+    ringView->onLoadFile = [this] (int l) { loadFileForLane (l); };
+    ringView->onLaneMenu = [this] (int l) { showLaneMenu (l); };
     for (auto* b : { &tabFilter, &tabEuclid, &ringButton })
     {
         b->setClickingTogglesState (false);
@@ -1208,7 +1320,10 @@ BetongContent::BetongContent (BetongProcessor& p)
         soundButton.setTooltip (utf8 ("Välj ljud för det valda spåret"));
         soundButton.onClick = [this] { showLaneSoundMenu(); };
         soundButton.setColour (juce::TextButton::textColourOffId, sodium);
-        for (auto* c : std::initializer_list<juce::Component*> { &kHammer, &kGlow, &soundButton }) addAndMakeVisible (*c);
+        loadOwnButton.setButtonText (utf8 ("Ladda egen sampling..."));
+        loadOwnButton.setTooltip (utf8 ("Ladda en egen ljudfil till det valda spåret. Du kan också dra in filer på ringarna."));
+        loadOwnButton.onClick = [this] { loadFileForLane (proc.selectedLane); };
+        for (auto* c : std::initializer_list<juce::Component*> { &kHammer, &kGlow, &soundButton, &loadOwnButton }) addAndMakeVisible (*c);
         for (auto* c : std::initializer_list<juce::Component*> { &wave, &pads, &loadButton, &libButton, &chopButton, &chopMode, &sensitivity, &ringButton })
             c->setVisible (false);
         for (auto& r : rows) r->setCompact (true);
@@ -1567,13 +1682,65 @@ void BetongContent::layoutSmidet()
     kHammer.setBounds (knobs.removeFromLeft (108));
     kGlow.setBounds (knobs.removeFromLeft (108));
     knobs.removeFromLeft (12);
-    soundButton.setBounds (knobs.withSizeKeepingCentre (knobs.getWidth(), 36));
+    auto btns = knobs.withSizeKeepingCentre (knobs.getWidth(), 76);
+    soundButton.setBounds (btns.removeFromTop (36));
+    btns.removeFromTop (8);
+    loadOwnButton.setBounds (btns);
     f.removeFromTop (10);
     const auto laneArea = f.removeFromTop (64);
     for (auto& row : rows) row->setBounds (laneArea);
 }
 
-void BetongContent::showLaneSoundMenu()
+void BetongContent::loadFileForLane (int lane)
+{
+    const int pad = proc.getPattern().lanes[(size_t) lane].pad;
+    chooser = std::make_unique<juce::FileChooser> (utf8 ("Ladda egen sampling till spår ") + juce::String (lane + 1), juce::File(), BetongProcessor::audioWildcard);
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [this, pad] (const juce::FileChooser& fc)
+    {
+        if (fc.getResult().existsAsFile() && proc.loadFileToPad (pad, fc.getResult())) proc.triggerPad (pad);
+        selectionChanged();
+        if (ringView) ringView->repaint();
+    });
+}
+
+void BetongContent::showLaneMenu (int lane)
+{
+    const auto l = proc.getPattern().lanes[(size_t) lane];
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("SPÅR ") + juce::String (lane + 1));
+    m.addItem (1, "Mute", true, l.mute);
+    m.addItem (2, "Solo", true, l.solo);
+    m.addItem (3, utf8 ("Lås mot slump"), true, l.lock);
+    m.addItem (4, utf8 ("Euklid"), true, l.euclid);
+    m.addSeparator();
+    m.addItem (5, utf8 ("Välj ljud ur biblioteket..."));
+    m.addItem (6, utf8 ("Ladda egen sampling..."));
+    m.addItem (7, utf8 ("Provlyssna"));
+    m.addSeparator();
+    m.addItem (8, utf8 ("Avmuta alla spår"));
+    m.addItem (9, utf8 ("Stäng av all solo"));
+    m.showMenuAsync (juce::PopupMenu::Options(), [this, lane] (int r)
+    {
+        if (r == 0) return;
+        if (r == 1) proc.editLane (lane, [] (Lane& x) { x.mute = ! x.mute; });
+        else if (r == 2) proc.editLane (lane, [] (Lane& x) { x.solo = ! x.solo; });
+        else if (r == 3) proc.editLane (lane, [] (Lane& x) { x.lock = ! x.lock; });
+        else if (r == 4) proc.editLane (lane, [] (Lane& x)
+        {
+            if (! x.euclid) { int on = 0; for (int i = 0; i < x.length; ++i) on += x.steps[(size_t) i].on ? 1 : 0; x.hits = juce::jmax (1, on); }
+            x.euclid = ! x.euclid;
+        });
+        else if (r == 5) { showLaneSoundMenu (ringView.get()); return; }
+        else if (r == 6) { loadFileForLane (lane); return; }
+        else if (r == 7) { proc.triggerPad (proc.getPattern().lanes[(size_t) lane].pad); return; }
+        else if (r == 8) for (int i = 0; i < kLanes; ++i) proc.editLane (i, [] (Lane& x) { x.mute = false; });
+        else if (r == 9) for (int i = 0; i < kLanes; ++i) proc.editLane (i, [] (Lane& x) { x.solo = false; });
+        for (auto& row : rows) row->refresh();
+        if (ringView) ringView->repaint();
+    });
+}
+
+void BetongContent::showLaneSoundMenu (juce::Component* target)
 {
     const int pad = proc.getPattern().lanes[(size_t) proc.selectedLane].pad;
     const auto names = proc.library().getNames();
@@ -1591,18 +1758,10 @@ void BetongContent::showLaneSoundMenu()
     for (auto& cat : kCategories) if (juce::String (cat.prefix) != "F") addCat (cat);
     m.addSeparator();
     m.addItem (1, utf8 ("Ladda fil..."));
-    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&soundButton), [this, pad, names] (int r)
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (target != nullptr ? target : &soundButton), [this, pad, names] (int r)
     {
         if (r >= 1000) { proc.loadBuiltInToPad (pad, names[r - 1000]); proc.triggerPad (pad); }
-        else if (r == 1)
-        {
-            chooser = std::make_unique<juce::FileChooser> (utf8 ("Välj ett ljud"), juce::File(), BetongProcessor::audioWildcard);
-            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [this, pad] (const juce::FileChooser& fc)
-            {
-                if (fc.getResult().existsAsFile() && proc.loadFileToPad (pad, fc.getResult())) proc.triggerPad (pad);
-                selectionChanged();
-            });
-        }
+        else if (r == 1) loadFileForLane (proc.selectedLane);
         selectionChanged();
     });
 }

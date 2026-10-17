@@ -163,11 +163,18 @@ private:
 };
 
 // Ring-vyn: spåren som koncentriska ringar. Dra runt = rotera, rulla eller dra upp/ner = antal slag.
-class RingView : public juce::Component
+class RingView : public juce::Component, public juce::FileDragAndDropTarget, public juce::TooltipClient
 {
 public:
     RingView (BetongProcessor& p, std::function<void (int)> onSelect, std::function<void()> onChange)
         : proc (p), selectLane (std::move (onSelect)), changed (std::move (onChange)) {}
+    std::function<void (int)> onLoadFile;   // ladda egen sampling till spåret
+    std::function<void (int)> onLaneMenu;   // högerklick på ett spår
+    bool isInterestedInFileDrag (const juce::StringArray&) override { return true; }
+    void fileDragMove (const juce::StringArray&, int x, int y) override { dropLane = laneOrRowAt ({ (float) x, (float) y }); repaint(); }
+    void fileDragExit (const juce::StringArray&) override { dropLane = -1; repaint(); }
+    void filesDropped (const juce::StringArray& files, int x, int y) override;
+    juce::String getTooltip() override;
     void paint (juce::Graphics&) override;
     void mouseDown (const juce::MouseEvent&) override;
     void mouseDrag (const juce::MouseEvent&) override;
@@ -180,6 +187,11 @@ private:
     float outerRadius() const;
     float ringRadius (int lane) const;
     int laneAt (juce::Point<float> p) const;
+    struct LegendRow { juce::Rectangle<int> row, mute, solo, load; bool narrow = false; };
+    LegendRow legendRow (int lane) const;
+    int legendRowAt (juce::Point<float> p) const;
+    int laneOrRowAt (juce::Point<float> p) const { const int l = laneAt (p); return l >= 0 ? l : legendRowAt (p); }
+    bool audible (const betong::Pattern& pat, int lane) const;
     float angleOf (juce::Point<float> p) const;
     void changeHits (int lane, int delta);
 
@@ -190,6 +202,7 @@ private:
     float startAngle = 0.0f, startY = 0.0f;
     std::array<betong::Step, betong::kMaxSteps> startSteps {};
     float wheelAccum = 0.0f;
+    int dropLane = -1;
 };
 
 //==============================================================================
@@ -254,7 +267,10 @@ private:
     juce::Rectangle<int> forgeArea;
     Knob kHammer, kGlow;
     juce::TextButton soundButton;
-    void showLaneSoundMenu();
+    void showLaneSoundMenu (juce::Component* target = nullptr);
+    void loadFileForLane (int lane);
+    void showLaneMenu (int lane);
+    juce::TextButton loadOwnButton;
     void layoutSmidet();
     bool blinkOn = false;
     int blinkCount = 0;

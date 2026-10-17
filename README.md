@@ -14,6 +14,9 @@ Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i plugin
 ## SMIDET, den euklidiska smedjan
 
 - **Ringarna** fyller vänstra halvan. Varje spår är en ring. Dra runt för att rotera, dra upp/ner eller rulla för antal slag, dubbelklicka för euklid på/av. Klicka på en ring för att välja spår.
+- **M, S och +** bredvid varje spår i ringlistan: mute, solo och ladda egen sampling. Mutade spår blir mörka i ringen.
+- **Egna samplingar:** dra in ljudfiler på en ring eller ett spårnamn. Flera filer på en gång hamnar på spåret och spåren under. Knappen **Ladda egen sampling...** i smedjan gör samma sak för valt spår.
+- **Högerklick** på en ring eller ett spårnamn: mute, solo, lås, euklid, ljud ur biblioteket, egen sampling, provlyssna, avmuta alla och stäng av all solo.
 - **Smedjan** (panelen till höger) visar valt spår: pad, takt, längd, euklid, mute, solo och lås, plus knappen **Ljud** som väljer ljud direkt ur biblioteket (Smedja först).
 - **HAMMARE:** tätare, hårdare och fler skurar. Vrider upp densitet, glitch, drive och clipper på en gång.
 - **GLÖD:** resonans, drive, mer filter-envelope, mer delay och mer rumble. Smedjan börjar glöda.
