@@ -2,6 +2,13 @@
 
 Techno-sampler som VST3 och AU för macOS. Den hackar upp ljud och gör skeva, polyrytmiska beats. Allt ska låta som ett fuktigt betonggolv.
 
+Zippen innehåller två maskiner som bygger på samma motor:
+
+- **BETONG**, techno-samplern. Öppnar med det rena grundkitet och mönstret Grund 130.
+- **SMIDET**, den polyrytmiska trummaskinen. Öppnar med euklid-mönstret Snurrande Hjul.
+
+Båda har egna inställningar och ligger under tillverkaren Phunkshunz i Bitwig. Installationsskriptet installerar båda.
+
 Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i pluginet för att läsa om båtvarvet Docklands, där allt började.
 
 ## Ladda ner

@@ -366,7 +366,7 @@ void LibraryPanel::paintListBoxItem (int row, juce::Graphics& g, int w, int h, b
 {
     if (selected) { g.setColour (sodium.withAlpha (0.18f)); g.fillRect (0, 0, w, h); }
     juce::String name, where;
-    if (category < (int) std::size (kCategories)) { if (row < builtInItems.size()) name = BuiltInLibrary::displayName (builtInItems[row]); where = "BETONG"; }
+    if (category < (int) std::size (kCategories)) { if (row < builtInItems.size()) name = BuiltInLibrary::displayName (builtInItems[row]); where = BETONG_PRODUCT_NAME; }
     else if (row < fileItems.size()) { name = fileItems[row].getFileNameWithoutExtension(); where = fileItems[row].getParentDirectory().getFileName(); }
     g.setColour (selected ? sodium : text);
     g.setFont (juce::FontOptions (12.0f));
@@ -1307,10 +1307,10 @@ void BetongContent::paint (juce::Graphics& g)
     auto logo = h.removeFromLeft (150);
     g.setColour (sodium);
     g.setFont (juce::FontOptions (36.0f, juce::Font::bold).withHorizontalScale (0.78f));
-    g.drawText ("BETONG", logo.removeFromTop (36), juce::Justification::centredLeft);
+    g.drawText (BETONG_PRODUCT_NAME, logo.removeFromTop (36), juce::Justification::centredLeft);
     g.setColour (muted);
     g.setFont (juce::FontOptions (9.5f));
-    g.drawText (utf8 ("TECHNO SAMPLER · MASKINHALLEN"), logo, juce::Justification::topLeft);
+    g.drawText (utf8 (BETONG_TAGLINE " · MASKINHALLEN"), logo, juce::Justification::topLeft);
 
     auto bpmArea = headerArea.reduced (16, 8).removeFromRight (90);
     g.setColour (muted);

@@ -137,7 +137,7 @@ BetongProcessor::BetongProcessor()
 
     juce::PropertiesFile::Options opts;
     opts.applicationName = "settings";
-    opts.folderName = "BETONG";
+    opts.folderName = BETONG_PRODUCT_NAME;   // varje maskin har sina egna inställningar och mappar
     opts.filenameSuffix = ".xml";
     opts.osxLibrarySubFolder = "Application Support";
     settings = std::make_unique<juce::PropertiesFile> (opts);
@@ -167,7 +167,7 @@ BetongProcessor::BetongProcessor()
         return 0;
     };
     applyKit (findIndex (kKits, kNumKits, "Betong Grund"));
-    applyPattern (findIndex (kPatterns, kNumPatterns, "Grund 130"));
+    applyPattern (findIndex (kPatterns, kNumPatterns, BETONG_DEFAULT_PATTERN));
     applyFx (findIndex (kFx, kNumFx, "Fuktigt Betonggolv"));
 
     startTimerHz (1);
