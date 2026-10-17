@@ -720,10 +720,67 @@ add("Lp14_Afro_3mot4_125", ploop125(af))
 bl = [(sw(s), lib["P23_Bongo_High"] if s % 3 else lib["P24_Bongo_Low"], 0.5) for s in range(32) if s % 8 not in (1, 5)]
 add("Lp15_Bongo_Loop_125", ploop125(bl))
 
+# ---------------------------------------------------------------- SMEDJAN (för SMIDET)
+# Städ, hammare, plåt, kedjor, härdning och klockor. Städ och klockor är stämda i F-moll.
+def bar_modes(f, L, dec, ratios=(1.0, 2.756, 5.404, 8.933), amps=(1.0, 0.55, 0.32, 0.18), strike=0.6):
+    """Fritt svängande stålbalk: oharmoniska moder, de höga dör fortare. Ett hårt anslag i början."""
+    tt = t(L)
+    x = sum(a * np.sin(2 * np.pi * f * r * tt) * np.exp(-tt / (dec / (1 + 0.8 * k))) for k, (r, a) in enumerate(zip(ratios, amps)))
+    x += strike * filt(noise(L), "band", [2500, 9000]) * env(L, 0.0018, 0.0001)
+    return x * np.minimum(tt / 0.0003, 1)
+def anvil(note, dec=0.6, L=1.6):
+    f = mtof(note)
+    x = bar_modes(f, L, dec, (1.0, 1.506, 2.343, 3.17, 4.41), (1.0, 0.7, 0.45, 0.3, 0.2), 0.8)
+    return tanhd(x / (np.max(np.abs(x)) + 1e-9), 1.3)
+
+add("F01_Stad_F", anvil(77))
+add("F02_Stad_Ab", anvil(80, 0.5))
+add("F03_Stad_C", anvil(84, 0.45))
+add("F04_Stad_Lag_F", anvil(65, 0.8, 2.0))
+L = 0.6; tt = t(L)
+hs = 0.8 * np.sin(2 * np.pi * (90 + 160 * np.exp(-tt / 0.01)) * tt) * env(L, 0.05) + 0.6 * bar_modes(1180, L, 0.12, strike=1.2)
+add("F05_Hammare_Stal", tanhd(hs, 1.8))
+sl = kick(180, 55, 0.02, 0.12, 0.8, 1.0, 2.0) + 0.5 * fit(bar_modes(520, 0.8, 0.25, strike=1.0), N(0.8))
+add("F06_Slagga_Tung", tanhd(sl, 1.6))
+L = 2.2; pl = filt(noise(L), "band", [300, 6000]) * env(L, 0.004)
+res = sum(filt(pl, "band", [f * 0.985, f * 1.015]) * 70 for f in (233, 377, 611, 987, 1597, 2584))
+add("F07_Platslag", res * env(L, 0.7, 0.0005) + 0.08 * pl)
+ch = np.zeros(N(0.6))
+for k in range(26):
+    o = N(rng.uniform(0, 0.45) ** 1.3)
+    c = bar_modes(rng.uniform(2500, 6000), 0.05, 0.012, strike=0.4) * rng.uniform(0.3, 1.0)
+    ch[o:o + len(c)] += c[: len(ch) - o]
+add("F08_Kedja", ch)
+L = 1.2; tt = t(L); sp = np.sin(2 * np.pi * np.cumsum(160 + 900 * np.exp(-tt / 0.05) + 40 * np.sin(2 * np.pi * 9 * tt)) / FS) * env(L, 0.35)
+spr = fftconvolve(sp, filt(noise(0.8), "band", [400, 4000]) * env(0.8, 0.2) * 0.03)[: N(L)]
+add("F09_Fjader", sp + 0.6 * spr / (np.max(np.abs(spr)) + 1e-9))
+L = 1.8; tt = t(L)
+fr = filt(noise(L), "high", 3000) * (0.6 + 0.4 * np.sin(2 * np.pi * 13 * tt) ** 2) * adsr(L, 0.004, 0.3, 0.5, 0.6, 1.0)
+crk = place(L, [(rng.uniform(0, 1.2), filt(noise(0.01), "high", 5000) * env(0.01, 0.002), rng.uniform(0.3, 1)) for _ in range(40)])
+add("F10_Hardning", filt(fr + 0.8 * crk, "low", 11000))
+L = 1.4; add("F11_Blasbalg", filt(noise(L), "band", [150, 1200]) * adsr(L, 0.45, 0.2, 0.7, 0.4, 0.9))
+L = 3.0; tt = t(L); fb = mtof(65)
+bellx = sum(a * np.sin(2 * np.pi * fb * r * tt) * np.exp(-tt / d) for r, a, d in ((0.5, 0.6, 1.6), (1.0, 1.0, 1.2), (1.19, 0.6, 0.9), (1.56, 0.45, 0.7), (2.0, 0.4, 0.6), (2.51, 0.3, 0.4), (3.0, 0.2, 0.3)))
+add("F12_Gjutklocka_F", bellx * np.minimum(tt / 0.001, 1) + 0.3 * filt(noise(L), "band", [2000, 7000]) * env(L, 0.003))
+add("F13_Ror_Stort", bar_modes(mtof(41) * 2, 1.4, 0.5, strike=0.5))
+add("F14_Rorslag_Kort", bar_modes(mtof(53) * 2, 0.4, 0.09, strike=0.9))
+sk = np.zeros(N(1.2))
+for k in range(9):
+    o = N(rng.uniform(0, 0.12)); h = bar_modes(rng.uniform(300, 2500), 1.0, rng.uniform(0.05, 0.3), strike=1.0) * rng.uniform(0.4, 1.0)
+    sk[o:o + len(h)] += h[: len(sk) - o]
+add("F15_Skrot", tanhd(sk / (np.max(np.abs(sk)) + 1e-9), 1.5))
+L = 0.35; tt = t(L)
+add("F16_Gnista", filt(noise(L), "high", 6000) * env(L, 0.006, 0.0001) + 0.4 * np.sin(2 * np.pi * 7400 * tt) * env(L, 0.004) + 0.2 * filt(noise(L), "high", 4000) * adsr(L, 0.01, 0.05, 0.3, 0.1, 0.12))
+sk_k = kick(240, 43.65, 0.03, 0.32, 0.7, 0.6, 1.7, 0.2, hold=0.025)
+add("K29_Stad_Kick_F", sk_k + 0.18 * fit(anvil(89, 0.15, 0.5), N(0.7)))
+add("H23_Smideshat", metal(0.12, 0.025, 7500, (311.1, 466.2, 554.4, 739.9, 830.6, 1108.7)))
+add("H24_Smide_Open", metal(0.6, 0.16, 7000, (311.1, 466.2, 554.4, 739.9, 830.6, 1108.7)))
+add("P48_Hammarknack", bar_modes(1560, 0.15, 0.03, strike=1.0))
+
 # ---------------------------------------------------------------- NIVÅER
 # Varje kategori får en målnivå (högsta korta RMS, 50 ms), som i en färdig mix.
 # Taket är -1 dBTP: om målet kräver mer än så, stannar ljudet vid taket.
-TARGET = {"K": -9.0, "B": -11.0, "C": -13.0, "H": -17.0, "P": -14.0, "S": -14.0, "L": -14.0,
+TARGET = {"F": -14.0, "K": -9.0, "B": -11.0, "C": -13.0, "H": -17.0, "P": -14.0, "S": -14.0, "L": -14.0,
           "T": -15.0, "V": -14.0, "X": -14.0, "Lp": -13.0}
 CEIL = 10 ** (-1.0 / 20)
 def category(name): return "Lp" if name.startswith("Lp") else name[0]

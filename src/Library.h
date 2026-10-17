@@ -21,7 +21,7 @@ struct Category { const char* prefix; const char* name; };
 constexpr Category kCategories[] = {
     { "K", "Kickar" }, { "H", "Hats och cymbaler" }, { "C", "Clap och snare" }, { "P", "Perc" },
     { "B", "Bas" }, { "S", "Stabs och ackord" }, { "L", "Leads" }, { "T", "Texturer och drönare" },
-    { "V", "Röster" }, { "X", "FX" }, { "Lp", "Loopar 130 BPM" },
+    { "V", "Röster" }, { "X", "FX" }, { "Lp", "Loopar 130 BPM" }, { "F", "Smedja" },
 };
 
 // Inbyggda ljud, laddas en gång per process och delas av alla BETONG-instanser.

@@ -11,6 +11,12 @@ namespace betong
 struct KitPreset { const char* name; const char* pads[16]; const char* group = nullptr; };
 
 constexpr KitPreset kKits[] = {
+    { "Smedjan", { "K29_Stad_Kick_F", "F06_Slagga_Tung", "H23_Smideshat", "H24_Smide_Open", "C15_Clap_Clean", "C17_Snare_909_Clean", "F13_Ror_Stort", "F14_Rorslag_Kort", "F01_Stad_F", "F02_Stad_Ab", "P48_Hammarknack", "F08_Kedja", "B21_Techno_Bas_F", "F12_Gjutklocka_F", "F04_Stad_Lag_F", "F10_Hardning" }, "Smedja" },
+    { "Järnverket", { "K25_Hardgroove_Tight", "K28_Lang_Svans_F", "H23_Smideshat", "H24_Smide_Open", "C16_Clap_Wide_Room", "C18_Snare_Fat", "F06_Slagga_Tung", "F13_Ror_Stort", "F05_Hammare_Stal", "F15_Skrot", "C19_Rim_909", "F08_Kedja", "B13_Growl_Bass_F", "S12_Industrial_Stab_Fm", "T10_Machine_Room", "X12_Impact_Steel" }, "Smedja" },
+    { "Klockgjuteriet", { "K24_Berlin_Deep_F", "K28_Lang_Svans_F", "H18_Closed_Tight", "H24_Smide_Open", "C15_Clap_Clean", "C17_Snare_909_Clean", "F04_Stad_Lag_F", "F13_Ror_Stort", "F12_Gjutklocka_F", "F03_Stad_C", "P47_Clave_Clean", "H22_Shaker_Clean", "B20_Sub_Sine_F", "S08_Minor_Ring_Fm", "T05_Metal_Drone_F", "F11_Blasbalg" }, "Smedja" },
+    { "Valsverk Euklid", { "K22_Grund_Techno_F", "K24_Berlin_Deep_F", "H17_Closed_Clean", "H19_Open_Clean", "C15_Clap_Clean", "C17_Snare_909_Clean", "P43_Tom_909_Low", "P44_Tom_909_Mid", "F01_Stad_F", "F14_Rorslag_Kort", "C19_Rim_909", "H22_Shaker_Clean", "B21_Techno_Bas_F", "F02_Stad_Ab", "F03_Stad_C", "F16_Gnista" }, "Smedja" },
+    { "Rost och Gnistor", { "K27_909_Classic", "K29_Stad_Kick_F", "H23_Smideshat", "H24_Smide_Open", "C16_Clap_Wide_Room", "C18_Snare_Fat", "P44_Tom_909_Mid", "P45_Tom_909_High", "F16_Gnista", "F08_Kedja", "P48_Hammarknack", "F10_Hardning", "B22_Offbeat_Ren_F", "S06_Crushed_Noise_Chord", "F15_Skrot", "X09_Glitch_Granular" }, "Smedja" },
+    { "Kall Härdning", { "K26_Rund_Minimal", "K24_Berlin_Deep_F", "H18_Closed_Tight", "H21_Hat_Pedal", "C12_Snap", "C17_Snare_909_Clean", "F14_Rorslag_Kort", "F13_Ror_Stort", "F03_Stad_C", "F02_Stad_Ab", "P48_Hammarknack", "H22_Shaker_Clean", "B18_Tech_Pluck_F", "F12_Gjutklocka_F", "T12_Jungle_Night", "F10_Hardning" }, "Smedja" },
     { "Betong Grund", { "K22_Grund_Techno_F", "K24_Berlin_Deep_F", "H17_Closed_Clean", "H19_Open_Clean", "C15_Clap_Clean", "C17_Snare_909_Clean", "P43_Tom_909_Low", "P44_Tom_909_Mid", "P41_Woodblock_Tribal", "P47_Clave_Clean", "C19_Rim_909", "H22_Shaker_Clean", "B21_Techno_Bas_F", "S01_Dub_Fm7_Dry", "H20_Ride_Clean", "X14_Crash_Clean" }, "Rena grundkit" },
     { "Peak Time Ren", { "K23_Peak_Punch", "K28_Lang_Svans_F", "H17_Closed_Clean", "H19_Open_Clean", "C16_Clap_Wide_Room", "C18_Snare_Fat", "P43_Tom_909_Low", "P45_Tom_909_High", "P46_Cowbell_808", "P25_Conga_Slap", "C19_Rim_909", "H22_Shaker_Clean", "B22_Offbeat_Ren_F", "S16_Chord_Stab_Tech_Fm9", "H20_Ride_Clean", "X01_Noise_Riser" }, "Rena grundkit" },
     { "Berlin Djup", { "K24_Berlin_Deep_F", "B07_Rumble_Tone_F", "H18_Closed_Tight", "H19_Open_Clean", "C15_Clap_Clean", "C17_Snare_909_Clean", "P43_Tom_909_Low", "P44_Tom_909_Mid", "P29_Djembe_Tone", "P47_Clave_Clean", "C19_Rim_909", "H22_Shaker_Clean", "B20_Sub_Sine_F", "S02_Dub_Fm7_Echo", "T08_Drone_Dark_F", "X14_Crash_Clean" }, "Rena grundkit" },
@@ -154,6 +160,20 @@ constexpr PatternPreset kPatterns[] = {
     { "Trasslig Acid", 0.0f, { "1:16:X...x...x...x...", "3:16:..x...x...x...x.", "5:16:....x.......x...", "4:16:..X...X...X...X.", "13:16:X.x2x.xxo.x.Xxx.:r2:t3/5/12:a5/7:q2/9/2", nullptr }, "Euklid-magi" },
     { "Densitetsdans", 0.0f, { "1:16:X...x...x...x...", "3:16:e:6:16:2:b6/16", "9:16:e:3:16:0:b5/32", "10:16:e:2:16:4:b4/8", "5:16:....x.......x...", "13:16:e:4:16:2:b3/16", nullptr }, "Euklid-magi" },
     { "Kugghjul", 0.0f, { "1:16:X...x...x...x...", "9:16:e:3:8:0", "10:16:e:5:16:0:f2", "11:16:e:4:11:0:r2", "3:16:..x...x...x...x.", "5:16:....x.......x...", "13:16:e:5:12:0:t2/5/12", nullptr }, "Euklid-magi" },
+    { "Smedjans Puls", 0.04f, { "1:16:X...x...x...x...", "3:16:e:7:16:0:r2", "9:16:e:5:13:0:r1:a2/5", "10:16:e:3:8:2:r4", "5:16:....x.......x...", "12:16:e:9:16:0:b3/16", "11:16:e:3:11:0", "13:16:e:5:16:2:t2/7/12" }, "Smide" },
+    { "Hammarslag", 0.0f, { "1:16:X...x...x...x...", "7:16:e:3:16:2:r4", "9:16:e:7:16:0:q2/9/3", "3:16:..x...x...x...x.", "4:16:..X...X...X...X.", "11:16:e:5:12:0", "13:16:..x...x...x...x.", nullptr }, "Smide" },
+    { "Glödande Järn", 0.06f, { "1:16:X...x...x...x...", "3:16:e:11:16:0:b4/16", "9:16:e:4:9:0:r3", "10:16:e:5:11:0:r2", "6:16:....X.......X...", "12:16:e:7:16:1", "13:16:e:6:16:2:t3/7/7:a2/5", nullptr }, "Smide" },
+    { "Städets Sång", 0.0f, { "1:16:X...x...x...x...", "9:16:e:5:16:0:t2/5/3", "10:16T:e:5:12:0:r2", "15:8:e:3:8:0", "3:16:..x...x...x...x.", "5:16:....x.......x...", "13:16:e:5:16:2", nullptr }, "Smide" },
+    { "Fem Smeder", 0.0f, { "1:16:X...x...x...x...", "9:16:e:2:5:0:r1", "10:16:e:3:7:0:r2", "7:16:e:4:9:0:r3", "11:16:e:5:11:0:r4", "8:16:e:6:13:0:r5", "3:16:..x...x...x...x.", nullptr }, "Smide" },
+    { "Kedjereaktion", 0.05f, { "1:16:X...x...x...x...", "9:16:e:5:16:0", "10:16:................:f2", "12:16:e:7:16:3:f3", "3:16:..x...x...x...x.", "5:16:....x.......x...", "13:16:e:5:16:2", nullptr }, "Smide" },
+    { "Härdning", 0.0f, { "1:16:X...x...x...x...", "9:16:e:3:16:0:b2/32", "15:8:e:1:16:0", "16:16:e:1:32:8:r1", "3:16:..x...x...x...x.", "13:16:e:3:16:2:t1/5/12", nullptr }, "Smide" },
+    { "Valsverket", 0.0f, { "1:16:X...x...x...x...", "3:16:gxXxgxXxgxXxgxXx", "4:16:..X...X...X...X.", "9:16:e:11:16:0:b4/16", "5:16:....x.......x...", "12:16:e:13:16:0", "13:16:.xxx.xxx.xxx.xxx:n0,0,0,0,0,0,0,0,3,3,3,0,5,5,5,0", nullptr }, "Smide" },
+    { "Klockringning", 0.0f, { "1:16:X...x...x...x...", "15:8:e:3:7:0:t2/5/7", "9:16:e:4:11:0", "3:16:..x...x...x...x.", "5:16:....x.......x...", "13:16:e:5:16:2:t2/7/12", nullptr }, "Smide" },
+    { "Gnistregn", 0.0f, { "1:16:X...x...x...x...", "16:16:e:5:16:0:q3/7/4", "3:16:e:9:16:0:q2/5/2", "9:16:e:5:12:0", "5:16:....x.......x...", "13:16:..x...x...x...x.", nullptr }, "Smide" },
+    { "Smältdegel", 0.0f, { "1:16:X...x...x...x...", "3:16:e:6:16:2:b6/16", "9:16:e:4:16:0:b5/32", "10:16:e:3:16:4:b4/8", "7:16:e:2:16:6:b2/16", "5:16:....x.......x...", "13:16:e:4:16:2:b3/16", nullptr }, "Smide" },
+    { "Kall Smide", 0.08f, { "1:16:X...x...x...x...", "3:16:e:5:16:2", "9:16:e:2:7:0:r2", "11:16:e:3:13:0:r3", "13:16:e:3:16:0:t1/3/12", nullptr }, "Smide" },
+    { "Slaggrännan", 0.0f, { "1:16:X...x...x...xx..", "7:16:e:5:16:3:f1", "9:16:e:7:16:0:r1", "3:16:gxXxgxXxgxXxgxXx", "4:16:..X...X...X...o.", "6:16:....X.......X.2.", "13:16:e:7:16:1:t3/8/12", nullptr }, "Smide" },
+    { "Ringverket", 0.0f, { "1:16:X...x...x...x...", "9:16:e:3:8:0:r1", "10:16:e:5:13:0:r2", "7:16:e:7:16:0:r4", "12:16:e:9:16:0", "5:16:....x.......x...", "13:16:e:5:16:2:a2/5", nullptr }, "Smide" },
     // Klassiskt 90-tal
     { "Detroit Morgon", 0.15f, { "1:16:X...x...x...x...", "4:16:..x...x...x...x.", "5:16:....x.......x...", "3:16:x.xxx.xxx.xxx.xx", "13:16:x..x..x...x..x..", "14:16:......x.......o.", nullptr }, "Klassiskt 90-tal" },
     { "Berlin Lager", 0.0f, { "1:16:X...x...x...x...", "2:16:x...x...x...x...", "3:16:xxXxxxXxxxXxxxXx", "11:16:...x..x....x..x.", "13:16:..x...x...x...x.", nullptr }, "Klassiskt 90-tal" },
@@ -313,6 +333,7 @@ constexpr FxPreset kFx[] = {
     { "Ren Klubb", 2, 0.4f, 0.5f, 0.0f, 0.2f, 0.6f, 0.3f, 100.0f, 0.8f, 0.45f, 0.25f, 0, "00000000", "60000000", "00000000", "00000000", "00000000", "Performance" },
     { "Total Kollaps", 4, 0.9f, 0.4f, 0.7f, 0.6f, 1.0f, 1.0f, 140.0f, 1.0f, 0.8f, 0.95f, 0.45f, "09999999", "99000000", "05555555", "77777777", "03333333", "Performance" },
     { "Fuktigt Betonggolv", 2, 0.62f, 0.35f, 0.35f, 0.45f, 0.9f, 0.6f, 105.0f, 0.9f, 0.8f, 0.25f, 0.08f, "00300960", "95000000", "00200000", "40000000", "00000000", "Performance" },
+    { "Smedjeglöd", 4, 0.55f, 0.7f, 0.1f, 0.35f, 0.7f, 0.5f, 110.0f, 0.9f, 0.6f, 0.3f, 0.0f, "00009990", "90000000", "00000000", "10000000", "00000000", "Smedja" },
     // Techno
     { "Tunnelpump", 2, 0.55f, 0.35f, 0.15f, 0.3f, 0.9f, 0.6f, 100.0f, 1.0f, 0.85f, 0.35f, 0, "00000000", "95000000", "00000000", "30000000", "00000000", "Techno" },
     { "Stålverk", 1, 0.45f, 0.6f, 0.0f, 0.25f, 0.7f, 0.85f, 120.0f, 0.95f, 0.7f, 0.75f, 0.1f, "00090000", "90000000", "00330000", "55555555", "00000000", "Techno" },
