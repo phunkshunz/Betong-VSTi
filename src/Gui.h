@@ -2,6 +2,7 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "Identity.h"
 
 // Utseende: fuktig betong, natriumorange och kall cyan.
 namespace BetongColours
@@ -13,8 +14,9 @@ const juce::Colour line     { 0xff2c2f32 };
 const juce::Colour line2    { 0xff34383b };
 const juce::Colour text     { 0xffd9d6cf };
 const juce::Colour muted    { 0xff8b8e91 };
-const juce::Colour sodium   { 0xffff8a1f };
-const juce::Colour sodiumDk { 0xffc96a16 };
+// accentfärgen: natriumorange i BETONG, glödande smidesrött i SMIDET
+const juce::Colour sodium   { betong::kIsSmidet ? 0xffff4a1c : 0xffff8a1f };
+const juce::Colour sodiumDk { betong::kIsSmidet ? 0xffb8321a : 0xffc96a16 };
 const juce::Colour cold     { 0xff4fd1e0 };
 const juce::Colour coldDk   { 0xff2ea7b5 };
 const juce::Colour concrete { 0xffb9b6ae };

@@ -25,3 +25,12 @@
 #ifndef BETONG_DEFAULT_PATTERN
  #define BETONG_DEFAULT_PATTERN "Grund 130"          // mönstret maskinen öppnar med
 #endif
+
+#include <string_view>
+
+namespace betong
+{
+// SMIDET är en egen maskin: ring-vyn i centrum, smedjeljud, HAMMARE och GLÖD och röd glöd i färgerna.
+// Allt annat (motor, sequencer, effekter) delas med BETONG.
+constexpr bool kIsSmidet = std::string_view (BETONG_PRODUCT_NAME) == std::string_view ("SMIDET");
+}

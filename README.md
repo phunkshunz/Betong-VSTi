@@ -5,11 +5,22 @@ Techno-sampler som VST3 och AU för macOS. Den hackar upp ljud och gör skeva, p
 Zippen innehåller två maskiner som bygger på samma motor:
 
 - **BETONG**, techno-samplern. Öppnar med det rena grundkitet och mönstret Grund 130.
-- **SMIDET**, den polyrytmiska trummaskinen. Öppnar med euklid-mönstret Snurrande Hjul.
+- **SMIDET**, den euklidiska smedjan. En helt egen maskin utan pads och vågform: ringarna är huvudfönstret, ljuden är städ, hammare, kedjor och klockor, och två makron (HAMMARE och GLÖD) styr allt. Röd i stället för orange.
 
 Båda har egna inställningar och ligger under tillverkaren Phunkshunz i Bitwig. Installationsskriptet installerar båda.
 
 Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i pluginet för att läsa om båtvarvet Docklands, där allt började.
+
+## SMIDET, den euklidiska smedjan
+
+- **Ringarna** fyller vänstra halvan. Varje spår är en ring. Dra runt för att rotera, dra upp/ner eller rulla för antal slag, dubbelklicka för euklid på/av. Klicka på en ring för att välja spår.
+- **Smedjan** (panelen till höger) visar valt spår: pad, takt, längd, euklid, mute, solo och lås, plus knappen **Ljud** som väljer ljud direkt ur biblioteket (Smedja först).
+- **HAMMARE:** tätare, hårdare och fler skurar. Vrider upp densitet, glitch, drive och clipper på en gång.
+- **GLÖD:** resonans, drive, mer filter-envelope, mer delay och mer rumble. Smedjan börjar glöda.
+- **Ljuden:** 16 smedjeljud i kategorin Smedja (städ stämda i F-moll, stålhammare, slagg, plåt, kedja, fjäder, härdning, blåsbälg, gjutklocka, rör, skrot och gnistor) plus städkick, smideshats och hammarknack.
+- **Kiten:** Smedjan, Järnverket, Klockgjuteriet, Valsverk Euklid, Rost och Gnistor och Kall Härdning.
+- **Mönstren:** mappen **Smide** har 14 helt euklidiska, polymetriska mönster. Öppnar med Smedjans Puls och effekten Smedjeglöd.
+- Allt annat (scener, fill, svaj, glitch, euklid-fliken, filter, effekter) delar SMIDET med BETONG.
 
 ## Ladda ner
 
@@ -55,14 +66,14 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 **Starta:** tryck Play i Bitwig. Sequencern följer DAW:ens tempo. Utan DAW, eller i den fristående appen, trycker du **SPELA** nere till höger.
 
 **Uppe i fönstret**
-- **Kit, Mönster och Effekter:** 38 kit, 169 mönster och 54 effekt-presets, sorterade i genremappar (Techno, Peak time, Hardgroove, Tech house, Tribal, Minimal, Dub, Polyrytm, Euklid-magi med flera). Börja med kiten under **Rena grundkit**.
+- **Kit, Mönster och Effekter:** 44 kit, 183 mönster och 55 effekt-presets, sorterade i genremappar (Techno, Peak time, Hardgroove, Tech house, Tribal, Minimal, Dub, Polyrytm, Euklid-magi, Smide med flera). Börja med kiten under **Rena grundkit**.
 - **Tärningarna:** slumpar kit, effekter, mönster eller allt. **Galenskap** styr hur vilt det blir.
 - **Ångra:** backar de senaste 20 slumpningarna.
 - **Lås** på ett spår gör att slumpen låter det spåret vara.
 
 **Sampling och pads**
 - **Klick på en pad:** spelar den och väljer den.
-- **Högerklick på en pad:** välj ett av de 215 inbyggda ljuden eller en egen fil.
+- **Högerklick på en pad:** välj ett av de 235 inbyggda ljuden eller en egen fil.
 - **Dra in filer** på en pad, eller dra flera filer på en gång.
 - **Hacka till pads:** delar ljudet på vald pad i bitar och lägger dem på pad 1–16. Läget **Anslag** hittar slagen automatiskt.
 - **Dra i de orange kanterna** i vågformen för att flytta start och slut.
@@ -108,7 +119,7 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 
 ## Ljuden
 
-215 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. Grunden är en kärna av rena, feta trummaskinstrummor (kickar, hats, clap, snare, rim, toms och ride) som alla ligger på jämna nivåer. De är fria att använda i egna låtar.
+235 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. Grunden är en kärna av rena, feta trummaskinstrummor (kickar, hats, clap, snare, rim, toms och ride) som alla ligger på jämna nivåer. De är fria att använda i egna låtar.
 
 - Kickar, hats, clap, perc
 - Tech house och tribal: bongos, congas, djembe, timbales, tamburin, log drums, agogo, orgelbas och marimba
@@ -117,6 +128,7 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - Texturer och drönare
 - Röster och FX
 - Skeva loopar i 5, 7 och 11 steg
+- Smedjan: städ, hammare, kedjor, klockor, rör och gnistor
 
 Allt tonalt ligger i F-moll.
 

@@ -99,6 +99,8 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     f ("svaj", "Svaj", { 0.0f, 1.0f }, 0.0f);
     f ("glitch", "Glitch", { 0.0f, 1.0f }, 0.0f);
     f ("dens", "Densitet", { -1.0f, 1.0f }, 0.0f, Unit::Dens);
+    f ("hammer", "Hammare", { 0.0f, 1.0f }, 0.0f);   // SMIDET: tätare, hårdare, fler skurar
+    f ("glow", "Glöd", { 0.0f, 1.0f }, 0.0f);        // SMIDET: resonans, drive och mer rumble
 
     for (int l = 0; l < kLanes; ++l)
     {
@@ -149,7 +151,7 @@ BetongProcessor::BetongProcessor()
     pDFreeze = raw ("dFreeze"); pDRet = raw ("dRet");
     pRSize = raw ("rSize"); pRDrive = raw ("rDrive"); pRCut = raw ("rCut"); pRDuck = raw ("rDuck"); pRRet = raw ("rRet");
     pStutter = raw ("stutter"); pStutLen = raw ("stutLen"); pFill = raw ("fill");
-    pSvaj = raw ("svaj"); pGlitch = raw ("glitch"); pDens = raw ("dens");
+    pSvaj = raw ("svaj"); pGlitch = raw ("glitch"); pDens = raw ("dens"); pHammer = raw ("hammer"); pGlow = raw ("glow");
     glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     for (int l = 0; l < kLanes; ++l)
         lp[(size_t) l] = { raw (laneId (l, "type")), raw (laneId (l, "cut")), raw (laneId (l, "res")), raw (laneId (l, "drive")),
@@ -166,9 +168,9 @@ BetongProcessor::BetongProcessor()
         for (int i = 0; i < count; ++i) if (juce::String::fromUTF8 (table[i].name) == juce::String::fromUTF8 (name)) return i;
         return 0;
     };
-    applyKit (findIndex (kKits, kNumKits, "Betong Grund"));
+    applyKit (findIndex (kKits, kNumKits, kIsSmidet ? "Smedjan" : "Betong Grund"));
     applyPattern (findIndex (kPatterns, kNumPatterns, BETONG_DEFAULT_PATTERN));
-    applyFx (findIndex (kFx, kNumFx, "Fuktigt Betonggolv"));
+    applyFx (findIndex (kFx, kNumFx, kIsSmidet ? "Smedjeglöd" : "Fuktigt Betonggolv"));
 
     startTimerHz (1);
 }
@@ -411,7 +413,7 @@ Step BetongProcessor::effectiveStep (int li, juce::int64 n, int depth) const
     const int i = (int) ((((n - rot) % len) + len) % len);
     Step st = lane.steps[(size_t) i];
 
-    const float dens = pDens->load();
+    const float dens = juce::jlimit (-1.0f, 1.0f, pDens->load() + pHammer->load() * 0.6f);
     const float breath = lane.breathe > 0
         ? (float) lane.breathe * (float) std::sin (juce::MathConstants<double>::twoPi * bar / juce::jmax (1, lane.breatheBars))
         : 0.0f;
@@ -471,7 +473,7 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
     const double ppqEnd = ppqStart + numSamples / samplesPerBeat;
     const float swing = pSwing->load();
     const bool fill = fillHeld.load() || pFill->load() > 0.5f;
-    const float svaj = pSvaj->load(), glitch = pGlitch->load();
+    const float svaj = pSvaj->load(), glitch = juce::jmin (1.0f, pGlitch->load() + pHammer->load() * 0.25f);
 
     bool anySolo = false;
     for (auto& l : audioPattern.lanes) anySolo |= l.solo;
@@ -657,9 +659,10 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             LaneChain::Params cp;
             cp.type = (int) prm.type->load();
             cp.cutoff = prm.cut->load();
-            cp.resonance = prm.res->load();
-            cp.drive = prm.drive->load();
-            cp.envAmount = prm.env->load();
+            const float hammer = pHammer->load(), glow = pGlow->load();
+            cp.resonance = juce::jmin (0.97f, prm.res->load() + glow * 0.35f);
+            cp.drive = juce::jmin (1.0f, prm.drive->load() + hammer * 0.35f + glow * 0.25f);
+            cp.envAmount = juce::jmin (1.0f, prm.env->load() + glow * 0.3f);
             cp.envDecayMs = prm.dec->load();
             cp.crush = prm.crush->load();
             chains[(size_t) li].process (lb, n, cp);
@@ -695,7 +698,9 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         rumble.process (sendB.getReadPointer (0), rumbleOut.getWritePointer (0), n,
                         pRSize->load(), pRDrive->load(), pRCut->load(), pRDuck->load(), beatSec);
 
-        const float dRet = pDRet->load(), rRet = pRRet->load() * 0.7f; // rumblen ska ligga under kicken
+        const float glowM = pGlow->load();
+        const float dRet = juce::jmin (1.0f, pDRet->load() + glowM * 0.25f);
+        const float rRet = pRRet->load() * 0.7f * (1.0f + glowM * 0.8f); // rumblen ska ligga under kicken
         const auto* dL = delayOut.getReadPointer (0); const auto* dR = delayOut.getReadPointer (1);
         const auto* rm = rumbleOut.getReadPointer (0);
 
@@ -703,7 +708,7 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         const float sweepTarget = pSweep->load();
         float sweep = sweepSmoothed.load();
         const float mcrush = pMCrush->load();
-        const float clip = pClip->load();
+        const float clip = juce::jmin (1.0f, pClip->load() + pHammer->load() * 0.25f);
         const float outGain = juce::Decibels::decibelsToGain (pOut->load());
         // clipper: drive in, men nästan oförändrad nivå för svaga signaler
         const float clipG = 1.0f + clip * clip * 1.6f; // max ca +8 dB in i mättningen: rakar toppar, plattar inte till
@@ -953,7 +958,9 @@ void BetongProcessor::randomKit()
     pushUndo();
     juce::Random rng;
     const float crazy = getParam ("crazy");
-    static const char* roleCats[kPads] = { "K", "K", "H", "H", "C", "C", "P", "P", "P", "P", "P", "P", "B", "S", "L", "X" };
+    static const char* betongCats[kPads] = { "K", "K", "H", "H", "C", "C", "P", "P", "P", "P", "P", "P", "B", "S", "L", "X" };
+    static const char* smidetCats[kPads] = { "K", "K", "H", "H", "C", "C", "F", "F", "F", "F", "F", "F", "B", "F", "F", "F" };
+    const char* const* roleCats = kIsSmidet ? smidetCats : betongCats;
     static const char* wild[] = { "P", "X", "V", "S", "L", "T", "H" };
     const auto pat = getPattern();
     for (int p = 0; p < kPads; ++p)

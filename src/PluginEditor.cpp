@@ -660,6 +660,21 @@ void LaneRow::paint (juce::Graphics& g)
 
 void LaneRow::resized()
 {
+    if (compact)
+    {
+        auto r = getLocalBounds().reduced (2, 2);
+        auto top = r.removeFromTop (r.getHeight() / 2).reduced (0, 2);
+        auto bot = r.reduced (0, 2);
+        labelArea = top.removeFromLeft (150);
+        auto put = [] (juce::Rectangle<int>& row, juce::Component& c, int w) { c.setBounds (row.removeFromLeft (w)); row.removeFromLeft (6); };
+        put (top, padBox, 80); put (top, rateBox, 80); put (top, lenSlider, 70);
+        put (bot, euclidButton, 30); put (bot, hitsSlider, 70); put (bot, rotSlider, 70);
+        auto right = bot.removeFromRight (3 * 34 + 4);
+        muteButton.setBounds (right.removeFromLeft (32)); right.removeFromLeft (2);
+        soloButton.setBounds (right.removeFromLeft (32)); right.removeFromLeft (2);
+        lockButton.setBounds (right.removeFromLeft (38));
+        return;
+    }
     auto r = getLocalBounds().reduced (2, 3);
     labelArea = r.removeFromLeft (118);
     auto put = [&] (juce::Component& c, int w) { c.setBounds (r.removeFromLeft (w)); r.removeFromLeft (5); };
@@ -887,7 +902,9 @@ void RingView::paint (juce::Graphics& g)
         auto info0 = proc.getPad (ln.pad);
         g.setColour (proc.selectedLane == l ? sodium : text);
         g.setFont (juce::FontOptions (12.0f, juce::Font::bold));
-        g.drawText (juce::String (l + 1) + " " + (info0.sample ? info0.sample->name : utf8 ("Tom")), row.removeFromLeft (190), juce::Justification::centredLeft, true);
+        const bool narrow = row.getWidth() < 330;   // smal förklaring (SMIDET): namn på första raden, resten under
+        auto nameArea = narrow ? row.removeFromTop (row.getHeight() / 2) : row.removeFromLeft (190);
+        g.drawText (juce::String (l + 1) + " " + (info0.sample ? info0.sample->name : utf8 ("Tom")), nameArea, juce::Justification::centredLeft, true);
         juce::String d = juce::String (on) + "/" + juce::String (ln.length) + "  " + kRates[juce::jlimit (0, kNumRates - 1, ln.rate)].name;
         if (ln.euclid) d += "  E rot " + juce::String (ln.rotate);
         juce::StringArray magic;
@@ -899,14 +916,25 @@ void RingView::paint (juce::Graphics& g)
         if (ln.fillOf >= 0) magic.add (utf8 ("fyller luckor i ") + juce::String (ln.fillOf + 1));
         g.setColour (muted);
         g.setFont (juce::FontOptions (11.0f));
-        g.drawText (d, row.removeFromLeft (150), juce::Justification::centredLeft, true);
-        g.setColour (cold);
-        g.drawText (magic.joinIntoString (" · "), row, juce::Justification::centredLeft, true);
+        if (narrow)
+        {
+            auto sub = row.withTrimmedBottom (row.getHeight() / 3);
+            g.drawText (d, sub.removeFromTop (sub.getHeight() / 2 + 2), juce::Justification::centredLeft, true);
+            g.setColour (cold);
+            g.drawText (magic.joinIntoString (" · "), row.withTrimmedTop (row.getHeight() / 2 - 2), juce::Justification::centredLeft, true);
+        }
+        else
+        {
+            g.drawText (d, row.removeFromLeft (150), juce::Justification::centredLeft, true);
+            g.setColour (cold);
+            g.drawText (magic.joinIntoString (" · "), row, juce::Justification::centredLeft, true);
+        }
     }
     g.setColour (muted);
     g.setFont (juce::FontOptions (10.0f));
-    g.drawText (utf8 ("Dra runt = rotera · dra upp/ner eller rulla = antal slag · dubbelklick = euklid på/av"),
-                getLocalBounds().removeFromBottom (14).withTrimmedLeft ((int) (R * 2.0f + 40.0f)), juce::Justification::centredLeft, true);
+    if (getWidth() - (int) (R * 2.0f + 40.0f) >= 330)
+        g.drawText (utf8 ("Dra runt = rotera · dra upp/ner eller rulla = antal slag · dubbelklick = euklid på/av"),
+                    getLocalBounds().removeFromBottom (14).withTrimmedLeft ((int) (R * 2.0f + 40.0f)), juce::Justification::centredLeft, true);
 }
 
 void RingView::mouseDown (const juce::MouseEvent& e)
@@ -1169,6 +1197,25 @@ BetongContent::BetongContent (BetongProcessor& p)
     for (auto* k : { &kDFb, &kDTone, &kDWob, &kDRet, &kRSize, &kRDrive, &kRCut, &kRDuck, &kRRet, &kSweep, &kMCrush, &kClip, &kOut }) addAndMakeVisible (*k);
     kDFb.setAccent (cold); kDTone.setAccent (cold); kDWob.setAccent (cold); kDRet.setAccent (cold);
 
+    if (kIsSmidet)
+    {
+        // SMIDET: ringarna är maskinen. Inget vågformsfönster, inga pads; spåret redigeras i smedjepanelen.
+        kHammer.attach (s, "hammer", "HAMMARE");
+        kGlow.attach (s, "glow", utf8 ("GLÖD"));
+        kGlow.setAccent (juce::Colour (0xffffb347));
+        kHammer.slider.setTooltip (utf8 ("Hammare: tätare, hårdare och fler skurar på en gång"));
+        kGlow.slider.setTooltip (utf8 ("Glöd: resonans, drive och mer rumble"));
+        soundButton.setTooltip (utf8 ("Välj ljud för det valda spåret"));
+        soundButton.onClick = [this] { showLaneSoundMenu(); };
+        soundButton.setColour (juce::TextButton::textColourOffId, sodium);
+        for (auto* c : std::initializer_list<juce::Component*> { &kHammer, &kGlow, &soundButton }) addAndMakeVisible (*c);
+        for (auto* c : std::initializer_list<juce::Component*> { &wave, &pads, &loadButton, &libButton, &chopButton, &chopMode, &sensitivity, &ringButton })
+            c->setVisible (false);
+        for (auto& r : rows) r->setCompact (true);
+        setSidePage (true);
+        setRingMode (true);
+    }
+
     setSize (W, H);
     selectionChanged();
     addChildComponent (about);
@@ -1250,6 +1297,11 @@ void BetongContent::selectionChanged()
         revAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (s, BetongProcessor::padId (p, "rev"), revButton);
     }
     for (auto& r : rows) r->refresh();
+    if (kIsSmidet)
+    {
+        for (int i = 0; i < kLanes; ++i) rows[(size_t) i]->setVisible (i == proc.selectedLane);
+        soundButton.setButtonText (utf8 ("Ljud: ") + padName (proc, proc.getPattern().lanes[(size_t) proc.selectedLane].pad) + utf8 ("  ▾"));
+    }
     if (euclidPanel != nullptr && euclidPanel->isVisible()) euclidPanel->refresh();
     if (ringView != nullptr) ringView->repaint();
     refreshPresetBoxes();
@@ -1320,9 +1372,16 @@ void BetongContent::paint (juce::Graphics& g)
     g.setFont (juce::FontOptions (26.0f, juce::Font::bold).withHorizontalScale (0.8f));
     g.drawText (juce::String (proc.currentBpm.load(), 1), bpmArea.removeFromTop (30), juce::Justification::centredLeft);
 
-    // vågform + pads
-    drawPanel (g, waveArea, utf8 ("SAMPLING · PAD ") + juce::String (proc.selectedPad + 1));
-    drawPanel (g, padsArea, "PADS", utf8 ("Klick spelar · högerklick väljer ljud · dra in filer"));
+    // vågform + pads (BETONG) eller smedjepanelen (SMIDET)
+    if (kIsSmidet)
+    {
+        drawPanel (g, forgeArea, utf8 ("SMEDJAN · SPÅR ") + juce::String (proc.selectedLane + 1), utf8 ("Klicka på en ring för att välja spår"));
+    }
+    else
+    {
+        drawPanel (g, waveArea, utf8 ("SAMPLING · PAD ") + juce::String (proc.selectedPad + 1));
+        drawPanel (g, padsArea, "PADS", utf8 ("Klick spelar · högerklick väljer ljud · dra in filer"));
+    }
 
     // sidopanel
     drawPanel (g, sideArea, utf8 ("SPÅR ") + juce::String (proc.selectedLane + 1),
@@ -1331,7 +1390,7 @@ void BetongContent::paint (juce::Graphics& g)
     g.drawHorizontalLine (sideArea.getY() + 206, (float) sideArea.getX() + 12, (float) sideArea.getRight() - 12);
 
     // sequencer
-    drawPanel (g, seqArea, "SEQUENCER");
+    drawPanel (g, seqArea, kIsSmidet ? utf8 ("SMEDJANS RINGAR") : juce::String ("SEQUENCER"));
 
     // effekter
     const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
@@ -1474,6 +1533,78 @@ void BetongContent::resized()
 
     logoArea = headerArea.reduced (16, 8).removeFromLeft (150);
     about.setBounds (getLocalBounds());
+    if (kIsSmidet) layoutSmidet();
+}
+
+void BetongContent::layoutSmidet()
+{
+    auto r = getLocalBounds().reduced (16);
+    r.removeFromTop (64 + 12);
+    r.removeFromBottom (96 + 12);
+    auto right = r.removeFromRight (452);
+    r.removeFromRight (12);
+    seqArea = r;
+    sideArea = right.removeFromTop (296);
+    right.removeFromTop (12);
+    forgeArea = right;
+    waveArea = padsArea = {};
+
+    auto s = seqArea.reduced (12, 8);
+    auto head = s.removeFromTop (24).withTrimmedBottom (3);
+    head.removeFromLeft (150);
+    for (auto& b : sceneButtons) { b.setBounds (head.removeFromLeft (30)); head.removeFromLeft (3); }
+    head.removeFromLeft (6);
+    copyScene.setBounds (head.removeFromLeft (92)); head.removeFromLeft (6);
+    fillButton.setBounds (head.removeFromLeft (56)); head.removeFromLeft (8);
+    svajSlider.setBounds (head.removeFromLeft (110)); head.removeFromLeft (4);
+    glitchSlider.setBounds (head.removeFromLeft (110)); head.removeFromLeft (4);
+    densSlider.setBounds (head.removeFromLeft (juce::jmin (130, head.getWidth())));
+    ringView->setBounds (s.withTrimmedTop (4));
+
+    auto f = forgeArea.reduced (12, 8);
+    f.removeFromTop (24);
+    auto knobs = f.removeFromTop (112);
+    kHammer.setBounds (knobs.removeFromLeft (108));
+    kGlow.setBounds (knobs.removeFromLeft (108));
+    knobs.removeFromLeft (12);
+    soundButton.setBounds (knobs.withSizeKeepingCentre (knobs.getWidth(), 36));
+    f.removeFromTop (10);
+    const auto laneArea = f.removeFromTop (64);
+    for (auto& row : rows) row->setBounds (laneArea);
+}
+
+void BetongContent::showLaneSoundMenu()
+{
+    const int pad = proc.getPattern().lanes[(size_t) proc.selectedLane].pad;
+    const auto names = proc.library().getNames();
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("LJUD FÖR SPÅR ") + juce::String (proc.selectedLane + 1) + " (PAD " + juce::String (pad + 1) + ")");
+    auto addCat = [&] (const Category& cat)
+    {
+        juce::PopupMenu sub;
+        for (int i = 0; i < names.size(); ++i)
+            if (BuiltInLibrary::categoryOf (names[i]) == cat.prefix)
+                sub.addItem (1000 + i, BuiltInLibrary::displayName (names[i]));
+        m.addSubMenu (utf8 (cat.name), sub);
+    };
+    for (auto& cat : kCategories) if (juce::String (cat.prefix) == "F") addCat (cat);   // smedjan först
+    for (auto& cat : kCategories) if (juce::String (cat.prefix) != "F") addCat (cat);
+    m.addSeparator();
+    m.addItem (1, utf8 ("Ladda fil..."));
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&soundButton), [this, pad, names] (int r)
+    {
+        if (r >= 1000) { proc.loadBuiltInToPad (pad, names[r - 1000]); proc.triggerPad (pad); }
+        else if (r == 1)
+        {
+            chooser = std::make_unique<juce::FileChooser> (utf8 ("Välj ett ljud"), juce::File(), BetongProcessor::audioWildcard);
+            chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [this, pad] (const juce::FileChooser& fc)
+            {
+                if (fc.getResult().existsAsFile() && proc.loadFileToPad (pad, fc.getResult())) proc.triggerPad (pad);
+                selectionChanged();
+            });
+        }
+        selectionChanged();
+    });
 }
 
 void BetongContent::mouseDown (const juce::MouseEvent& e)

@@ -127,9 +127,11 @@ public:
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
     void refresh();
+    void setCompact (bool c) { compact = c; grid.setVisible (! c); resized(); }
     StepGrid grid;
 
 private:
+    bool compact = false;   // SMIDET: två rader utan stegrutnät, i smedjepanelen
     BetongProcessor& proc;
     int lane;
     std::function<void (int)> selectLane;
@@ -248,6 +250,12 @@ public:
     void setSidePage (bool euclid);
     void setRingMode (bool on);
 private:
+    // SMIDET
+    juce::Rectangle<int> forgeArea;
+    Knob kHammer, kGlow;
+    juce::TextButton soundButton;
+    void showLaneSoundMenu();
+    void layoutSmidet();
     bool blinkOn = false;
     int blinkCount = 0;
 

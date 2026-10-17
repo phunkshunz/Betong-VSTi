@@ -177,6 +177,7 @@ private:
     std::atomic<float>* pRDuck = nullptr; std::atomic<float>* pRRet = nullptr;
     std::atomic<float>* pStutter = nullptr; std::atomic<float>* pStutLen = nullptr; std::atomic<float>* pFill = nullptr;
     std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr; std::atomic<float>* pDens = nullptr;
+    std::atomic<float>* pHammer = nullptr; std::atomic<float>* pGlow = nullptr;
     juce::uint32 glitchSeed = 0x5eed;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
