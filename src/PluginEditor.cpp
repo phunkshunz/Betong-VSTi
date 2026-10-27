@@ -422,6 +422,17 @@ void StepGrid::paint (juce::Graphics& g)
     const auto col = BetongColours::lane (lane);
     const float cw = (float) getWidth() / kMaxSteps;
 
+    // MOTOR: räkna fram samma levande kopia som ljudtråden spelar, och visa skillnaden
+    const bool motorLive = proc.motorRunning.load() && ! ln.lock;
+    Lane evo = ln;
+    bool resting = false;
+    if (motorLive)
+    {
+        motor::evolve (evo, lane, proc.motorSettings(), std::floor (proc.motorBar.load()) + 0.01);
+        if (evo.euclid) applyEuclid (evo);
+        resting = ((proc.motorLaneMask.load() >> lane) & 1) == 0;
+    }
+
     for (int i = 0; i < kMaxSteps; ++i)
     {
         auto r = juce::Rectangle<float> (i * cw, 0, cw, (float) getHeight()).reduced (1.5f, 1.0f);
@@ -462,6 +473,39 @@ void StepGrid::paint (juce::Graphics& g)
                 g.fillEllipse (juce::Rectangle<float> (4.0f, 4.0f).withCentre ({ r.getRight() - 4.0f, r.getBottom() - 4.0f }));
             }
         }
+        if (motorLive)
+        {
+            const auto& ev = evo.steps[(size_t) i];
+            if (st.on && ! ev.on)
+            {
+                // motorn har tagit bort slaget: mörkt och överstruket
+                g.setColour (ground.withAlpha (0.6f));
+                g.fillRoundedRectangle (r, 3.0f);
+                g.setColour (cold.withAlpha (0.8f));
+                g.drawLine (r.getX() + 3.0f, r.getBottom() - 3.0f, r.getRight() - 3.0f, r.getY() + 3.0f, 1.4f);
+            }
+            else if (! st.on && ev.on)
+            {
+                // motorn har lagt till ett slag: kall ram
+                g.setColour (cold.withAlpha (ev.ghost ? 0.55f : 0.95f));
+                g.drawRoundedRectangle (r.reduced (0.5f), 3.0f, 1.6f);
+                g.fillEllipse (juce::Rectangle<float> (4.0f, 4.0f).withCentre (r.getCentre()));
+            }
+            else if (st.on && (st.accent != ev.accent || st.ghost != ev.ghost || st.ratchet != ev.ratchet
+                               || st.semi != ev.semi || st.prob != ev.prob))
+            {
+                g.setColour (cold);
+                g.fillEllipse (juce::Rectangle<float> (5.0f, 5.0f).withCentre ({ r.getRight() - 4.0f, r.getY() + 4.0f }));
+            }
+        }
+    }
+    if (resting)
+    {
+        g.setColour (ground.withAlpha (0.62f));
+        g.fillRect (getLocalBounds());
+        g.setColour (cold.withAlpha (0.9f));
+        g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        g.drawText (utf8 ("VILAR · MOTORN"), getLocalBounds().withTrimmedLeft (8), juce::Justification::centredLeft, false);
     }
 }
 
@@ -805,6 +849,221 @@ void EuclidPanel::resized()
     put (rows[4], { &toneHits, &toneLen, &toneSemi });
     put (rows[5], { &fillOf });
     clearAll.setBounds (rows[6].withSizeKeepingCentre (150, rows[6].getHeight() - 4).withX (rows[6].getRight() - 150));
+}
+
+//==============================================================================
+// MOTOR-fliken
+
+void EnergyView::paint (juce::Graphics& g)
+{
+    auto area = getLocalBounds().toFloat();
+    g.setColour (raised);
+    g.fillRoundedRectangle (area, 5.0f);
+    g.setColour (line2);
+    g.drawRoundedRectangle (area.reduced (0.5f), 5.0f, 1.0f);
+
+    const auto st = [this] { auto s = proc.motorSettings(); s.on = true; return s; }();
+    const bool on = proc.motorSettings().on;
+    const bool running = proc.motorRunning.load();
+    const double now = proc.motorBar.load();
+
+    // fönstret: hela låten för låtformerna, annars 128 takter runt där vi är
+    const int total = motor::formBars (st.form);
+    double from = 0.0, span = total > 0 ? (double) total : 128.0;
+    if (total == 0 && running) from = juce::jmax (0.0, std::floor ((now - 32.0) / 16.0) * 16.0);
+
+    auto plot = area.reduced (6.0f, 4.0f);
+    plot.removeFromTop (14.0f);   // delarnas namn
+    plot.removeFromBottom (10.0f); // taktnummer
+    auto xOf = [&] (double bar) { return plot.getX() + (float) ((bar - from) / span) * plot.getWidth(); };
+    auto yOf = [&] (float e) { return plot.getBottom() - e * plot.getHeight(); };
+
+    // delarna som band med namn
+    {
+        int sec = -1; double secStart = from;
+        int band = 0;
+        auto flush = [&] (double endBar)
+        {
+            if (sec < 0) return;
+            const float x0 = xOf (secStart), x1 = xOf (endBar);
+            const bool dark = sec == motor::SecBreak || sec == motor::SecLyft;
+            g.setColour (dark ? ground.withAlpha (0.55f) : (band % 2 ? line.withAlpha (0.35f) : juce::Colours::transparentBlack));
+            g.fillRect (juce::Rectangle<float> (x0, area.getY() + 2.0f, x1 - x0, area.getHeight() - 4.0f));
+            if (x1 - x0 > 26.0f)
+            {
+                g.setColour (muted);
+                g.setFont (juce::FontOptions (8.5f, juce::Font::bold));
+                g.drawText (utf8 (motor::sectionName (sec)), juce::Rectangle<float> (x0 + 2.0f, area.getY() + 3.0f, x1 - x0 - 4.0f, 11.0f),
+                            juce::Justification::centredLeft, true);
+            }
+            ++band;
+        };
+        for (double b = from; b < from + span; b += 1.0)
+        {
+            const int s = motor::locate (st, b + 0.5).section;
+            if (s != sec) { flush (b); sec = s; secStart = b; }
+        }
+        flush (from + span);
+    }
+
+    // energikurvan
+    juce::Path curve, fill;
+    const int steps = juce::jmax (2, (int) plot.getWidth());
+    for (int i = 0; i <= steps; ++i)
+    {
+        const double b = from + span * i / steps;
+        const float x = xOf (b), y = yOf (motor::energyAt (st, b));
+        if (i == 0) { curve.startNewSubPath (x, y); fill.startNewSubPath (x, plot.getBottom()); }
+        curve.lineTo (x, y);
+        fill.lineTo (x, y);
+    }
+    fill.lineTo (plot.getRight(), plot.getBottom());
+    fill.closeSubPath();
+    const auto accent = on ? sodium : muted;
+    g.setGradientFill (juce::ColourGradient (accent.withAlpha (0.28f), 0.0f, plot.getY(), accent.withAlpha (0.02f), 0.0f, plot.getBottom(), false));
+    g.fillPath (fill);
+    g.setColour (accent);
+    g.strokePath (curve, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    // taktnummer var 16:e takt
+    g.setFont (juce::FontOptions (8.0f));
+    g.setColour (muted.withAlpha (0.8f));
+    const int tickEvery = span > 160.0 ? 32 : 16;
+    for (double b = std::ceil (from / tickEvery) * tickEvery; b < from + span; b += tickEvery)
+    {
+        const float x = xOf (b);
+        g.fillRect (x, plot.getBottom(), 1.0f, 3.0f);
+        g.drawText (juce::String ((int) b + 1), juce::Rectangle<float> (x + 2.0f, plot.getBottom() + 1.0f, 30.0f, 9.0f), juce::Justification::centredLeft, false);
+    }
+
+    // spelhuvudet
+    if (running)
+    {
+        const double pos = total > 0 ? std::fmod (now, (double) total) : now;
+        const float x = xOf (pos), y = yOf (proc.motorEnergy.load());
+        g.setColour (cold);
+        g.fillRect (x - 0.75f, plot.getY(), 1.5f, plot.getHeight());
+        g.fillEllipse (juce::Rectangle<float> (7.0f, 7.0f).withCentre ({ x, y }));
+    }
+    else
+    {
+        g.setColour (text.withAlpha (on ? 0.75f : 0.9f));
+        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.drawText (on ? utf8 ("Tryck Play så börjar motorn") : utf8 ("Slå på MOTOR så lever beatet av sig självt"),
+                    plot.toNearestInt(), juce::Justification::centred, false);
+    }
+}
+
+MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : proc (p), energy (p)
+{
+    auto& s = proc.apvts;
+    addAndMakeVisible (energy);
+
+    onButton.setClickingTogglesState (true);
+    onAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (s, "mOn", onButton);
+    onButton.setTooltip (utf8 ("Slå på motorn: spår kommer och går, mönstret ändras lite per fras och filtren andas. Ditt mönster ändras aldrig."));
+    onButton.onClick = [cb = std::move (onToggle)] { if (cb) cb(); };
+    addAndMakeVisible (onButton);
+
+    for (int i = 0; i < motor::kNumForms; ++i) formBox.addItem (utf8 (motor::formName (i)), i + 1);
+    formAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (s, "mForm", formBox);
+    formBox.setTooltip (utf8 ("Låtformen. Bara liv: allt spelar, bara små förändringar. Fri: ändlösa vågor med break ibland. "
+                              "Kort, Låt och Afterhour: intro, bygg, topp, break, lyft, topp 2 och utrull."));
+    addAndMakeVisible (formBox);
+
+    seedButton.setTooltip (utf8 ("Ny seed: en helt ny utveckling av samma mönster. Samma seed låter alltid likadant."));
+    seedButton.onClick = [this] { proc.newMotorSeed(); tick(); };
+    seedButton.setColour (juce::TextButton::textColourOffId, sodium);
+    addAndMakeVisible (seedButton);
+
+    seedLabel.setEditable (false, true, false);
+    seedLabel.setJustificationType (juce::Justification::centred);
+    seedLabel.setColour (juce::Label::backgroundColourId, raised);
+    seedLabel.setColour (juce::Label::outlineColourId, line2);
+    seedLabel.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    seedLabel.setTooltip (utf8 ("Seed. Dubbelklicka och skriv ett nummer (1-9999) för att ta fram en utveckling igen."));
+    seedLabel.onTextChange = [this]
+    {
+        const int v = seedLabel.getText().retainCharacters ("0123456789").getIntValue();
+        if (v >= 1) proc.setParam ("mSeed", (float) juce::jlimit (1, 9999, v));
+        shownSeed = -1;
+        tick();
+    };
+    addAndMakeVisible (seedLabel);
+
+    struct K { Knob* k; const char* id; const char* name; const char* tip; };
+    const K knobs[] = {
+        { &kMove,  "mMove",  "RÖRELSE", "Hur ofta saker ändras: från var 32:a takt till varannan takt" },
+        { &kDepth, "mDepth", "DJUP",    "Hur stora ändringarna blir: ett slag i taget eller flera" },
+        { &kChaos, "mChaos", "KAOS",    "Drar i allt på en gång: rörelse, djup, ojämnare energi, fler drops och glitch" },
+        { &kFilt,  "mFilt",  "FILTER",  "Andningsfilter, stängning inför skiften, resonanstoppar och master-svep i break och lyft" },
+        { &kDub,   "mDub",   "DUB",     "Dub-kast: ett slag kastas in i delayen på slutet av frasen" },
+        { &kPump,  "mPump",  "PUMP",    "Sidechain från kicken och drive som växer med energin" },
+        { &kFeel,  "mFeel",  "SVÄNG",   "Velocity-vågor, mikrotiming och swing som driver långsamt" },
+    };
+    for (const auto& k : knobs)
+    {
+        k.k->attach (s, k.id, utf8 (k.name));
+        k.k->slider.setTooltip (utf8 (k.tip));
+        addAndMakeVisible (*k.k);
+    }
+    kFilt.setAccent (cold); kDub.setAccent (cold); kFeel.setAccent (cold);
+    tick();
+}
+
+void MotorPanel::tick()
+{
+    const auto st = proc.motorSettings();
+    onButton.setButtonText (st.on ? utf8 ("MOTOR PÅ") : utf8 ("MOTOR AV"));
+    if ((int) st.seed != shownSeed && ! seedLabel.isBeingEdited())
+    {
+        shownSeed = (int) st.seed;
+        seedLabel.setText (utf8 ("SEED ") + juce::String (shownSeed).paddedLeft ('0', 4), juce::dontSendNotification);
+    }
+
+    juce::String s;
+    if (! st.on)
+        s = utf8 ("Motorn räknar fram en levande kopia av ditt mönster. Låsta spår lämnas i fred.");
+    else if (! proc.motorRunning.load())
+        s = utf8 ("Redo. Formen följer låtens position i DAW:en, takt 1 = intro.");
+    else
+    {
+        const double bar = proc.motorBar.load();
+        const auto w = motor::locate (st, bar);
+        s = utf8 ("Takt ") + juce::String ((int) std::floor (bar) + 1) + utf8 (" · ") + utf8 (motor::sectionName (w.section))
+          + utf8 (" · energi ") + juce::String (juce::roundToInt (w.energy * 100.0f)) + " %";
+        if (w.toNext < 1.0e6) s += utf8 (" · skifte om ") + juce::String ((int) std::ceil (w.toNext - 1.0e-6)) + utf8 (" takter");
+        const int mask = proc.motorLaneMask.load();
+        juce::String lanes;
+        for (int l = 0; l < kLanes; ++l) if ((mask >> l) & 1) lanes << (l + 1) << " ";
+        s += utf8 (" · spelar ") + (lanes.isEmpty() ? utf8 ("inget") : lanes.trim());
+    }
+    if (s != status) { status = s; repaint (statusArea); }
+    energy.repaint();
+}
+
+void MotorPanel::paint (juce::Graphics& g)
+{
+    g.setColour (muted);
+    g.setFont (juce::FontOptions (10.0f));
+    g.drawFittedText (status, statusArea, juce::Justification::centredLeft, 2, 0.9f);
+}
+
+void MotorPanel::resized()
+{
+    auto r = getLocalBounds();
+    auto top = r.removeFromTop (26);
+    onButton.setBounds (top.removeFromLeft (104)); top.removeFromLeft (6);
+    formBox.setBounds (top.removeFromLeft (128)); top.removeFromLeft (6);
+    seedButton.setBounds (top.removeFromRight (80)); top.removeFromRight (6);
+    seedLabel.setBounds (top);
+    r.removeFromTop (6);
+    statusArea = r.removeFromBottom (26);
+    auto knobs = r.removeFromBottom (72);
+    r.removeFromBottom (4);
+    energy.setBounds (r);
+    const int kw = knobs.getWidth() / 7;
+    for (auto* k : { &kMove, &kDepth, &kChaos, &kFilt, &kDub, &kPump, &kFeel }) k->setBounds (knobs.removeFromLeft (kw));
 }
 
 //==============================================================================
@@ -1273,14 +1532,25 @@ BetongContent::BetongContent (BetongProcessor& p)
     addChildComponent (*ringView);
     ringView->onLoadFile = [this] (int l) { loadFileForLane (l); };
     ringView->onLaneMenu = [this] (int l) { showLaneMenu (l); };
-    for (auto* b : { &tabFilter, &tabEuclid, &ringButton })
+    motorPanel = std::make_unique<MotorPanel> (proc, [this] { for (auto& r : rows) r->grid.repaint(); });
+    addChildComponent (*motorPanel);
+    for (auto* b : { &tabFilter, &tabEuclid, &tabMotor, &ringButton })
     {
         b->setClickingTogglesState (false);
         addAndMakeVisible (*b);
     }
     tabFilter.setToggleState (true, juce::dontSendNotification);
-    tabFilter.onClick = [this] { setSidePage (false); };
-    tabEuclid.onClick = [this] { setSidePage (true); };
+    tabFilter.onClick = [this] { setSidePage (PageFilter); };
+    tabEuclid.onClick = [this] { setSidePage (PageEuclid); };
+    tabMotor.onClick = [this] { setSidePage (PageMotor); };
+    tabMotor.setTooltip (utf8 ("MOTOR: energikurva, låtform och rattarna som får beatet att leva"));
+    tabMotor.setColour (juce::TextButton::buttonOnColourId, cold);
+    motorButton.setClickingTogglesState (true);
+    motorAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "mOn", motorButton);
+    motorButton.setColour (juce::TextButton::buttonOnColourId, cold);
+    motorButton.setTooltip (utf8 ("MOTOR: beatet lever och utvecklas av sig självt. Ditt mönster ändras aldrig."));
+    motorButton.onClick = [this] { if (motorButton.getToggleState()) setSidePage (PageMotor); };
+    addAndMakeVisible (motorButton);
     tabEuclid.setTooltip (utf8 ("Euklid-magi för valt spår: rotation som rör sig, andning, lager och fyll luckorna"));
     ringButton.setTooltip (utf8 ("Visa spåren som euklidiska ringar"));
     ringButton.onClick = [this] { setRingMode (! ringView->isVisible()); };
@@ -1327,7 +1597,8 @@ BetongContent::BetongContent (BetongProcessor& p)
         for (auto* c : std::initializer_list<juce::Component*> { &wave, &pads, &loadButton, &libButton, &chopButton, &chopMode, &sensitivity, &ringButton })
             c->setVisible (false);
         for (auto& r : rows) r->setCompact (true);
-        setSidePage (true);
+        motorButton.setVisible (false); // smedjans huvudrad är full; motorn nås via fliken
+        setSidePage (PageEuclid);
         setRingMode (true);
     }
 
@@ -1354,14 +1625,22 @@ void BetongContent::openFileForSelectedPad()
     });
 }
 
-void BetongContent::setSidePage (bool euclid)
+void BetongContent::setSidePage (int page)
 {
-    tabFilter.setToggleState (! euclid, juce::dontSendNotification);
+    sidePage = page;
+    const bool euclid = page == PageEuclid, motorPage = page == PageMotor, filter = page == PageFilter;
+    tabFilter.setToggleState (filter, juce::dontSendNotification);
     tabEuclid.setToggleState (euclid, juce::dontSendNotification);
+    tabMotor.setToggleState (motorPage, juce::dontSendNotification);
     for (auto* c : std::initializer_list<juce::Component*> { &filterType, &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing })
-        c->setVisible (! euclid);
+        c->setVisible (filter);
+    // motorfliken tar hela sidopanelen, padens rattar göms så länge (BETONG)
+    for (auto* c : std::initializer_list<juce::Component*> { &kPitch, &kDecay, &kPadVol, &kPadPan, &revButton })
+        c->setVisible (! motorPage);
     euclidPanel->setVisible (euclid);
+    motorPanel->setVisible (motorPage);
     if (euclid) euclidPanel->refresh();
+    if (motorPage) motorPanel->tick();
     repaint (sideArea);
 }
 
@@ -1446,6 +1725,7 @@ void BetongContent::timerCallback()
     pads.tick();
     for (auto& r : rows) r->grid.repaint();
     if (ringView != nullptr && ringView->isVisible()) ringView->repaint();
+    if (motorPanel != nullptr && motorPanel->isVisible()) motorPanel->tick();
 
     const bool host = proc.hostPlaying.load();
     playButton.setButtonText (host ? utf8 ("DAW") : (playButton.getToggleState() ? utf8 ("STOPP") : utf8 ("SPELA")));
@@ -1499,10 +1779,15 @@ void BetongContent::paint (juce::Graphics& g)
     }
 
     // sidopanel
-    drawPanel (g, sideArea, utf8 ("SPÅR ") + juce::String (proc.selectedLane + 1),
-               "PAD " + juce::String (proc.selectedPad + 1));
-    g.setColour (line);
-    g.drawHorizontalLine (sideArea.getY() + 206, (float) sideArea.getX() + 12, (float) sideArea.getRight() - 12);
+    if (sidePage == PageMotor)
+        drawPanel (g, sideArea, "MOTOR", utf8 ("alla spår"));
+    else
+    {
+        drawPanel (g, sideArea, utf8 ("SPÅR ") + juce::String (proc.selectedLane + 1),
+                   "PAD " + juce::String (proc.selectedPad + 1));
+        g.setColour (line);
+        g.drawHorizontalLine (sideArea.getY() + 206, (float) sideArea.getX() + 12, (float) sideArea.getRight() - 12);
+    }
 
     // sequencer
     drawPanel (g, seqArea, kIsSmidet ? utf8 ("SMEDJANS RINGAR") : juce::String ("SEQUENCER"));
@@ -1572,8 +1857,10 @@ void BetongContent::resized()
         auto tabs = s.removeFromTop (24).withTrimmedBottom (3);
         tabs.removeFromLeft (70);
         tabFilter.setBounds (tabs.removeFromLeft (76)); tabs.removeFromLeft (4);
-        tabEuclid.setBounds (tabs.removeFromLeft (76));
+        tabEuclid.setBounds (tabs.removeFromLeft (76)); tabs.removeFromLeft (4);
+        tabMotor.setBounds (tabs.removeFromLeft (76));
         euclidPanel->setBounds (s.withHeight (24 + 6 + 70 + 70));
+        motorPanel->setBounds (s.withTrimmedTop (2));
         auto typeRow = s.removeFromTop (24);
         filterType.setBounds (typeRow.removeFromLeft (110));
         s.removeFromTop (6);
@@ -1607,6 +1894,8 @@ void BetongContent::resized()
         densSlider.setBounds (head.removeFromLeft (140));
         head.removeFromLeft (10);
         ringButton.setBounds (head.removeFromLeft (60));
+        head.removeFromLeft (6);
+        motorButton.setBounds (head.removeFromLeft (76));
         const int rh = s.getHeight() / kLanes;
         ringView->setBounds (s);
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));

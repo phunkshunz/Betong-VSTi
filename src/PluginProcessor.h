@@ -4,6 +4,7 @@
 #include <deque>
 #include "Dsp.h"
 #include "Pattern.h"
+#include "Motor.h"
 #include "Library.h"
 #include "Identity.h"
 
@@ -103,6 +104,15 @@ public:
     betong::BuiltInLibrary& library() { return *builtIn; }
     juce::AudioFormatManager formats;
 
+    // MOTOR: läget som GUI:t visar (skrivs av ljudtråden en gång per block)
+    betong::motor::Settings motorSettings() const;
+    void newMotorSeed();
+    std::atomic<bool> motorRunning { false };
+    std::atomic<float> motorEnergy { 0.0f };
+    std::atomic<double> motorBar { 0.0 };
+    std::atomic<int> motorSection { 0 };
+    std::atomic<int> motorLaneMask { 0xFF };   // bit per spår: spelar enligt motorn
+
     std::atomic<bool> internalPlay { false };
     std::atomic<bool> hostPlaying { false };
     std::atomic<double> currentBpm { 130.0 };
@@ -128,6 +138,9 @@ private:
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
     betong::Step effectiveStep (int lane, juce::int64 n, int depth) const;   // steget som faktiskt spelas
+    const betong::Lane& motorLane (int lane, juce::int64 bar) const;        // motorns levande kopia av spåret
+    int motorMask (juce::int64 bar) const;                                  // spår som spelar enligt motorn
+    void motorEvents (juce::int64 bar, int& roll, int& thrown) const;       // rullning och dub-kast i takten
     float hash01 (juce::int64 n, int lane, juce::uint32 salt) const;
 
     juce::SharedResourcePointer<betong::BuiltInLibrary> builtIn;
@@ -179,6 +192,23 @@ private:
     std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr; std::atomic<float>* pDens = nullptr;
     std::atomic<float>* pHammer = nullptr; std::atomic<float>* pGlow = nullptr;
     juce::uint32 glitchSeed = 0x5eed;
+    std::atomic<float>* pMOn = nullptr; std::atomic<float>* pMMove = nullptr; std::atomic<float>* pMDepth = nullptr;
+    std::atomic<float>* pMChaos = nullptr; std::atomic<float>* pMFilt = nullptr; std::atomic<float>* pMDub = nullptr;
+    std::atomic<float>* pMPump = nullptr; std::atomic<float>* pMFeel = nullptr; std::atomic<float>* pMForm = nullptr;
+    std::atomic<float>* pMSeed = nullptr;
+
+    // motorn i ljudtråden. Cacharna gäller ett block i taget, eftersom mönstret kan ändras mellan blocken.
+    betong::motor::Settings ms;
+    bool motorOn = false;
+    mutable std::array<betong::Lane, betong::kLanes> evoLanes {};
+    mutable std::array<juce::int64, betong::kLanes> evoBars {};
+    mutable juce::int64 maskBar = std::numeric_limits<juce::int64>::min(), eventBar = std::numeric_limits<juce::int64>::min();
+    mutable int maskCache = 0xFF, rollCache = -1, throwCache = -1;
+    std::array<float, betong::kLanes> throwEnv {};
+    float pumpEnv = 0.0f;
+    bool pumpRising = false;
+    int kickHitAt = -1;                 // sampel i blocket där kicken slog (för pumpen)
+    std::vector<float> pumpBuf;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
                         std::atomic<float>* sendA; std::atomic<float>* sendB; std::atomic<float>* vol; std::atomic<float>* pan;

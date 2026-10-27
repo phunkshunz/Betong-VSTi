@@ -162,6 +162,40 @@ private:
     bool updating = false;
 };
 
+//==============================================================================
+// MOTOR-fliken: energikurvan genom låten och rattarna som styr hur beatet lever.
+class EnergyView : public juce::Component
+{
+public:
+    explicit EnergyView (BetongProcessor& p) : proc (p) {}
+    void paint (juce::Graphics&) override;
+
+private:
+    BetongProcessor& proc;
+};
+
+class MotorPanel : public juce::Component
+{
+public:
+    MotorPanel (BetongProcessor& p, std::function<void()> onToggle);
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void tick();
+
+private:
+    BetongProcessor& proc;
+    EnergyView energy;
+    juce::TextButton onButton, seedButton { "NY SEED" };
+    juce::Label seedLabel;
+    juce::ComboBox formBox;
+    Knob kMove, kDepth, kChaos, kFilt, kDub, kPump, kFeel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> formAtt;
+    juce::Rectangle<int> statusArea;
+    juce::String status;
+    int shownSeed = -1;
+};
+
 // Ring-vyn: spåren som koncentriska ringar. Dra runt = rotera, rulla eller dra upp/ner = antal slag.
 class RingView : public juce::Component, public juce::FileDragAndDropTarget, public juce::TooltipClient
 {
@@ -256,11 +290,17 @@ private:
     juce::TextButton copyScene { "Kopiera till..." }, fillButton { "FILL" };
     BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" }, densSlider { "DENSITET" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt, densAtt;
-    juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" };
+    juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" }, tabMotor { "MOTOR" };
+    juce::TextButton motorButton { "MOTOR" };
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> motorAtt;
     std::unique_ptr<EuclidPanel> euclidPanel;
+    std::unique_ptr<MotorPanel> motorPanel;
     std::unique_ptr<RingView> ringView;
+    juce::TooltipWindow tooltips { this, 700 };
+    int sidePage = 0;   // 0 filter, 1 euklid, 2 motor
 public:
-    void setSidePage (bool euclid);
+    enum SidePage { PageFilter = 0, PageEuclid, PageMotor };
+    void setSidePage (int page);
     void setRingMode (bool on);
 private:
     // SMIDET

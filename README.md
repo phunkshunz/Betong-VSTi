@@ -107,6 +107,18 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - **Fyll luckorna i:** spåret spelar bara där ett annat spår är tyst, för låsta afrikanska mönster.
 - Mönstermappen **Euklid-magi** har 14 färdiga exempel. Inget av detta ändrar själva mönstret.
 
+**MOTOR (beatet lever av sig självt)**
+- Tryck **MOTOR** i sequencern eller öppna fliken **MOTOR**. Ditt mönster ändras aldrig. Motorn räknar fram en levande kopia medan det spelar.
+- **Formen** följer låtens position i DAW:en: intro, bygg, topp, break, lyft, topp 2 och utrull över 64, 128 eller 256 takter. **Fri** ger ändlösa vågor med break ibland. **Bara liv** låter allt spela och gör bara små förändringar.
+- **Energikurvan** visar var i låten du är. Spår kommer in och går ut på frasgränser när energin stiger och sjunker. Kicken går ut i breaken och kommer tillbaka på droppen.
+- **RÖRELSE:** hur ofta saker ändras. **DJUP:** hur stora ändringarna blir. Ett slag läggs till, tas bort, flyttas eller byter styrka per fras. Efter fyra steg kommer grundmönstret tillbaka, och ibland kommer ett gammalt motiv tillbaka lite förändrat.
+- **KAOS:** drar i allt på en gång.
+- **FILTER:** filtren andas, stängs inför skiften och öppnar när det nya kommer in. Resonanstoppar när det är hett, mörkare master i breaken och ett HP-svep i lyftet.
+- **DUB:** ett slag kastas in i delayen på slutet av frasen. **PUMP:** sidechain från kicken och drive som växer med energin. **SVÄNG:** velocity-vågor, mikrotiming och swing som driver långsamt.
+- **Seed:** samma seed låter alltid likadant. **NY SEED** ger en ny utveckling av samma mönster.
+- I sequencern syns motorns ändringar live: kall ram = tillagt slag, överstruket = borttaget, prick = ändrad styrka eller ton. Spår som vilar blir mörka.
+- **Lås** på ett spår gör att motorn låter det vara.
+
 **Techno-filtret (valt spår)**
 - LP 24, LP 12, HP, BP och Notch.
 - Resonans som får dista, drive, envelope som öppnar filtret vid varje slag, och crush ner till 4 bit.
