@@ -25,7 +25,32 @@ struct Step
     int8_t semi = 0;       // ton per steg i halvtoner (-24..+24)
     uint8_t prob = 100;    // sannolikhet i procent
     uint8_t ratchet = 1;   // 1..4 upprepningar inom steget
+    uint8_t cond = 0;      // trig-villkor (se condName), 0 = alltid
 };
+
+// Trig-villkor à la Elektron. "1:4" = spela första varvet av fyra, "3:4" = tredje varvet.
+// FILL spelar bara när fill hålls inne, PRE om förra villkoret på spåret slog in.
+enum CondKind { CondAlways = 0, CondFill = 12, CondNotFill = 13, CondPre = 14, CondNotPre = 15, kNumConds = 16 };
+
+inline const char* condName (int c)
+{
+    static const char* n[] = { "Alltid", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "1:8", "8:8",
+                               "FILL", "!FILL", "PRE", "!PRE" };
+    return n[c < 0 || c >= kNumConds ? 0 : c];
+}
+
+// Villkor som inte beror på andra steg. iter = vilket varv av spåret (0, 1, 2 ...)
+inline bool condTrue (int c, juce::int64 iter, bool fill)
+{
+    static const int a[] = { 0, 1, 2, 1, 2, 3, 1, 2, 3, 4, 1, 8 };
+    static const int b[] = { 1, 2, 2, 3, 3, 3, 4, 4, 4, 4, 8, 8 };
+    if (c <= 0 || c >= kNumConds) return true;
+    if (c == CondFill) return fill;
+    if (c == CondNotFill) return ! fill;
+    if (c >= CondPre) return true; // räknas av sequencern
+    const juce::int64 m = ((iter % b[c]) + b[c]) % b[c];
+    return m == a[c] - 1;
+}
 
 struct Lane
 {
@@ -45,7 +70,61 @@ struct Lane
     int ratHits = 0, ratLen = 8, ratCount = 2; // ratchetlager
     int toneHits = 0, toneLen = 5, toneSemi = 12; // tonlager: tonhopp på toneHits av toneLen
     int fillOf = -1;                         // spela bara där spår fillOf är tyst (-1 = av)
+
+    // Liv och samtal
+    int life = 0;      // Game of Life på spåret: 0 av, 1 puls, 2 kaos, 3 liv (se lifeName)
+    int callResp = 0;  // fråga och svar: 0 av, 1 fråga (spelar jämna block), 2 svar (udda block)
+    int crBars = 2;    // blockets längd i takter
 };
+
+//==============================================================================
+// Game of Life på ett spår: stegen är celler som föds och dör en gång per takt.
+// Startraden är det du har ritat, och var 16:e takt börjar livet om från den.
+enum LifeKind { LifeOff = 0, LifePuls, LifeKaos, LifeLiv, kNumLife };
+
+inline const char* lifeName (int k)
+{
+    static const char* n[] = { "Av", "Puls (regel 90)", "Kaos (regel 30)", "Liv (föds 2-3, lever 2 eller 4)" };
+    return n[k < 0 || k >= kNumLife ? 0 : k];
+}
+
+inline juce::uint32 lifeStep (juce::uint32 row, int len, int kind)
+{
+    const juce::uint32 mask = len >= 32 ? 0xFFFFFFFFu : ((1u << len) - 1u);
+    auto at = [&] (int i) { i = ((i % len) + len) % len; return (row >> i) & 1u; };
+    juce::uint32 out = 0;
+    for (int i = 0; i < len; ++i)
+    {
+        const auto l = at (i - 1), c = at (i), r = at (i + 1);
+        juce::uint32 v = 0;
+        if (kind == LifePuls) v = l ^ r;
+        else if (kind == LifeKaos) v = l ^ (c | r);
+        else
+        {
+            const auto n = l + r + at (i - 2) + at (i + 2);
+            v = c ? (n == 2 || n == 4) : (n == 2 || n == 3);
+        }
+        out |= v << i;
+    }
+    return out & mask;
+}
+
+// Spårets rad för takten bar. Dör livet ut, eller blir allt fullt, börjar det om från ritningen.
+inline juce::uint32 lifeRow (juce::uint32 base, int len, int kind, juce::int64 bar)
+{
+    const int gen = (int) (((bar % 16) + 16) % 16);
+    juce::uint32 row = base;
+    const juce::uint32 mask = len >= 32 ? 0xFFFFFFFFu : ((1u << len) - 1u);
+    for (int g = 0; g < gen; ++g)
+    {
+        row = lifeStep (row, len, kind);
+        if (row == 0 || row == mask) row = base;
+    }
+    return row;
+}
+
+// Gör om spårets steg till generationen för takten bar. Nyfödda slag blir svaga.
+inline void applyLife (Lane& L, juce::int64 bar);
 
 // Euklidiskt slag på plats idx (0..len-1) med hits slag. Samma formel som applyEuclid.
 inline bool euclidOn (int idx, int hits, int len)
@@ -59,6 +138,51 @@ struct Pattern
 {
     std::array<Lane, kLanes> lanes {};
 };
+
+inline void applyEuclid (Lane& lane);
+
+inline void applyLife (Lane& L, juce::int64 bar)
+{
+    if (L.life <= LifeOff || L.life >= kNumLife) return;
+    if (L.euclid) { applyEuclid (L); L.euclid = false; }
+    const int len = juce::jlimit (1, kMaxSteps, L.length);
+    juce::uint32 base = 0;
+    int firstSemi = 0; bool found = false;
+    for (int i = 0; i < len; ++i)
+        if (L.steps[(size_t) i].on)
+        {
+            base |= 1u << i;
+            if (! found) { firstSemi = L.steps[(size_t) i].semi; found = true; }
+        }
+    if (base == 0) return;
+    const auto row = lifeRow (base, len, L.life, bar);
+    for (int i = 0; i < len; ++i)
+    {
+        auto& s = L.steps[(size_t) i];
+        const bool alive = (row >> i) & 1u;
+        if (alive && ! s.on) { s = Step {}; s.on = true; s.ghost = true; s.semi = (int8_t) firstSemi; }
+        else if (! alive) s.on = false;
+    }
+}
+
+// Morf: stegen glider över mot ett annat spår (samma spår i en annan scen). Varje steg har
+// sin egen tröskel, så morfen sker steg för steg och samma steg byter alltid vid samma läge.
+inline void applyMorph (Lane& L, const Lane& target, int laneIndex, float amount)
+{
+    if (amount <= 0.001f) return;
+    Lane t = target;
+    if (t.euclid) applyEuclid (t);
+    if (L.euclid) { applyEuclid (L); L.euclid = false; }
+    const int len = juce::jlimit (1, kMaxSteps, L.length);
+    for (int i = 0; i < len; ++i)
+    {
+        juce::uint32 x = (juce::uint32) (i + 1) * 2654435761u ^ (juce::uint32) (laneIndex + 1) * 0x9E3779B9u;
+        x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+        const float threshold = (float) (x & 0xFFFF) / 65536.0f;
+        if (threshold < amount)
+            L.steps[(size_t) i] = i < t.length ? t.steps[(size_t) i] : Step {};
+    }
+}
 
 // Styrka per steg: svag, normal, stark
 inline float stepGain (const Step& s) { return s.accent ? 1.0f : s.ghost ? 0.42f : 0.78f; }
@@ -121,13 +245,14 @@ inline juce::String laneToString (const Lane& l)
 {
     juce::String acc;
     for (int i = 0; i < l.length; ++i) acc += l.steps[(size_t) i].accent ? "1" : "0";
-    juce::String probs, ghosts, semis;
+    juce::String probs, ghosts, semis, conds;
     for (int i = 0; i < l.length; ++i)
     {
         const auto& st = l.steps[(size_t) i];
         probs += juce::String ((int) st.prob) + ",";
         ghosts += st.ghost ? "1" : "0";
         semis += juce::String ((int) st.semi) + ",";
+        conds += juce::String ((int) st.cond) + ",";
     }
     return juce::StringArray { juce::String (l.pad), juce::String (l.length), juce::String (l.rate),
                                l.euclid ? "1" : "0", juce::String (l.hits), juce::String (l.rotate),
@@ -137,7 +262,9 @@ inline juce::String laneToString (const Lane& l)
                                                    juce::String (l.accHits), juce::String (l.accLen),
                                                    juce::String (l.ratHits), juce::String (l.ratLen), juce::String (l.ratCount),
                                                    juce::String (l.toneHits), juce::String (l.toneLen), juce::String (l.toneSemi),
-                                                   juce::String (l.fillOf) }.joinIntoString (",") }.joinIntoString ("|");
+                                                   juce::String (l.fillOf) }.joinIntoString (","),
+                               conds,
+                               juce::StringArray { juce::String (l.life), juce::String (l.callResp), juce::String (l.crBars) }.joinIntoString (",") }.joinIntoString ("|");
 }
 
 inline void laneFromString (Lane& l, const juce::String& s)
@@ -182,6 +309,21 @@ inline void laneFromString (Lane& l, const juce::String& s)
         l.ratHits = juce::jlimit (0, kMaxSteps, at (5, 0)); l.ratLen = juce::jlimit (1, kMaxSteps, at (6, 8)); l.ratCount = juce::jlimit (2, 4, at (7, 2));
         l.toneHits = juce::jlimit (0, kMaxSteps, at (8, 0)); l.toneLen = juce::jlimit (1, kMaxSteps, at (9, 5)); l.toneSemi = juce::jlimit (-24, 24, at (10, 12));
         l.fillOf = juce::jlimit (-1, kLanes - 1, at (11, -1));
+    }
+    if (t.size() > 15)
+    {
+        auto c = juce::StringArray::fromTokens (t[15], ",", {});
+        for (int i = 0; i < c.size() && i < kMaxSteps; ++i)
+            if (c[i].isNotEmpty())
+                l.steps[(size_t) i].cond = (uint8_t) juce::jlimit (0, kNumConds - 1, c[i].getIntValue());
+    }
+    if (t.size() > 16)
+    {
+        auto e = juce::StringArray::fromTokens (t[16], ",", {});
+        auto at = [&] (int i, int def) { return i < e.size() && e[i].isNotEmpty() ? e[i].getIntValue() : def; };
+        l.life = juce::jlimit (0, kNumLife - 1, at (0, 0));
+        l.callResp = juce::jlimit (0, 2, at (1, 0));
+        l.crBars = juce::jlimit (1, 16, at (2, 2));
     }
     if (l.euclid) applyEuclid (l);
 }

@@ -4,6 +4,7 @@
 #include <deque>
 #include "Dsp.h"
 #include "Pattern.h"
+#include "Motor.h"
 #include "Library.h"
 #include "Identity.h"
 
@@ -61,6 +62,14 @@ public:
     int getQueuedScene() const { return queuedScene.load(); }
     void queueScene (int s);
     void copySceneTo (int target);
+    betong::Pattern getScenePattern (int s) const;
+    void breedScenes (int partner, int target);   // avla scenen som spelar med partner, barnet hamnar i target
+
+    // MIDI-export och AI kopiera-klistra
+    int midiExportBars (int choice) const;        // 0 = hela formen (eller 64 takter utan form)
+    juce::File exportMidi (int bars);
+    juce::String aiPrompt() const;
+    juce::String applyAiAnswer (const juce::String& text);   // tom sträng = klart, annars felet
     std::atomic<bool> fillHeld { false };
 
     std::array<std::atomic<int>, betong::kLanes> laneStep {};
@@ -103,6 +112,16 @@ public:
     betong::BuiltInLibrary& library() { return *builtIn; }
     juce::AudioFormatManager formats;
 
+    // MOTOR: läget som GUI:t visar (skrivs av ljudtråden en gång per block)
+    betong::motor::Settings motorSettings() const;
+    void newMotorSeed();
+    std::atomic<bool> motorRunning { false };
+    std::atomic<bool> seqRunning { false };
+    std::atomic<float> motorEnergy { 0.0f };
+    std::atomic<double> motorBar { 0.0 };
+    std::atomic<int> motorSection { 0 };
+    std::atomic<int> motorLaneMask { 0xFF };   // bit per spår: spelar enligt motorn
+
     std::atomic<bool> internalPlay { false };
     std::atomic<bool> hostPlaying { false };
     std::atomic<double> currentBpm { 130.0 };
@@ -127,7 +146,12 @@ private:
     void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi = 0.0f, int flags = 0);
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
-    betong::Step effectiveStep (int lane, juce::int64 n, int depth) const;   // steget som faktiskt spelas
+    struct SeqState;
+    bool motorStep (const SeqState&, int lane, juce::int64 n, int spb, betong::Step& st, bool& throwHit) const;
+    betong::Step effectiveStep (const SeqState&, int lane, juce::int64 n, int depth) const;   // steget som faktiskt spelas
+    const betong::Lane& liveLane (const SeqState&, int lane, juce::int64 bar) const;         // spåret som det låter i takten
+    int motorMask (const SeqState&, juce::int64 bar) const;                                  // spår som spelar enligt motorn
+    void motorEvents (const SeqState&, juce::int64 bar, int& roll, int& thrown) const;       // rullning och dub-kast i takten
     float hash01 (juce::int64 n, int lane, juce::uint32 salt) const;
 
     juce::SharedResourcePointer<betong::BuiltInLibrary> builtIn;
@@ -135,8 +159,29 @@ private:
 
     mutable juce::SpinLock patternLock;
     std::array<betong::Pattern, betong::kScenes> scenes;
-    betong::Pattern audioPattern;
-    std::array<betong::Pattern, betong::kScenes> audioScenes;
+    // Allt sequencern behöver för att räkna fram vad som spelas. Ljudtråden har sitt eget,
+    // och MIDI-exporten bygger ett eget så att den aldrig rör ljudtrådens cacher.
+    struct SeqState
+    {
+        betong::Pattern pattern;
+        std::array<betong::Pattern, betong::kScenes> scenes;
+        betong::motor::Settings ms;
+        bool motorOn = false;
+        float morphAmt = 0.0f;
+        int morphScene = 1;
+        mutable std::array<betong::Lane, betong::kLanes> evoLanes {};
+        mutable std::array<juce::int64, betong::kLanes> evoBars {};
+        mutable juce::int64 maskBar = 0, eventBar = 0;
+        mutable int maskCache = 0xFF, rollCache = -1, throwCache = -1;
+        void resetCaches()
+        {
+            evoBars.fill (std::numeric_limits<juce::int64>::min());
+            maskBar = eventBar = std::numeric_limits<juce::int64>::min();
+        }
+    };
+    SeqState seq;
+    betong::Pattern& audioPattern = seq.pattern;
+    std::array<betong::Pattern, betong::kScenes>& audioScenes = seq.scenes;
     std::atomic<int> scene { 0 }, queuedScene { -1 };
 
     struct PadSlot { std::atomic<const betong::Sample*> sample { nullptr }; std::atomic<int> start { 0 }, end { 0 }; };
@@ -179,6 +224,22 @@ private:
     std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr; std::atomic<float>* pDens = nullptr;
     std::atomic<float>* pHammer = nullptr; std::atomic<float>* pGlow = nullptr;
     juce::uint32 glitchSeed = 0x5eed;
+    std::atomic<float>* pMOn = nullptr; std::atomic<float>* pMMove = nullptr; std::atomic<float>* pMDepth = nullptr;
+    std::atomic<float>* pMChaos = nullptr; std::atomic<float>* pMFilt = nullptr; std::atomic<float>* pMDub = nullptr;
+    std::atomic<float>* pMPump = nullptr; std::atomic<float>* pMFeel = nullptr; std::atomic<float>* pMForm = nullptr;
+    std::atomic<float>* pMSeed = nullptr;
+    std::atomic<float>* pMorph = nullptr; std::atomic<float>* pMorphTo = nullptr;
+    float& morphAmt = seq.morphAmt;
+    int& morphScene = seq.morphScene;
+
+    // motorn i ljudtråden. Cacharna gäller ett block i taget, eftersom mönstret kan ändras mellan blocken.
+    betong::motor::Settings& ms = seq.ms;
+    bool& motorOn = seq.motorOn;
+    std::array<float, betong::kLanes> throwEnv {};
+    float pumpEnv = 0.0f;
+    bool pumpRising = false;
+    int kickHitAt = -1;                 // sampel i blocket där kicken slog (för pumpen)
+    std::vector<float> pumpBuf;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
                         std::atomic<float>* sendA; std::atomic<float>* sendB; std::atomic<float>* vol; std::atomic<float>* pan;

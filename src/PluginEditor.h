@@ -127,6 +127,7 @@ public:
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
     void refresh();
+    void showLaneMenu();
     void setCompact (bool c) { compact = c; grid.setVisible (! c); resized(); }
     StepGrid grid;
 
@@ -160,6 +161,79 @@ private:
     juce::TextButton clearAll { utf8 ("Nollställ magin") };
     std::array<juce::Rectangle<int>, 7> rows;
     bool updating = false;
+};
+
+//==============================================================================
+// MORF-reglaget: högerklick väljer vilken scen det glider mot.
+class MorphSlider : public BarSlider
+{
+public:
+    MorphSlider() : BarSlider ("MORF") {}
+    std::function<void()> onRightClick;
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isPopupMenu() && onRightClick) { onRightClick(); return; }
+        BarSlider::mouseDown (e);
+    }
+};
+
+//==============================================================================
+// MOTOR-fliken: energikurvan genom låten och rattarna som styr hur beatet lever.
+class EnergyView : public juce::Component, public juce::TooltipClient
+{
+public:
+    explicit EnergyView (BetongProcessor& p) : proc (p) {}
+    void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override { mapMode = ! mapMode; repaint(); }
+    juce::String getTooltip() override { return juce::String::fromUTF8 ("Klicka för att växla mellan energikurvan och utvecklingskartan"); }
+
+private:
+    void paintMap (juce::Graphics&, juce::Rectangle<float> plot, double from, double span);
+    BetongProcessor& proc;
+    bool mapMode = false;
+    juce::Image mapImage;
+    juce::String mapKey;
+};
+
+// MIDI-knappen: dra den till DAW:en så släpps det som spelas som en MIDI-fil. Klick ger menyn.
+class MidiDragButton : public juce::TextButton
+{
+public:
+    explicit MidiDragButton (BetongProcessor& p) : juce::TextButton (juce::String::fromUTF8 ("MIDI ⇣")), proc (p) {}
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+
+private:
+    void showMenu();
+    BetongProcessor& proc;
+    int choice = 0;   // 0 = hela formen, annars antal takter
+    bool dragging = false;
+    std::unique_ptr<juce::FileChooser> chooser;
+};
+
+class MotorPanel : public juce::Component
+{
+public:
+    MotorPanel (BetongProcessor& p, std::function<void()> onToggle);
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void tick();
+
+private:
+    BetongProcessor& proc;
+    EnergyView energy;
+    juce::TextButton onButton, seedButton { "NY" }, aiButton { juce::String::fromUTF8 ("AI ▾") }, presetButton { juce::String::fromUTF8 ("LÄGE ▾") };
+    void showPresetMenu();
+    MidiDragButton midiButton { proc };
+    void showAiMenu();
+    juce::Label seedLabel;
+    juce::ComboBox formBox;
+    Knob kMove, kDepth, kChaos, kFilt, kDub, kPump, kFeel;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> formAtt;
+    juce::Rectangle<int> statusArea;
+    juce::String status;
+    int shownSeed = -1;
 };
 
 // Ring-vyn: spåren som koncentriska ringar. Dra runt = rotera, rulla eller dra upp/ner = antal slag.
@@ -256,11 +330,21 @@ private:
     juce::TextButton copyScene { "Kopiera till..." }, fillButton { "FILL" };
     BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" }, densSlider { "DENSITET" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt, densAtt;
-    juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" };
+    juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" }, tabMotor { "MOTOR" };
+    juce::TextButton motorButton { "MOTOR" }, breedButton { "AVLA" };
+    MorphSlider morphSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> morphAtt;
+    void showBreedMenu();
+    void showMorphMenu();
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> motorAtt;
     std::unique_ptr<EuclidPanel> euclidPanel;
+    std::unique_ptr<MotorPanel> motorPanel;
     std::unique_ptr<RingView> ringView;
+    juce::TooltipWindow tooltips { this, 700 };
+    int sidePage = 0;   // 0 filter, 1 euklid, 2 motor
 public:
-    void setSidePage (bool euclid);
+    enum SidePage { PageFilter = 0, PageEuclid, PageMotor };
+    void setSidePage (int page);
     void setRingMode (bool on);
 private:
     // SMIDET

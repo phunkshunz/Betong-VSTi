@@ -107,6 +107,32 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - **Fyll luckorna i:** spåret spelar bara där ett annat spår är tyst, för låsta afrikanska mönster.
 - Mönstermappen **Euklid-magi** har 14 färdiga exempel. Inget av detta ändrar själva mönstret.
 
+**MOTOR (beatet lever av sig självt)**
+- Tryck **MOTOR** i sequencern eller öppna fliken **MOTOR**. Ditt mönster ändras aldrig. Motorn räknar fram en levande kopia medan det spelar.
+- **Formen** följer låtens position i DAW:en: intro, bygg, topp, break, lyft, topp 2 och utrull över 64, 128 eller 256 takter. **Fri** ger ändlösa vågor med break ibland. **Bara liv** låter allt spela och gör bara små förändringar.
+- **Energikurvan** visar var i låten du är. Spår kommer in och går ut på frasgränser när energin stiger och sjunker. Kicken går ut i breaken och kommer tillbaka på droppen.
+- **RÖRELSE:** hur ofta saker ändras. **DJUP:** hur stora ändringarna blir. Ett slag läggs till, tas bort, flyttas eller byter styrka per fras. Efter fyra steg kommer grundmönstret tillbaka, och ibland kommer ett gammalt motiv tillbaka lite förändrat.
+- **KAOS:** drar i allt på en gång.
+- **FILTER:** filtren andas, stängs inför skiften och öppnar när det nya kommer in. Resonanstoppar när det är hett, mörkare master i breaken och ett HP-svep i lyftet.
+- **DUB:** ett slag kastas in i delayen på slutet av frasen. **PUMP:** sidechain från kicken och drive som växer med energin. **SVÄNG:** velocity-vågor, mikrotiming och swing som driver långsamt.
+- **Seed:** samma seed låter alltid likadant. **NY SEED** ger en ny utveckling av samma mönster.
+- I sequencern syns motorns ändringar live: kall ram = tillagt slag, överstruket = borttaget, prick = ändrad styrka eller ton. Spår som vilar blir mörka.
+- **Lås** på ett spår gör att motorn låter det vara. Tomma spår förblir tomma.
+- **LÄGE:** färdiga motorlägen, till exempel Hypnotisk minimal, Plastik-drift, Afterhour, Dub-rum och Kaos-maskin.
+- **Kartan:** klicka på energikurvan så visas utvecklingskartan, en rad per spår och en kolumn per takt.
+
+**Villkor, liv, avla och morf**
+- **Villkor:** högerklicka på ett steg och välj Villkor. 1:4 spelar första varvet av fyra, 3:4 det tredje, FILL bara när FILL hålls inne, PRE om förra villkoret slog in.
+- **Game of Life:** högerklicka på spårets namn. Stegen blir celler som föds och dör varje takt (Puls, Kaos eller Liv). Var 16:e takt börjar livet om från det du ritat.
+- **Fråga och svar:** högerklicka på spårets namn. Ett spår frågar och ett annat svarar, i block om 1-8 takter.
+- **AVLA:** parar scenen som spelar med en annan scen. Barnet hamnar i en tredje scen och startar på nästa takt.
+- **MORF:** stegen glider över mot en annan scen, steg för steg. Högerklick väljer scen. Automatisera den för långa övergångar.
+- Mönstermappen **Motor och liv** har exempel på allt detta.
+
+**MIDI och AI (i MOTOR-fliken)**
+- **MIDI:** dra knappen till DAW:en. Det som spelas, med motor och liv, blir en MIDI-fil med ett spår per sequencerspår. Trummor blir pad-noter (C1 = pad 1), bas och melodi blir toner med F2 som grundton. Klicka för längd eller för att spara filen.
+- **AI:** välj Kopiera AI-fråga och klistra in den i valfri AI-chatt (Gemini, ChatGPT, Claude). Skriv stil, låt eller artist överst, kopiera svaret och välj Klistra in AI-svar. Inga konton eller nycklar behövs.
+
 **Techno-filtret (valt spår)**
 - LP 24, LP 12, HP, BP och Notch.
 - Resonans som får dista, drive, envelope som öppnar filtret vid varje slag, och crush ner till 4 bit.
