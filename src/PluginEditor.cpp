@@ -1027,10 +1027,97 @@ void EnergyView::paint (juce::Graphics& g)
     }
 }
 
+void MidiDragButton::mouseDrag (const juce::MouseEvent& e)
+{
+    juce::TextButton::mouseDrag (e);
+    if (dragging || e.getDistanceFromDragStart() < 6) return;
+    dragging = true;
+    const auto file = proc.exportMidi (proc.midiExportBars (choice));
+    if (file.existsAsFile())
+        juce::DragAndDropContainer::performExternalDragDropOfFiles ({ file.getFullPathName() }, false, this, [this] { dragging = false; });
+    else
+        dragging = false;
+}
+
+void MidiDragButton::mouseUp (const juce::MouseEvent& e)
+{
+    juce::TextButton::mouseUp (e);
+    if (! dragging && ! e.mouseWasDraggedSinceMouseDown()) showMenu();
+}
+
+void MidiDragButton::showMenu()
+{
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("DRA KNAPPEN TILL DAW:EN"));
+    m.addItem (-1, utf8 ("Det som spelas, med motor och liv, blir en MIDI-fil"), false);
+    m.addSeparator();
+    m.addItem (1000, utf8 ("Hela formen (") + juce::String (proc.midiExportBars (0)) + utf8 (" takter)"), true, choice == 0);
+    for (int b : { 8, 16, 32, 64, 128, 256 })
+        m.addItem (1000 + b, juce::String (b) + utf8 (" takter"), true, choice == b);
+    m.addSeparator();
+    m.addItem (1, utf8 ("Spara MIDI-fil..."));
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this), [this] (int r)
+    {
+        if (r >= 1000) { choice = r - 1000; return; }
+        if (r != 1) return;
+        const auto file = proc.exportMidi (proc.midiExportBars (choice));
+        chooser = std::make_unique<juce::FileChooser> (utf8 ("Spara MIDI"), juce::File::getSpecialLocation (juce::File::userDocumentsDirectory).getChildFile (file.getFileName()), "*.mid");
+        chooser->launchAsync (juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::warnAboutOverwriting,
+                              [file] (const juce::FileChooser& fc)
+        {
+            auto dest = fc.getResult();
+            if (dest == juce::File()) return;
+            if (! dest.hasFileExtension ("mid")) dest = dest.withFileExtension ("mid");
+            file.copyFileTo (dest);
+        });
+    });
+}
+
+void MotorPanel::showAiMenu()
+{
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("AI-HJÄLP · UTAN NYCKLAR"));
+    m.addItem (1, utf8 ("1. Kopiera AI-fråga"));
+    m.addItem (2, utf8 ("2. Klistra in AI-svar"));
+    m.addSeparator();
+    m.addItem (3, utf8 ("Så funkar det..."));
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&aiButton), [this] (int r)
+    {
+        if (r == 1)
+        {
+            juce::SystemClipboard::copyTextToClipboard (proc.aiPrompt());
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon, utf8 ("Frågan är kopierad"),
+                utf8 ("Klistra in den i valfri AI-chatt (Gemini, ChatGPT, Claude). Skriv din stil, en låt eller en artist överst där det står STIL. "
+                      "Kopiera sedan hela svaret och välj Klistra in AI-svar."), {}, this);
+        }
+        else if (r == 2)
+        {
+            const auto err = proc.applyAiAnswer (juce::SystemClipboard::getTextFromClipboard());
+            if (err.isNotEmpty())
+                juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, utf8 ("Det gick inte"), err, {}, this);
+            tick();
+        }
+        else if (r == 3)
+        {
+            juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::InfoIcon, utf8 ("AI-hjälp utan nycklar"),
+                utf8 ("1. Kopiera AI-fråga: BETONG lägger en färdig fråga i urklipp. Den beskriver formatet, ljuden på padarna och mönstret som spelar.\n\n"
+                      "2. Klistra in frågan i valfri AI-chatt och skriv vad du vill ha överst: en stil, en känsla, en låt eller en artist.\n\n"
+                      "3. Kopiera hela svaret och välj Klistra in AI-svar. Mönstret, swingen och motorn laddas. Låsta spår lämnas i fred, och Ångra backar."), {}, this);
+        }
+    });
+}
+
 MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : proc (p), energy (p)
 {
     auto& s = proc.apvts;
     addAndMakeVisible (energy);
+    aiButton.setTooltip (utf8 ("AI-hjälp utan nycklar: kopiera en färdig fråga till valfri AI-chatt och klistra in svaret"));
+    aiButton.setColour (juce::TextButton::textColourOffId, cold);
+    aiButton.onClick = [this] { showAiMenu(); };
+    addAndMakeVisible (aiButton);
+    midiButton.setTooltip (utf8 ("Dra till DAW:en: det som spelas, med motor och liv, blir en MIDI-fil. Klicka för längd och spara."));
+    midiButton.setColour (juce::TextButton::textColourOffId, cold);
+    addAndMakeVisible (midiButton);
 
     onButton.setClickingTogglesState (true);
     onAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (s, "mOn", onButton);
@@ -1132,6 +1219,12 @@ void MotorPanel::resized()
     seedLabel.setBounds (top);
     r.removeFromTop (6);
     statusArea = r.removeFromBottom (26);
+    {
+        auto b = statusArea;
+        midiButton.setBounds (b.removeFromRight (70).reduced (0, 2)); b.removeFromRight (4);
+        aiButton.setBounds (b.removeFromRight (56).reduced (0, 2)); b.removeFromRight (6);
+        statusArea = b;
+    }
     auto knobs = r.removeFromBottom (72);
     r.removeFromBottom (4);
     energy.setBounds (r);

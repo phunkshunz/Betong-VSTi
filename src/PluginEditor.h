@@ -189,6 +189,22 @@ private:
     BetongProcessor& proc;
 };
 
+// MIDI-knappen: dra den till DAW:en så släpps det som spelas som en MIDI-fil. Klick ger menyn.
+class MidiDragButton : public juce::TextButton
+{
+public:
+    explicit MidiDragButton (BetongProcessor& p) : juce::TextButton (juce::String::fromUTF8 ("MIDI ⇣")), proc (p) {}
+    void mouseDrag (const juce::MouseEvent&) override;
+    void mouseUp (const juce::MouseEvent&) override;
+
+private:
+    void showMenu();
+    BetongProcessor& proc;
+    int choice = 0;   // 0 = hela formen, annars antal takter
+    bool dragging = false;
+    std::unique_ptr<juce::FileChooser> chooser;
+};
+
 class MotorPanel : public juce::Component
 {
 public:
@@ -200,7 +216,9 @@ public:
 private:
     BetongProcessor& proc;
     EnergyView energy;
-    juce::TextButton onButton, seedButton { "NY SEED" };
+    juce::TextButton onButton, seedButton { "NY SEED" }, aiButton { juce::String::fromUTF8 ("AI ▾") };
+    MidiDragButton midiButton { proc };
+    void showAiMenu();
     juce::Label seedLabel;
     juce::ComboBox formBox;
     Knob kMove, kDepth, kChaos, kFilt, kDub, kPump, kFeel;
