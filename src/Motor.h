@@ -279,7 +279,11 @@ inline bool laneActive (const Settings& st, int li, int pad, double bar)
     const int pb = phraseBars (st);
     const auto phrase = floorDiv ((int64_t) std::floor (bar), pb);
     const double phraseStart = (double) phrase * pb;
-    const auto w = locate (st, phraseStart + 0.01);
+    // frasen börjar aldrig före delen den ligger i; i lyftet kommer spåren in varannan takt
+    const auto now = locate (st, bar);
+    const double evalAt = now.section == SecLyft ? juce::jmax (now.start, std::floor (bar / 2.0) * 2.0)
+                                                 : juce::jmax (now.start, phraseStart);
+    const auto w = locate (st, evalAt + 0.01);
 
     bool on = st.form == FormLiv ? true : w.energy >= threshold (st, li, r);
 
@@ -294,7 +298,7 @@ inline bool laneActive (const Settings& st, int li, int pad, double bar)
         if (dancer == li && rnd (st.seed, phrase, 0, 5202) < 0.2f + 0.5f * st.moveEff()) on = false;
     }
     // ett spår som ligger strax under gränsen får ibland smyga in en fras
-    if (! on && st.form != FormLiv)
+    if (! on && st.form != FormLiv && w.section != SecBreak)
     {
         const float gap = threshold (st, li, r) - w.energy;
         if (gap < 0.2f && rnd (st.seed, phrase, li, 5203) < 0.3f * st.moveEff()) on = true;
