@@ -979,6 +979,12 @@ void EnergyView::paint (juce::Graphics& g)
         flush (from + span);
     }
 
+    if (mapMode)
+    {
+        paintMap (g, plot, from, span);
+    }
+    else
+    {
     // energikurvan
     juce::Path curve, fill;
     const int steps = juce::jmax (2, (int) plot.getWidth());
@@ -997,6 +1003,11 @@ void EnergyView::paint (juce::Graphics& g)
     g.fillPath (fill);
     g.setColour (accent);
     g.strokePath (curve, juce::PathStrokeType (2.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    }
+    g.setColour (muted);
+    g.setFont (juce::FontOptions (8.0f, juce::Font::bold));
+    g.drawText (mapMode ? utf8 ("KARTA · klicka för kurvan") : utf8 ("KURVA · klicka för kartan"),
+                juce::Rectangle<float> (plot.getRight() - 160.0f, plot.getBottom() + 1.0f, 160.0f, 9.0f), juce::Justification::centredRight, false);
 
     // taktnummer var 16:e takt
     g.setFont (juce::FontOptions (8.0f));
@@ -1006,6 +1017,7 @@ void EnergyView::paint (juce::Graphics& g)
     {
         const float x = xOf (b);
         g.fillRect (x, plot.getBottom(), 1.0f, 3.0f);
+        if (x < plot.getRight() - 150.0f) // plats för etiketten om kurva/karta
         g.drawText (juce::String ((int) b + 1), juce::Rectangle<float> (x + 2.0f, plot.getBottom() + 1.0f, 30.0f, 9.0f), juce::Justification::centredLeft, false);
     }
 
@@ -1025,6 +1037,64 @@ void EnergyView::paint (juce::Graphics& g)
         g.drawText (on ? utf8 ("Tryck Play så börjar motorn") : utf8 ("Slå på MOTOR så lever beatet av sig självt"),
                     plot.toNearestInt(), juce::Justification::centred, false);
     }
+}
+
+// Utvecklingskartan: en rad per spår, en kolumn per takt. Ljusare = fler slag, mörkt = spåret vilar,
+// kall markering = motorn, livet eller morfen har ändrat mönstret i den takten.
+void EnergyView::paintMap (juce::Graphics& g, juce::Rectangle<float> plot, double from, double span)
+{
+    const auto st = proc.motorSettings();
+    const auto pat = proc.getPattern();
+    const int morphTo = (int) proc.getParam ("morphTo");
+    const float morph = morphTo != proc.getScene() ? proc.getParam ("morph") : 0.0f;
+    const auto target = morph > 0.001f ? proc.getScenePattern (morphTo) : Pattern {};
+
+    juce::String key;
+    key << (int) st.on << st.form << (int) st.seed << st.move << st.depth << st.chaos << morph << morphTo << from << span
+        << plot.getWidth() << plot.getHeight();
+    for (const auto& l : pat.lanes) key << laneToString (l);
+    if (key != mapKey || ! mapImage.isValid())
+    {
+        mapKey = key;
+        const int w = juce::jmax (1, (int) plot.getWidth()), h = juce::jmax (1, (int) plot.getHeight());
+        mapImage = juce::Image (juce::Image::ARGB, w, h, true);
+        juce::Graphics mg (mapImage);
+        const float rowH = (float) h / kLanes;
+        const int bars = juce::jmax (1, (int) span);
+        const float colW = (float) w / (float) bars;
+        for (int li = 0; li < kLanes; ++li)
+        {
+            Lane base = pat.lanes[(size_t) li];
+            if (base.euclid) applyEuclid (base);
+            int baseHits = 0;
+            for (int i = 0; i < base.length; ++i) baseHits += base.steps[(size_t) i].on ? 1 : 0;
+            const auto col = BetongColours::lane (li);
+            for (int b = 0; b < bars; ++b)
+            {
+                const auto bar = (juce::int64) from + b;
+                const auto cell = juce::Rectangle<float> (b * colW, li * rowH, juce::jmax (1.0f, colW - (colW > 3.0f ? 1.0f : 0.0f)), rowH - 1.0f);
+                if (base.mute || baseHits == 0) continue;
+                const bool active = ! st.on || base.lock || motor::laneActive (st, li, base.pad, (double) bar + 0.5);
+                if (! active) { mg.setColour (line.withAlpha (0.5f)); mg.fillRect (cell); continue; }
+                Lane live = pat.lanes[(size_t) li];
+                makeLive (live, li, st, st.on && ! base.lock, bar, morph > 0.001f ? &target.lanes[(size_t) li] : nullptr, morph);
+                if (live.euclid) applyEuclid (live);
+                int hits = 0; bool changed = false;
+                for (int i = 0; i < live.length; ++i)
+                {
+                    const auto& a = live.steps[(size_t) i];
+                    const auto& o = base.steps[(size_t) i];
+                    hits += a.on ? 1 : 0;
+                    changed |= a.on != o.on || (a.on && (a.accent != o.accent || a.ghost != o.ghost || a.ratchet != o.ratchet || a.semi != o.semi));
+                }
+                const float v = juce::jlimit (0.0f, 1.0f, (float) hits / (float) juce::jmax (1, baseHits) * 0.6f);
+                mg.setColour (col.withAlpha (0.25f + 0.7f * v));
+                mg.fillRect (cell);
+                if (changed) { mg.setColour (cold); mg.fillRect (cell.withHeight (juce::jmin (2.0f, rowH * 0.25f))); }
+            }
+        }
+    }
+    g.drawImage (mapImage, plot);
 }
 
 void MidiDragButton::mouseDrag (const juce::MouseEvent& e)
@@ -1073,6 +1143,24 @@ void MidiDragButton::showMenu()
     });
 }
 
+void MotorPanel::showPresetMenu()
+{
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("MOTORLÄGEN"));
+    for (int i = 0; i < motor::kNumPresets; ++i)
+        m.addItem (i + 1, utf8 (motor::kPresets[i].name) + utf8 ("  ·  ") + utf8 (motor::formName (motor::kPresets[i].form)));
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetButton), [this] (int r)
+    {
+        if (r <= 0) return;
+        const auto& pr = motor::kPresets[r - 1];
+        proc.setParam ("mForm", (float) pr.form);
+        proc.setParam ("mMove", pr.move); proc.setParam ("mDepth", pr.depth); proc.setParam ("mChaos", pr.chaos);
+        proc.setParam ("mFilt", pr.filt); proc.setParam ("mDub", pr.dub); proc.setParam ("mPump", pr.pump); proc.setParam ("mFeel", pr.feel);
+        proc.setParam ("mOn", 1.0f);
+        tick();
+    });
+}
+
 void MotorPanel::showAiMenu()
 {
     juce::PopupMenu m;
@@ -1115,6 +1203,9 @@ MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : pr
     aiButton.setColour (juce::TextButton::textColourOffId, cold);
     aiButton.onClick = [this] { showAiMenu(); };
     addAndMakeVisible (aiButton);
+    presetButton.setTooltip (utf8 ("Färdiga motorlägen: form och alla sju rattar på en gång"));
+    presetButton.onClick = [this] { showPresetMenu(); };
+    addAndMakeVisible (presetButton);
     midiButton.setTooltip (utf8 ("Dra till DAW:en: det som spelas, med motor och liv, blir en MIDI-fil. Klicka för längd och spara."));
     midiButton.setColour (juce::TextButton::textColourOffId, cold);
     addAndMakeVisible (midiButton);
@@ -1131,7 +1222,7 @@ MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : pr
                               "Kort, Låt och Afterhour: intro, bygg, topp, break, lyft, topp 2 och utrull."));
     addAndMakeVisible (formBox);
 
-    seedButton.setTooltip (utf8 ("Ny seed: en helt ny utveckling av samma mönster. Samma seed låter alltid likadant."));
+    seedButton.setTooltip (utf8 ("NY seed: en helt ny utveckling av samma mönster. Samma seed låter alltid likadant."));
     seedButton.onClick = [this] { proc.newMotorSeed(); tick(); };
     seedButton.setColour (juce::TextButton::textColourOffId, sodium);
     addAndMakeVisible (seedButton);
@@ -1213,9 +1304,10 @@ void MotorPanel::resized()
 {
     auto r = getLocalBounds();
     auto top = r.removeFromTop (26);
-    onButton.setBounds (top.removeFromLeft (104)); top.removeFromLeft (6);
-    formBox.setBounds (top.removeFromLeft (128)); top.removeFromLeft (6);
-    seedButton.setBounds (top.removeFromRight (80)); top.removeFromRight (6);
+    onButton.setBounds (top.removeFromLeft (98)); top.removeFromLeft (6);
+    formBox.setBounds (top.removeFromLeft (118)); top.removeFromLeft (6);
+    presetButton.setBounds (top.removeFromLeft (76)); top.removeFromLeft (6);
+    seedButton.setBounds (top.removeFromRight (36)); top.removeFromRight (4);
     seedLabel.setBounds (top);
     r.removeFromTop (6);
     statusArea = r.removeFromBottom (26);

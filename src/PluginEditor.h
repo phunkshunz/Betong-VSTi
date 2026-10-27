@@ -179,14 +179,20 @@ public:
 
 //==============================================================================
 // MOTOR-fliken: energikurvan genom låten och rattarna som styr hur beatet lever.
-class EnergyView : public juce::Component
+class EnergyView : public juce::Component, public juce::TooltipClient
 {
 public:
     explicit EnergyView (BetongProcessor& p) : proc (p) {}
     void paint (juce::Graphics&) override;
+    void mouseDown (const juce::MouseEvent&) override { mapMode = ! mapMode; repaint(); }
+    juce::String getTooltip() override { return juce::String::fromUTF8 ("Klicka för att växla mellan energikurvan och utvecklingskartan"); }
 
 private:
+    void paintMap (juce::Graphics&, juce::Rectangle<float> plot, double from, double span);
     BetongProcessor& proc;
+    bool mapMode = false;
+    juce::Image mapImage;
+    juce::String mapKey;
 };
 
 // MIDI-knappen: dra den till DAW:en så släpps det som spelas som en MIDI-fil. Klick ger menyn.
@@ -216,7 +222,8 @@ public:
 private:
     BetongProcessor& proc;
     EnergyView energy;
-    juce::TextButton onButton, seedButton { "NY SEED" }, aiButton { juce::String::fromUTF8 ("AI ▾") };
+    juce::TextButton onButton, seedButton { "NY" }, aiButton { juce::String::fromUTF8 ("AI ▾") }, presetButton { juce::String::fromUTF8 ("LÄGE ▾") };
+    void showPresetMenu();
     MidiDragButton midiButton { proc };
     void showAiMenu();
     juce::Label seedLabel;

@@ -117,7 +117,21 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - **DUB:** ett slag kastas in i delayen på slutet av frasen. **PUMP:** sidechain från kicken och drive som växer med energin. **SVÄNG:** velocity-vågor, mikrotiming och swing som driver långsamt.
 - **Seed:** samma seed låter alltid likadant. **NY SEED** ger en ny utveckling av samma mönster.
 - I sequencern syns motorns ändringar live: kall ram = tillagt slag, överstruket = borttaget, prick = ändrad styrka eller ton. Spår som vilar blir mörka.
-- **Lås** på ett spår gör att motorn låter det vara.
+- **Lås** på ett spår gör att motorn låter det vara. Tomma spår förblir tomma.
+- **LÄGE:** färdiga motorlägen, till exempel Hypnotisk minimal, Plastik-drift, Afterhour, Dub-rum och Kaos-maskin.
+- **Kartan:** klicka på energikurvan så visas utvecklingskartan, en rad per spår och en kolumn per takt.
+
+**Villkor, liv, avla och morf**
+- **Villkor:** högerklicka på ett steg och välj Villkor. 1:4 spelar första varvet av fyra, 3:4 det tredje, FILL bara när FILL hålls inne, PRE om förra villkoret slog in.
+- **Game of Life:** högerklicka på spårets namn. Stegen blir celler som föds och dör varje takt (Puls, Kaos eller Liv). Var 16:e takt börjar livet om från det du ritat.
+- **Fråga och svar:** högerklicka på spårets namn. Ett spår frågar och ett annat svarar, i block om 1-8 takter.
+- **AVLA:** parar scenen som spelar med en annan scen. Barnet hamnar i en tredje scen och startar på nästa takt.
+- **MORF:** stegen glider över mot en annan scen, steg för steg. Högerklick väljer scen. Automatisera den för långa övergångar.
+- Mönstermappen **Motor och liv** har exempel på allt detta.
+
+**MIDI och AI (i MOTOR-fliken)**
+- **MIDI:** dra knappen till DAW:en. Det som spelas, med motor och liv, blir en MIDI-fil med ett spår per sequencerspår. Trummor blir pad-noter (C1 = pad 1), bas och melodi blir toner med F2 som grundton. Klicka för längd eller för att spara filen.
+- **AI:** välj Kopiera AI-fråga och klistra in den i valfri AI-chatt (Gemini, ChatGPT, Claude). Skriv stil, låt eller artist överst, kopiera svaret och välj Klistra in AI-svar. Inga konton eller nycklar behövs.
 
 **Techno-filtret (valt spår)**
 - LP 24, LP 12, HP, BP och Notch.

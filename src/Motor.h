@@ -465,6 +465,12 @@ void mutate (Lane& L, Role role, float energy, float depth, R r)
 inline void evolve (Lane& L, int li, const Settings& st, double bar)
 {
     if (! st.on || L.lock) return;
+    {
+        // tomma spår förblir tomma: motorn varierar det du har ritat, den hittar inte på nya spår
+        bool any = L.euclid && L.hits > 0;
+        for (int i = 0; i < L.length && ! any; ++i) any = L.steps[(size_t) i].on;
+        if (! any) return;
+    }
     const Role role = (li == 0 && L.pad <= 1) ? Kick : roleOf (L.pad);
     const auto c = clockAt (st, bar);
     if (c.inCycle == 0 && c.memoryCycle == c.cycle) return; // cykelns början: grundmönstret kommer tillbaka
@@ -629,6 +635,20 @@ inline float masterSweep (const Settings& st, const Where& w)
 // Pumpens djup och släpptid (ms) för spåren som duckas av kicken
 inline float pumpDepth (const Settings& st, float energy) { return st.pump * 0.55f * (0.4f + 0.6f * energy); }
 inline float pumpReleaseMs (const Settings& st) { return 90.0f + 120.0f * (1.0f - st.pump); }
+
+// Färdiga motorlägen (form, rörelse, djup, kaos, filter, dub, pump, sväng)
+struct Preset { const char* name; int form; float move, depth, chaos, filt, dub, pump, feel; };
+constexpr Preset kPresets[] = {
+    { "Hypnotisk minimal", FormLat,       0.30f, 0.30f, 0.10f, 0.55f, 0.30f, 0.20f, 0.40f },
+    { "Plastik-drift",     FormFri,       0.45f, 0.35f, 0.15f, 0.70f, 0.45f, 0.15f, 0.50f },
+    { "Afterhour",         FormAfterhour, 0.35f, 0.40f, 0.20f, 0.50f, 0.50f, 0.35f, 0.45f },
+    { "Peak time",         FormKort,      0.55f, 0.50f, 0.35f, 0.45f, 0.30f, 0.60f, 0.25f },
+    { "Dub-rum",           FormLat,       0.30f, 0.30f, 0.15f, 0.60f, 0.85f, 0.25f, 0.35f },
+    { "Bara andas",        FormLiv,       0.25f, 0.20f, 0.00f, 0.80f, 0.30f, 0.20f, 0.40f },
+    { "Hardgroove",        FormKort,      0.60f, 0.55f, 0.40f, 0.35f, 0.25f, 0.70f, 0.30f },
+    { "Kaos-maskin",       FormFri,       0.80f, 0.80f, 0.90f, 0.60f, 0.50f, 0.50f, 0.60f },
+};
+constexpr int kNumPresets = (int) (sizeof (kPresets) / sizeof (kPresets[0]));
 
 // Extra glitch när KAOS är uppe och energin hög
 inline float glitchBoost (const Settings& st, float energy) { return st.chaos * 0.12f * energy; }

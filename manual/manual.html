@@ -31,11 +31,12 @@
   <li><span>06</span>Sounds, pads and chopping</li>
   <li><span>07</span>The techno filter</li>
   <li><span>08</span>The sequencer</li>
-  <li><span>09</span>Effects and performance</li>
-  <li><span>10</span>MIDI and automation</li>
-  <li><span>11</span>Recipes</li>
-  <li><span>12</span>Troubleshooting</li>
-  <li><span>13</span>SMIDET, the Euclidean forge</li>
+  <li><span>09</span>The MOTOR: beats that live</li>
+  <li><span>10</span>Effects and performance</li>
+  <li><span>11</span>MIDI and automation</li>
+  <li><span>12</span>Recipes</li>
+  <li><span>13</span>Troubleshooting</li>
+  <li><span>14</span>SMIDET, the Euclidean forge</li>
 </ol>
 
 <h2><span class="n">01</span>Welcome</h2>
@@ -321,7 +322,66 @@
 </ul>
 <p>Next to the rings each track shows its length, rate and any Euclidean magic it has. Press <span class="k">RING</span> again to go back to the step grid. The pattern folder <strong>Euklid-magi</strong> has 14 examples to start from.</p>
 
-<h2><span class="n">09</span>Effects and performance</h2>
+<h2><span class="n">09</span>The MOTOR: beats that live</h2>
+<p class="lead">Press <span class="k">MOTOR</span> above the tracks and the beat starts to live on its own. Tracks come and go with the energy, the pattern changes a little every phrase, filters breathe and sounds get thrown into the delay. Your pattern never changes: the MOTOR calculates a living copy while it plays. The same seed always sounds the same, so DAW loops and exports sound exactly like what you heard.</p>
+
+<h3>The MOTOR tab</h3>
+<p>Open the <span class="k">MOTOR</span> tab in the panel on the right. At the top: <span class="k">MOTOR PÅ</span> (on), the form, <span class="k">LÄGE</span> (ready-made motor settings), the seed and <span class="k">NY</span> (a new seed).</p>
+<table>
+  <thead><tr><th>Form</th><th>What happens</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Bara liv</strong></td><td><span class="tr">(just life)</span> No song form. Everything plays, with small changes and breathing filters.</td></tr>
+    <tr><td><strong>Fri</strong></td><td><span class="tr">(free)</span> Endless waves of energy, with a break and a lift now and then.</td></tr>
+    <tr><td><strong>Kort 64, Låt 128, Afterhour 256</strong></td><td><span class="tr">(short, song, afterhour)</span> A full track over 64, 128 or 256 bars: intro, build, peak, break, lift, peak 2 and outro. Bar 1 in your DAW is the start of the intro.</td></tr>
+  </tbody>
+</table>
+<p>The <strong>energy curve</strong> shows the whole form with the play position. Click it to switch to the <strong>evolution map</strong>: one row per track and one column per bar. Brighter means more hits, dark means the track rests, and a cold line on top means the MOTOR has changed the pattern in that bar.</p>
+
+<table>
+  <thead><tr><th>Knob</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">RÖRELSE</span></td><td><span class="tr">(movement)</span> How often things change: from every 32 bars to every 2 bars.</td></tr>
+    <tr><td><span class="k">DJUP</span></td><td><span class="tr">(depth)</span> How big each change is. One hit is added, removed, moved, made stronger or weaker, or retuned. After four changes the original pattern comes back, and sometimes an old motif returns, slightly changed.</td></tr>
+    <tr><td><span class="k">KAOS</span></td><td><span class="tr">(chaos)</span> Pulls everything at once: more movement and depth, a rougher energy curve, more drops and some glitch.</td></tr>
+    <tr><td><span class="k">FILTER</span></td><td>Filters breathe slowly, close before every change and open when the new part comes in. Resonance peaks when the energy is high, a darker master in the break and a rising high-pass in the lift.</td></tr>
+    <tr><td><span class="k">DUB</span></td><td>At the end of a phrase one hit is thrown into the dub delay and fades out.</td></tr>
+    <tr><td><span class="k">PUMP</span></td><td>Sidechain from the kick and drive that grow with the energy.</td></tr>
+    <tr><td><span class="k">SVÄNG</span></td><td><span class="tr">(swing)</span> Velocity waves with their own lengths, micro-timing (hats drag, the kick stays on the grid) and swing that drifts slowly.</td></tr>
+  </tbody>
+</table>
+<p>In the sequencer you see the MOTOR work live: a cold frame is an added hit, a crossed-out step is a removed one, a cold dot is a changed velocity or pitch, and a resting track turns dark. Tracks with <span class="k">Lås</span> (lock) are left alone, and empty tracks stay empty.</p>
+
+<h3>Trig conditions</h3>
+<p>Right-click a step and choose <strong>Villkor</strong> (condition). <strong>1:4</strong> plays only the first time round out of four, <strong>3:4</strong> only the third, and so on up to 8:8. <strong>FILL</strong> plays only while <span class="k">FILL</span> is held, <strong>!FILL</strong> only when it is not. <strong>PRE</strong> plays if the previous condition on the track was true, <strong>!PRE</strong> if it was not. The condition is shown at the top of the step.</p>
+
+<h3>Game of Life and call and response</h3>
+<p>Right-click the name of a track.</p>
+<ul>
+  <li><strong>Game of Life:</strong> the steps become cells that are born and die once per bar. <em>Puls</em> (rule 90) ripples, <em>Kaos</em> (rule 30) is wild, <em>Liv</em> is a gentle one-dimensional Life. The pattern you drew is the first generation, and every 16 bars life starts over from it. New hits are soft ghost notes.</li>
+  <li><strong>Fråga och svar</strong> <span class="tr">(call and response)</span>: set one track to <em>Fråga</em> (call) and another to <em>Svar</em> (response). They take turns in blocks of 1, 2, 4 or 8 bars.</li>
+</ul>
+
+<h3>Breed and morph</h3>
+<ul>
+  <li><span class="k">AVLA</span> <span class="tr">(breed)</span> pairs the scene that plays with another scene. Each track inherits its base from one parent, the steps are crossed over at a random point and a small mutation is added. The child goes into a third scene and starts on the next bar. <span class="k">Ångra</span> takes it back.</li>
+  <li><span class="k">MORF</span> slides the steps over to another scene, step by step. Right-click it to choose the scene. Automate it in your DAW for long transitions.</li>
+</ul>
+
+<h3>Drag out as MIDI</h3>
+<p>Drag the <span class="k">MIDI</span> button on the MOTOR tab into your DAW. What plays, with the MOTOR, life, conditions, morph, swing and micro-timing, becomes a MIDI file with one track per sequencer track, starting at bar 1. Drum tracks use pad notes (C1 = pad 1). Bass, stabs and leads use real pitches with F2 as the root. Click the button to choose the length or to save the file.</p>
+
+<h3>AI help without keys</h3>
+<ol class="steps">
+  <li>Press <span class="k">AI</span> and choose <strong>Kopiera AI-fråga</strong> (copy AI question). BETONG puts a ready-made question on the clipboard. It describes the format, the sounds on your pads and the pattern that plays.</li>
+  <li>Paste it into any AI chat (Gemini, ChatGPT, Claude) and write what you want at the top: a style, a feeling, a track or an artist.</li>
+  <li>Copy the whole answer and choose <strong>Klistra in AI-svar</strong> (paste AI answer). The pattern, swing and MOTOR settings load. Locked tracks are left alone, and <span class="k">Ångra</span> takes it back.</li>
+</ol>
+<p>No account, no key and nothing is sent anywhere by BETONG. The AI only knows what has been written about a track, it cannot listen to it, so treat the answer as a starting point.</p>
+
+<h3>Patterns to start from</h3>
+<p>The pattern folder <strong>Motor och liv</strong> uses conditions, Game of Life and call and response. Load one, press <span class="k">MOTOR</span> and choose a <span class="k">LÄGE</span>, for example <em>Hypnotisk minimal</em> or <em>Plastik-drift</em>.</p>
+
+<h2><span class="n">10</span>Effects and performance</h2>
 <p class="lead">The bottom row has two send effects, the master section and a performance panel.</p>
 
 <h3>Dub-delay</h3>
@@ -366,7 +426,7 @@
 <h3>Performance</h3>
 <p><span class="k o">STUTTER</span> loops a short piece of the output while you hold it down. Pick the length in the menu next to it: 1/4, 1/8, 1/16 or 1/32. <span class="k">TEMPO</span> sets BETONG's own tempo (60–200 BPM) when it plays without a DAW.</p>
 
-<h2><span class="n">10</span>MIDI and automation</h2>
+<h2><span class="n">11</span>MIDI and automation</h2>
 <h3>Play the pads from a keyboard</h3>
 <p>BETONG listens to MIDI notes 36–51, so 16 keys play pads 1–16. Note 36 is called C1 in most DAWs (C3 in FL Studio). Velocity sets how loud the pad plays. You can play pads by MIDI while the sequencer runs, for fills on top of the pattern.</p>
 <table>
@@ -379,7 +439,7 @@
 <h3>Automation</h3>
 <p>Every knob and switch can be automated from your DAW: the effects, master, swing, <span class="k">SVAJ</span>, <span class="k">GLITCH</span>, <span class="k">DENSITET</span>, <span class="k">FILL</span>, all 8 track filters and track swing, and pitch, decay, volume, pan and reverse on all 16 pads. In the DAW they have Swedish names, for example <em>Spår 3 cutoff</em> (track 3 cutoff) or <em>Pad 5 pitch</em>.</p>
 
-<h2><span class="n">11</span>Recipes</h2>
+<h2><span class="n">12</span>Recipes</h2>
 <h3>Hypnotic loop in five minutes</h3>
 <ol class="steps">
   <li>Load the kit <strong>Industriell 909</strong> and turn <span class="k">GALENSKAP</span> to about half.</li>
@@ -402,6 +462,13 @@
   <li>Choose <span class="k">Anslag</span> and press <span class="k">Hacka till pads</span>.</li>
   <li>Point the tracks at the slices and program a new order. Turn on <span class="k">Baklänges</span> on one slice.</li>
 </ol>
+<h3>A whole track from one loop</h3>
+<ol class="steps">
+  <li>Load the pattern <strong>Livets Hats</strong> and the kit <strong>Plastik Minimal</strong>.</li>
+  <li>Press <span class="k">MOTOR</span>, choose the form <strong>Låt 128</strong> and the mode <em>Hypnotisk minimal</em>.</li>
+  <li>Press play in your DAW from bar 1 and let it run. Press <span class="k">NY</span> for a new version of the same track.</li>
+  <li>When you like it, drag the <span class="k">MIDI</span> button into your DAW, or record the audio.</li>
+</ol>
 <h3>The break</h3>
 <ol class="steps">
   <li>Turn up <span class="k">SÄND DELAY</span> on the clap, then press <span class="k">Freeze</span> on the delay.</li>
@@ -409,7 +476,7 @@
   <li>Hold <span class="k">STUTTER</span> at 1/16 for the last bar, then let go and turn <span class="k">SVEP</span> back to the centre.</li>
 </ol>
 
-<h2><span class="n">12</span>Troubleshooting</h2>
+<h2><span class="n">13</span>Troubleshooting</h2>
 <table>
   <thead><tr><th>Problem</th><th>Try this</th></tr></thead>
   <tbody>
@@ -430,7 +497,7 @@
 </div>
 <div class="end">BUILT IN A SHIPYARD · MASKIN<span>HALLEN</span></div>
 
-<h2><span class="n">13</span>SMIDET, the Euclidean forge</h2>
+<h2><span class="n">14</span>SMIDET, the Euclidean forge</h2>
 <p>SMIDET is the second machine in the zip. It shares BETONG's engine but has its own window, sounds, kits and patterns. It has no pads and no waveform. The Euclidean rings are the whole instrument.</p>
 <ul>
   <li><b>The rings</b> fill the left half. Each lane is a ring. Drag around a ring to rotate it, drag up or down (or scroll) to change the number of hits, and double-click to switch Euclid on or off. Click a ring to select its lane.</li>
