@@ -108,6 +108,7 @@ public:
     betong::motor::Settings motorSettings() const;
     void newMotorSeed();
     std::atomic<bool> motorRunning { false };
+    std::atomic<bool> seqRunning { false };
     std::atomic<float> motorEnergy { 0.0f };
     std::atomic<double> motorBar { 0.0 };
     std::atomic<int> motorSection { 0 };
@@ -138,7 +139,7 @@ private:
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
     betong::Step effectiveStep (int lane, juce::int64 n, int depth) const;   // steget som faktiskt spelas
-    const betong::Lane& motorLane (int lane, juce::int64 bar) const;        // motorns levande kopia av spåret
+    const betong::Lane& liveLane (int lane, juce::int64 bar) const;         // spåret som det låter i takten (motor + liv)
     int motorMask (juce::int64 bar) const;                                  // spår som spelar enligt motorn
     void motorEvents (juce::int64 bar, int& roll, int& thrown) const;       // rullning och dub-kast i takten
     float hash01 (juce::int64 n, int lane, juce::uint32 salt) const;

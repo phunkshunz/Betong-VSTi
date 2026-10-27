@@ -633,3 +633,23 @@ inline float pumpReleaseMs (const Settings& st) { return 90.0f + 120.0f * (1.0f 
 // Extra glitch när KAOS är uppe och energin hög
 inline float glitchBoost (const Settings& st, float energy) { return st.chaos * 0.12f * energy; }
 } // namespace betong::motor
+
+namespace betong
+{
+// Spåret som det faktiskt låter i takten bar: motorns mutationer (om motorn går) och sedan
+// Game of Life (om spåret har liv). Används av både ljudtråden och sequencerns visning.
+inline void makeLive (Lane& L, int li, const motor::Settings& st, bool motorOn, juce::int64 bar)
+{
+    if (motorOn) motor::evolve (L, li, st, (double) bar + 0.01);
+    if (L.life > 0) applyLife (L, bar);
+}
+
+// Fråga och svar: tyst i de block där spåret inte har ordet
+inline bool callRespSilent (const Lane& L, juce::int64 bar)
+{
+    if (L.callResp <= 0) return false;
+    const auto block = motor::floorDiv (bar, juce::jmax (1, L.crBars));
+    const bool even = (block % 2) == 0;
+    return L.callResp == 1 ? ! even : even;
+}
+} // namespace betong

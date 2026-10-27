@@ -422,16 +422,19 @@ void StepGrid::paint (juce::Graphics& g)
     const auto col = BetongColours::lane (lane);
     const float cw = (float) getWidth() / kMaxSteps;
 
-    // MOTOR: räkna fram samma levande kopia som ljudtråden spelar, och visa skillnaden
-    const bool motorLive = proc.motorRunning.load() && ! ln.lock;
+    // MOTOR och liv: räkna fram samma levande kopia som ljudtråden spelar, och visa skillnaden
+    const bool motorOnLane = proc.motorRunning.load() && ! ln.lock;
+    const bool motorLive = running && (motorOnLane || ln.life > 0);
+    const auto barNow = (juce::int64) std::floor (proc.motorBar.load());
     Lane evo = ln;
-    bool resting = false;
+    bool resting = false, listening = false;
     if (motorLive)
     {
-        motor::evolve (evo, lane, proc.motorSettings(), std::floor (proc.motorBar.load()) + 0.01);
+        makeLive (evo, lane, proc.motorSettings(), motorOnLane, barNow);
         if (evo.euclid) applyEuclid (evo);
-        resting = ((proc.motorLaneMask.load() >> lane) & 1) == 0;
+        resting = motorOnLane && ((proc.motorLaneMask.load() >> lane) & 1) == 0;
     }
+    if (running && ln.callResp > 0) listening = callRespSilent (ln, barNow);
 
     for (int i = 0; i < kMaxSteps; ++i)
     {
@@ -476,7 +479,12 @@ void StepGrid::paint (juce::Graphics& g)
         if (motorLive)
         {
             const auto& ev = evo.steps[(size_t) i];
-            if (st.on && ! ev.on)
+            if (st.on && ! ev.on && ln.life > 0 && ! motorOnLane)
+            {
+                g.setColour (ground.withAlpha (0.6f));
+                g.fillRoundedRectangle (r, 3.0f);
+            }
+            else if (st.on && ! ev.on)
             {
                 // motorn har tagit bort slaget: mörkt och överstruket
                 g.setColour (ground.withAlpha (0.6f));
@@ -499,13 +507,27 @@ void StepGrid::paint (juce::Graphics& g)
             }
         }
     }
-    if (resting)
+    // trig-villkor: liten etikett överst i steget
+    for (int i = 0; i < juce::jmin (ln.length, kMaxSteps); ++i)
+    {
+        const auto& st = ln.steps[(size_t) i];
+        if (! st.on || st.cond == CondAlways) continue;
+        static const char* shortNames[] = { "", "1:2", "2:2", "1:3", "2:3", "3:3", "1:4", "2:4", "3:4", "4:4", "1:8", "8:8", "F", "!F", "P", "!P" };
+        auto r = juce::Rectangle<float> (i * cw, 0, cw, (float) getHeight()).reduced (1.5f, 1.0f);
+        g.setColour (ground.withAlpha (0.75f));
+        g.fillRect (r.withHeight (9.0f));
+        g.setColour (cold);
+        g.setFont (juce::FontOptions (7.5f, juce::Font::bold));
+        g.drawText (shortNames[st.cond % kNumConds], r.withHeight (9.0f), juce::Justification::centred, false);
+    }
+    if (resting || listening)
     {
         g.setColour (ground.withAlpha (0.62f));
         g.fillRect (getLocalBounds());
         g.setColour (cold.withAlpha (0.9f));
         g.setFont (juce::FontOptions (10.0f, juce::Font::bold));
-        g.drawText (utf8 ("VILAR · MOTORN"), getLocalBounds().withTrimmedLeft (8), juce::Justification::centredLeft, false);
+        g.drawText (resting ? utf8 ("VILAR · MOTORN") : (ln.callResp == 1 ? utf8 ("LYSSNAR · FRÅGAR SNART") : utf8 ("LYSSNAR · SVARAR SNART")),
+                    getLocalBounds().withTrimmedLeft (8), juce::Justification::centredLeft, false);
     }
 }
 
@@ -586,6 +608,15 @@ void StepGrid::showStepMenu (int s)
     juce::PopupMenu rat;
     for (int v = 1; v <= 4; ++v) rat.addItem (10 + v, v == 1 ? utf8 ("Ingen") : juce::String::charToString (0xd7) + juce::String (v));
     m.addSubMenu ("Ratchet", rat);
+    juce::PopupMenu cond;
+    for (int c = 0; c < kNumConds; ++c)
+    {
+        static const char* help[] = { "", "  (varannat varv, första)", "  (varannat varv, andra)", "", "", "", "  (första av fyra)", "", "", "  (fjärde av fyra)", "", "",
+                                      "  (bara när FILL hålls)", "  (inte under FILL)", "  (om förra villkoret slog in)", "  (om förra villkoret inte slog in)" };
+        if (c == CondFill) cond.addSeparator();
+        cond.addItem (300 + c, utf8 (condName (c)) + utf8 (help[c]));
+    }
+    m.addSubMenu ("Villkor", cond);
     m.addSeparator();
     m.addItem (3, utf8 ("Töm spåret"));
     m.addItem (4, utf8 ("Fyll varje steg"));
@@ -600,6 +631,7 @@ void StepGrid::showStepMenu (int s)
             else if (r == 21) { st.on = true; st.accent = true; st.ghost = false; }
             else if (r == 22) { st.on = true; st.accent = false; st.ghost = false; }
             else if (r == 23) { st.on = true; st.accent = false; st.ghost = true; }
+            else if (r >= 300 && r < 300 + kNumConds) { st.on = true; st.cond = (uint8_t) (r - 300); }
             else if (r >= 176) { st.on = true; st.semi = (int8_t) (r - 200 - 24); }
             else if (r == 3) for (auto& x : l.steps) x = Step {};
             else if (r == 4) for (int i = 0; i < l.length; ++i) l.steps[(size_t) i].on = true;
@@ -697,9 +729,17 @@ void LaneRow::paint (juce::Graphics& g)
     g.setColour (BetongColours::lane (lane));
     g.fillRoundedRectangle (r.removeFromLeft (6).withSizeKeepingCentre (6, 16).toFloat(), 2.0f);
     r.removeFromLeft (6);
+    juce::String tag = l.life > 0 ? utf8 ("LIV") : juce::String();
+    if (l.callResp > 0) tag << (tag.isEmpty() ? "" : " ") << (l.callResp == 1 ? utf8 ("FRÅGA") : utf8 ("SVAR"));
+    if (tag.isNotEmpty())
+    {
+        g.setColour (cold);
+        g.setFont (juce::FontOptions (8.5f, juce::Font::bold));
+        g.drawText (tag, r.removeFromBottom (r.getHeight() / 2 + 2).withTrimmedBottom (1), juce::Justification::bottomLeft, true);
+    }
     g.setColour (sel ? sodium : text);
     g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-    g.drawText (juce::String (lane + 1) + " " + upper (padName (proc, l.pad)), r, juce::Justification::centredLeft, true);
+    g.drawText (juce::String (lane + 1) + " " + upper (padName (proc, l.pad)), r, tag.isNotEmpty() ? juce::Justification::bottomLeft : juce::Justification::centredLeft, true);
 }
 
 void LaneRow::resized()
@@ -738,7 +778,37 @@ void LaneRow::resized()
 
 void LaneRow::mouseDown (const juce::MouseEvent& e)
 {
-    if (labelArea.contains (e.getPosition()) && selectLane) selectLane (lane);
+    if (! labelArea.contains (e.getPosition())) return;
+    if (selectLane) selectLane (lane);
+    if (e.mods.isPopupMenu()) showLaneMenu();
+}
+
+void LaneRow::showLaneMenu()
+{
+    const auto l = proc.getPattern().lanes[(size_t) lane];
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("SPÅR ") + juce::String (lane + 1));
+    juce::PopupMenu life;
+    for (int k = 0; k < kNumLife; ++k) life.addItem (400 + k, utf8 (lifeName (k)), true, l.life == k);
+    m.addSubMenu ("Game of Life", life);
+    juce::PopupMenu cr;
+    cr.addItem (500, "Av", true, l.callResp == 0);
+    cr.addItem (501, utf8 ("Fråga (spelar först)"), true, l.callResp == 1);
+    cr.addItem (502, utf8 ("Svar (spelar sedan)"), true, l.callResp == 2);
+    cr.addSeparator();
+    for (int b : { 1, 2, 4, 8 }) cr.addItem (510 + b, utf8 ("Block om ") + juce::String (b) + (b == 1 ? utf8 (" takt") : utf8 (" takter")), true, l.crBars == b);
+    m.addSubMenu (utf8 ("Fråga och svar"), cr);
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(), [this] (int r)
+    {
+        if (r == 0) return;
+        proc.editLane (lane, [&] (Lane& x)
+        {
+            if (r >= 400 && r < 400 + kNumLife) x.life = r - 400;
+            else if (r >= 500 && r <= 502) x.callResp = r - 500;
+            else if (r > 510) x.crBars = r - 510;
+        });
+        refresh();
+    });
 }
 
 //==============================================================================

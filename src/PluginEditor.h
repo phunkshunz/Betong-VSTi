@@ -127,6 +127,7 @@ public:
     void resized() override;
     void mouseDown (const juce::MouseEvent&) override;
     void refresh();
+    void showLaneMenu();
     void setCompact (bool c) { compact = c; grid.setVisible (! c); resized(); }
     StepGrid grid;
 

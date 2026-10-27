@@ -431,7 +431,8 @@ Step BetongProcessor::effectiveStep (int li, juce::int64 n, int depth) const
     const int len = juce::jlimit (1, kMaxSteps, base.length);
     const double bar = (double) n / spb / 4.0;
     const auto barI = (juce::int64) std::floor (bar);
-    const auto& lane = motorOn ? motorLane (li, barI) : base;   // motorn ändrar bara stegen, aldrig längd eller takt
+    // motorn och Game of Life ändrar bara stegen, aldrig längd eller takt
+    const auto& lane = (motorOn || base.life > 0) ? liveLane (li, barI) : base;
     const int rot = lane.rotEvery > 0 ? (int) ((barI / lane.rotEvery) % len) : 0;
     const int i = (int) ((((n - rot) % len) + len) % len);
     Step st = lane.steps[(size_t) i];
@@ -487,6 +488,28 @@ Step BetongProcessor::effectiveStep (int li, juce::int64 n, int depth) const
                 st.on = false;
         }
     }
+
+    // trig-villkor: 1:4, 3:4, FILL, PRE ...
+    if (st.on && st.cond != CondAlways)
+    {
+        const bool fillNow = fillHeld.load() || pFill->load() > 0.5f;
+        auto holds = [&] (int c, juce::int64 stepN) { return condTrue (c, motor::floorDiv (stepN, len), fillNow); };
+        if (st.cond == CondPre || st.cond == CondNotPre)
+        {
+            // PRE: slog förra villkoret på spåret in? (det närmaste steget bakåt som har ett eget villkor)
+            bool res = true;
+            for (int k = 1; k <= len; ++k)
+            {
+                const auto& ps = lane.steps[(size_t) ((((i - k) % len) + len) % len)];
+                if (ps.on && ps.cond != CondAlways && ps.cond < CondPre) { res = holds (ps.cond, n - k); break; }
+            }
+            st.on = st.cond == CondPre ? res : ! res;
+        }
+        else st.on = holds (st.cond, n);
+    }
+
+    // fråga och svar: spåret har ordet varannat block
+    if (st.on && callRespSilent (lane, barI)) st.on = false;
     return st;
 }
 
@@ -509,13 +532,13 @@ void BetongProcessor::newMotorSeed()
     setParam ("mSeed", (float) (1 + juce::Random::getSystemRandom().nextInt (9999)));
 }
 
-const Lane& BetongProcessor::motorLane (int li, juce::int64 bar) const
+const Lane& BetongProcessor::liveLane (int li, juce::int64 bar) const
 {
     auto& cached = evoLanes[(size_t) li];
     if (evoBars[(size_t) li] != bar)
     {
         cached = audioPattern.lanes[(size_t) li];
-        motor::evolve (cached, li, ms, (double) bar + 0.01);
+        makeLive (cached, li, ms, motorOn, bar);
         evoBars[(size_t) li] = bar;
     }
     return cached;
@@ -947,12 +970,13 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     }
 
     // läget till GUI:t
+    if (sequencing) motorBar.store (ppq / 4.0);   // spelpositionen i takter (används även av liv och fråga/svar)
+    seqRunning.store (sequencing);
     if (motorOn)
     {
         const double bar = ppq / 4.0;
         const auto w = motor::locate (ms, bar);
         motorEnergy.store (w.energy);
-        motorBar.store (bar);
         motorSection.store (w.section);
         motorLaneMask.store (motorMask ((juce::int64) std::floor (bar)));
     }
@@ -1060,6 +1084,13 @@ void BetongProcessor::applyPattern (int index)
                     lane.steps[(size_t) i].semi = (int8_t) juce::jlimit (-24, 24, v[i].getIntValue());
             }
             else if (x.startsWith ("s")) laneSwing[(size_t) l] = juce::jlimit (0.0f, 0.75f, x.substring (1).getFloatValue() / 100.0f);
+            else if (x.startsWith ("y"))
+            {
+                // trig-villkor per steg, t.ex. "y0,0,6,0" (index i condName)
+                auto v = juce::StringArray::fromTokens (x.substring (1), ",", {});
+                for (int i = 0; i < v.size() && i < kMaxSteps; ++i)
+                    lane.steps[(size_t) i].cond = (uint8_t) juce::jlimit (0, kNumConds - 1, v[i].getIntValue());
+            }
             else
             {
                 // euklid-magi: r4 = rotera var 4:e takt, b3/16 = andas ±3 slag över 16 takter,
@@ -1073,6 +1104,9 @@ void BetongProcessor::applyPattern (int index)
                 else if (c == 'q') { lane.ratHits = at (0, 0); lane.ratLen = juce::jlimit (1, kMaxSteps, at (1, 8)); lane.ratCount = juce::jlimit (2, 4, at (2, 2)); }
                 else if (c == 't') { lane.toneHits = at (0, 0); lane.toneLen = juce::jlimit (1, kMaxSteps, at (1, 5)); lane.toneSemi = juce::jlimit (-24, 24, at (2, 12)); }
                 else if (c == 'f') lane.fillOf = juce::jlimit (-1, kLanes - 1, at (0, 0) - 1);
+                // L2 = Game of Life (1 puls, 2 kaos, 3 liv), v2/4 = svar i block om 4 takter
+                else if (c == 'L') lane.life = juce::jlimit (0, kNumLife - 1, at (0, 0));
+                else if (c == 'v') { lane.callResp = juce::jlimit (0, 2, at (0, 0)); lane.crBars = juce::jlimit (1, 16, at (1, 2)); }
             }
         }
     }
