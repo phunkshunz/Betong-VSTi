@@ -424,13 +424,16 @@ void StepGrid::paint (juce::Graphics& g)
 
     // MOTOR och liv: räkna fram samma levande kopia som ljudtråden spelar, och visa skillnaden
     const bool motorOnLane = proc.motorRunning.load() && ! ln.lock;
-    const bool motorLive = running && (motorOnLane || ln.life > 0);
+    const int morphTo = (int) proc.getParam ("morphTo");
+    const float morph = morphTo != proc.getScene() ? proc.getParam ("morph") : 0.0f;
+    const bool motorLive = (running && (motorOnLane || ln.life > 0)) || morph > 0.001f;
     const auto barNow = (juce::int64) std::floor (proc.motorBar.load());
     Lane evo = ln;
     bool resting = false, listening = false;
     if (motorLive)
     {
-        makeLive (evo, lane, proc.motorSettings(), motorOnLane, barNow);
+        const auto target = morph > 0.001f ? proc.getScenePattern (morphTo).lanes[(size_t) lane] : Lane {};
+        makeLive (evo, lane, proc.motorSettings(), motorOnLane && running, barNow, morph > 0.001f ? &target : nullptr, morph);
         if (evo.euclid) applyEuclid (evo);
         resting = motorOnLane && ((proc.motorLaneMask.load() >> lane) & 1) == 0;
     }
@@ -479,7 +482,7 @@ void StepGrid::paint (juce::Graphics& g)
         if (motorLive)
         {
             const auto& ev = evo.steps[(size_t) i];
-            if (st.on && ! ev.on && ln.life > 0 && ! motorOnLane)
+            if (st.on && ! ev.on && (ln.life > 0 || morph > 0.001f) && ! motorOnLane)
             {
                 g.setColour (ground.withAlpha (0.6f));
                 g.fillRoundedRectangle (r, 3.0f);
@@ -1621,6 +1624,19 @@ BetongContent::BetongContent (BetongProcessor& p)
     motorButton.setTooltip (utf8 ("MOTOR: beatet lever och utvecklas av sig självt. Ditt mönster ändras aldrig."));
     motorButton.onClick = [this] { if (motorButton.getToggleState()) setSidePage (PageMotor); };
     addAndMakeVisible (motorButton);
+    breedButton.setTooltip (utf8 ("Avla: para scenen som spelar med en annan scen. Barnet får drag från båda och hamnar i en tredje scen."));
+    breedButton.setColour (juce::TextButton::textColourOffId, sodium);
+    breedButton.onClick = [this] { showBreedMenu(); };
+    addAndMakeVisible (breedButton);
+    morphAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (proc.apvts, "morph", morphSlider);
+    morphSlider.setTooltip (utf8 ("Morf: stegen glider över mot en annan scen, steg för steg. Högerklick väljer scen. Automatisera den i DAW:en för långa övergångar."));
+    morphSlider.setDoubleClickReturnValue (true, 0.0);
+    morphSlider.onRightClick = [this] { showMorphMenu(); };
+    morphSlider.setColour (juce::Slider::trackColourId, cold.withAlpha (0.45f));
+    morphSlider.setColour (juce::Slider::textBoxTextColourId, text);
+    morphSlider.setColour (juce::Slider::backgroundColourId, raised);
+    morphSlider.setColour (juce::Slider::textBoxOutlineColourId, line2);
+    addAndMakeVisible (morphSlider);
     tabEuclid.setTooltip (utf8 ("Euklid-magi för valt spår: rotation som rör sig, andning, lager och fyll luckorna"));
     ringButton.setTooltip (utf8 ("Visa spåren som euklidiska ringar"));
     ringButton.onClick = [this] { setRingMode (! ringView->isVisible()); };
@@ -1668,6 +1684,8 @@ BetongContent::BetongContent (BetongProcessor& p)
             c->setVisible (false);
         for (auto& r : rows) r->setCompact (true);
         motorButton.setVisible (false); // smedjans huvudrad är full; motorn nås via fliken
+        breedButton.setVisible (false);
+        morphSlider.setVisible (false);
         setSidePage (PageEuclid);
         setRingMode (true);
     }
@@ -1692,6 +1710,43 @@ void BetongContent::openFileForSelectedPad()
         if (fc.getResult().existsAsFile() && proc.loadFileToPad (proc.selectedPad, fc.getResult()))
             proc.triggerPad (proc.selectedPad);
         selectionChanged();
+    });
+}
+
+void BetongContent::showBreedMenu()
+{
+    const int cur = proc.getScene();
+    auto name = [] (int s) { return juce::String::charToString ((juce::juce_wchar) ('A' + s)); };
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("AVLA SCEN ") + name (cur) + utf8 (" MED ..."));
+    for (int partner = 0; partner < kScenes; ++partner)
+    {
+        if (partner == cur) continue;
+        juce::PopupMenu sub;
+        for (int target = 0; target < kScenes; ++target)
+            if (target != cur)
+                sub.addItem (1 + partner * 10 + target, utf8 ("Barnet hamnar i scen ") + name (target)
+                                                       + (target == partner ? utf8 (" (ersätter partnern)") : juce::String()));
+        m.addSubMenu (utf8 ("Scen ") + name (partner), sub);
+    }
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&breedButton), [this] (int r)
+    {
+        if (r <= 0) return;
+        proc.breedScenes ((r - 1) / 10, (r - 1) % 10);
+        selectionChanged();
+    });
+}
+
+void BetongContent::showMorphMenu()
+{
+    juce::PopupMenu m;
+    m.addSectionHeader (utf8 ("MORFA MOT SCEN"));
+    const int to = (int) proc.getParam ("morphTo");
+    for (int i = 0; i < kScenes; ++i)
+        m.addItem (i + 1, utf8 ("Scen ") + juce::String::charToString ((juce::juce_wchar) ('A' + i)), i != proc.getScene(), i == to);
+    m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&morphSlider), [this] (int r)
+    {
+        if (r > 0) proc.setParam ("morphTo", (float) (r - 1));
     });
 }
 
@@ -1796,6 +1851,10 @@ void BetongContent::timerCallback()
     for (auto& r : rows) r->grid.repaint();
     if (ringView != nullptr && ringView->isVisible()) ringView->repaint();
     if (motorPanel != nullptr && motorPanel->isVisible()) motorPanel->tick();
+    {
+        const auto pre = utf8 ("MORF→") + juce::String::charToString ((juce::juce_wchar) ('A' + (int) proc.getParam ("morphTo")));
+        if (morphSlider.prefix != pre) { morphSlider.prefix = pre; morphSlider.updateText(); morphSlider.repaint(); }
+    }
 
     const bool host = proc.hostPlaying.load();
     playButton.setButtonText (host ? utf8 ("DAW") : (playButton.getToggleState() ? utf8 ("STOPP") : utf8 ("SPELA")));
@@ -1966,6 +2025,10 @@ void BetongContent::resized()
         ringButton.setBounds (head.removeFromLeft (60));
         head.removeFromLeft (6);
         motorButton.setBounds (head.removeFromLeft (76));
+        head.removeFromLeft (6);
+        breedButton.setBounds (head.removeFromLeft (58));
+        head.removeFromLeft (6);
+        morphSlider.setBounds (head.removeFromLeft (juce::jmin (128, head.getWidth())));
         const int rh = s.getHeight() / kLanes;
         ringView->setBounds (s);
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));

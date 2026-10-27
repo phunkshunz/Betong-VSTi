@@ -165,6 +165,25 @@ inline void applyLife (Lane& L, juce::int64 bar)
     }
 }
 
+// Morf: stegen glider över mot ett annat spår (samma spår i en annan scen). Varje steg har
+// sin egen tröskel, så morfen sker steg för steg och samma steg byter alltid vid samma läge.
+inline void applyMorph (Lane& L, const Lane& target, int laneIndex, float amount)
+{
+    if (amount <= 0.001f) return;
+    Lane t = target;
+    if (t.euclid) applyEuclid (t);
+    if (L.euclid) { applyEuclid (L); L.euclid = false; }
+    const int len = juce::jlimit (1, kMaxSteps, L.length);
+    for (int i = 0; i < len; ++i)
+    {
+        juce::uint32 x = (juce::uint32) (i + 1) * 2654435761u ^ (juce::uint32) (laneIndex + 1) * 0x9E3779B9u;
+        x ^= x >> 16; x *= 0x7feb352du; x ^= x >> 15; x *= 0x846ca68bu; x ^= x >> 16;
+        const float threshold = (float) (x & 0xFFFF) / 65536.0f;
+        if (threshold < amount)
+            L.steps[(size_t) i] = i < t.length ? t.steps[(size_t) i] : Step {};
+    }
+}
+
 // Styrka per steg: svag, normal, stark
 inline float stepGain (const Step& s) { return s.accent ? 1.0f : s.ghost ? 0.42f : 0.78f; }
 

@@ -164,6 +164,20 @@ private:
 };
 
 //==============================================================================
+// MORF-reglaget: högerklick väljer vilken scen det glider mot.
+class MorphSlider : public BarSlider
+{
+public:
+    MorphSlider() : BarSlider ("MORF") {}
+    std::function<void()> onRightClick;
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        if (e.mods.isPopupMenu() && onRightClick) { onRightClick(); return; }
+        BarSlider::mouseDown (e);
+    }
+};
+
+//==============================================================================
 // MOTOR-fliken: energikurvan genom låten och rattarna som styr hur beatet lever.
 class EnergyView : public juce::Component
 {
@@ -292,7 +306,11 @@ private:
     BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" }, densSlider { "DENSITET" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt, densAtt;
     juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" }, tabMotor { "MOTOR" };
-    juce::TextButton motorButton { "MOTOR" };
+    juce::TextButton motorButton { "MOTOR" }, breedButton { "AVLA" };
+    MorphSlider morphSlider;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> morphAtt;
+    void showBreedMenu();
+    void showMorphMenu();
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> motorAtt;
     std::unique_ptr<EuclidPanel> euclidPanel;
     std::unique_ptr<MotorPanel> motorPanel;

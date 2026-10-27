@@ -62,6 +62,8 @@ public:
     int getQueuedScene() const { return queuedScene.load(); }
     void queueScene (int s);
     void copySceneTo (int target);
+    betong::Pattern getScenePattern (int s) const;
+    void breedScenes (int partner, int target);   // avla scenen som spelar med partner, barnet hamnar i target
     std::atomic<bool> fillHeld { false };
 
     std::array<std::atomic<int>, betong::kLanes> laneStep {};
@@ -197,6 +199,9 @@ private:
     std::atomic<float>* pMChaos = nullptr; std::atomic<float>* pMFilt = nullptr; std::atomic<float>* pMDub = nullptr;
     std::atomic<float>* pMPump = nullptr; std::atomic<float>* pMFeel = nullptr; std::atomic<float>* pMForm = nullptr;
     std::atomic<float>* pMSeed = nullptr;
+    std::atomic<float>* pMorph = nullptr; std::atomic<float>* pMorphTo = nullptr;
+    float morphAmt = 0.0f;
+    int morphScene = 1;
 
     // motorn i ljudtråden. Cacharna gäller ett block i taget, eftersom mönstret kan ändras mellan blocken.
     betong::motor::Settings ms;

@@ -143,6 +143,10 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         c ("mForm", "Motor form", forms, betong::motor::FormLat);
     }
     layout.add (std::make_unique<AudioParameterInt> (ParameterID { "mSeed", 1 }, "Motor seed", 1, 9999, 1));
+
+    // MORF mellan scener
+    f ("morph", "Morf", { 0.0f, 1.0f }, 0.0f);
+    c ("morphTo", "Morf mot scen", { "A", "B", "C", "D" }, 1);
     return layout;
 }
 
@@ -172,6 +176,7 @@ BetongProcessor::BetongProcessor()
     pMOn = raw ("mOn"); pMMove = raw ("mMove"); pMDepth = raw ("mDepth"); pMChaos = raw ("mChaos");
     pMFilt = raw ("mFilt"); pMDub = raw ("mDub"); pMPump = raw ("mPump"); pMFeel = raw ("mFeel");
     pMForm = raw ("mForm"); pMSeed = raw ("mSeed");
+    pMorph = raw ("morph"); pMorphTo = raw ("morphTo");
     for (int l = 0; l < kLanes; ++l)
         lp[(size_t) l] = { raw (laneId (l, "type")), raw (laneId (l, "cut")), raw (laneId (l, "res")), raw (laneId (l, "drive")),
                            raw (laneId (l, "env")), raw (laneId (l, "dec")), raw (laneId (l, "crush")),
@@ -432,7 +437,7 @@ Step BetongProcessor::effectiveStep (int li, juce::int64 n, int depth) const
     const double bar = (double) n / spb / 4.0;
     const auto barI = (juce::int64) std::floor (bar);
     // motorn och Game of Life ändrar bara stegen, aldrig längd eller takt
-    const auto& lane = (motorOn || base.life > 0) ? liveLane (li, barI) : base;
+    const auto& lane = (motorOn || base.life > 0 || morphAmt > 0.001f) ? liveLane (li, barI) : base;
     const int rot = lane.rotEvery > 0 ? (int) ((barI / lane.rotEvery) % len) : 0;
     const int i = (int) ((((n - rot) % len) + len) % len);
     Step st = lane.steps[(size_t) i];
@@ -538,7 +543,7 @@ const Lane& BetongProcessor::liveLane (int li, juce::int64 bar) const
     if (evoBars[(size_t) li] != bar)
     {
         cached = audioPattern.lanes[(size_t) li];
-        makeLive (cached, li, ms, motorOn, bar);
+        makeLive (cached, li, ms, motorOn, bar, &audioScenes[(size_t) morphScene].lanes[(size_t) li], morphAmt);
         evoBars[(size_t) li] = bar;
     }
     return cached;
@@ -747,6 +752,10 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         if (now) { scene.store (q); queuedScene.store (-1); ++stateVersion; }
     }
     audioPattern = audioScenes[(size_t) juce::jlimit (0, kScenes - 1, scene.load())];
+
+    // morf mot en annan scen (gör inget om målet är scenen som spelar)
+    morphScene = juce::jlimit (0, kScenes - 1, (int) pMorphTo->load());
+    morphAmt = morphScene == scene.load() ? 0.0f : pMorph->load();
 
     // motorn: inställningarna läses en gång per block, cacharna börjar om
     ms = motorSettings();
@@ -1008,6 +1017,73 @@ void BetongProcessor::queueScene (int s)
     s = juce::jlimit (0, kScenes - 1, s);
     if (s == scene.load()) { queuedScene.store (-1); return; }
     queuedScene.store (s);
+}
+
+Pattern BetongProcessor::getScenePattern (int s) const
+{
+    const juce::SpinLock::ScopedLockType sl (patternLock);
+    return scenes[(size_t) juce::jlimit (0, kScenes - 1, s)];
+}
+
+// Avla: barnet får drag från båda föräldrarna. Varje spår ärver sin grund (pad, takt, längd)
+// från en av dem, stegen korsas på ett slumpat ställe och en liten mutation läggs till.
+void BetongProcessor::breedScenes (int partner, int target)
+{
+    partner = juce::jlimit (0, kScenes - 1, partner);
+    target = juce::jlimit (0, kScenes - 1, target);
+    pushUndo();
+    juce::Random rng;
+    const float crazy = getParam ("crazy");
+    std::array<Pattern, kScenes> all;
+    {
+        const juce::SpinLock::ScopedLockType sl (patternLock);
+        all = scenes;
+    }
+    const auto& a = all[(size_t) scene.load()];
+    const auto& b = all[(size_t) partner];
+    Pattern child;
+    for (int li = 0; li < kLanes; ++li)
+    {
+        Lane pa = a.lanes[(size_t) li], pb = b.lanes[(size_t) li];
+        if (pa.lock) { child.lanes[(size_t) li] = pa; continue; }
+        if (pa.euclid) applyEuclid (pa);
+        if (pb.euclid) applyEuclid (pb);
+        const bool fromB = rng.nextBool();
+        Lane c = fromB ? pb : pa;
+        const Lane& other = fromB ? pa : pb;
+        c.euclid = false;
+        const int len = juce::jlimit (1, kMaxSteps, c.length);
+        if (li == 0 && c.pad <= 1)
+        {
+            // kicken: fyra på golvet från grundföräldern, bara de svaga extraslagen korsas
+            for (int i = 0; i < len; ++i)
+                if (i % 4 != 0 && i < other.length && rng.nextBool()) c.steps[(size_t) i] = other.steps[(size_t) i];
+        }
+        else
+        {
+            const int cut = 1 + rng.nextInt (juce::jmax (1, len - 1));
+            for (int i = cut; i < len; ++i)
+                c.steps[(size_t) i] = i < other.length ? other.steps[(size_t) i] : Step {};
+            // mutation: ett slag till eller ett mindre, oftare när galenskapen är uppe
+            if (rng.nextFloat() < 0.3f + crazy * 0.5f)
+            {
+                auto& s = c.steps[(size_t) rng.nextInt (len)];
+                if (s.on && ! s.accent) s.on = false;
+                else if (! s.on) { s = Step {}; s.on = true; s.ghost = true; }
+            }
+        }
+        c.mute = a.lanes[(size_t) li].mute;
+        c.solo = false;
+        child.lanes[(size_t) li] = c;
+    }
+    {
+        const juce::SpinLock::ScopedLockType sl (patternLock);
+        scenes[(size_t) target] = child;
+    }
+    currentPatternName = juce::String ("Avlat ") + juce::String::charToString ((juce::juce_wchar) ('A' + scene.load()))
+                       + juce::String::charToString (0xd7) + juce::String::charToString ((juce::juce_wchar) ('A' + partner));
+    queueScene (target);
+    ++stateVersion;
 }
 
 void BetongProcessor::copySceneTo (int target)

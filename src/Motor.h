@@ -638,8 +638,10 @@ namespace betong
 {
 // Spåret som det faktiskt låter i takten bar: motorns mutationer (om motorn går) och sedan
 // Game of Life (om spåret har liv). Används av både ljudtråden och sequencerns visning.
-inline void makeLive (Lane& L, int li, const motor::Settings& st, bool motorOn, juce::int64 bar)
+inline void makeLive (Lane& L, int li, const motor::Settings& st, bool motorOn, juce::int64 bar,
+                      const Lane* morphTarget = nullptr, float morph = 0.0f)
 {
+    if (morphTarget != nullptr && morph > 0.001f && ! L.lock) applyMorph (L, *morphTarget, li, morph);
     if (motorOn) motor::evolve (L, li, st, (double) bar + 0.01);
     if (L.life > 0) applyLife (L, bar);
 }
