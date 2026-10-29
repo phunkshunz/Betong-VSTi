@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "Rytmbank.h"
 #include "PluginEditor.h"
 #include "Presets.h"
 #include <cstring>
@@ -1530,17 +1531,46 @@ void BetongProcessor::randomKit()
     ++stateVersion;
 }
 
+// Smart slump: varje spår får en roll efter sin pad (kick, hats, klapp/perc, bas,
+// stab, röst). Mönstren väljs ur rytmbanken (analyserade minimal/techno-arketyper)
+// eller räknas fram euklidiskt med polymeter när GALENSKAP är hög, och kontrolleras
+// mot reglerna för rollen. Det som skulle låta knas förkastas och slumpas om.
+static mh::Role roleForPad (int pad)
+{
+    switch (pad)
+    {
+        case 0: case 1:   return mh::Role::Kick;
+        case 2: case 3: case 11: return mh::Role::Tick;
+        case 12:          return mh::Role::Bas;
+        case 13: case 14: return mh::Role::Ton;
+        case 15:          return mh::Role::Rost;
+        default:          return mh::Role::Klick;   // clap, snare, toms, perc, rim
+    }
+}
+
+static float roleDensity (mh::Role r, int pad, mh::Rng& rng)
+{
+    switch (r)
+    {
+        case mh::Role::Tick:  return pad == 3 ? 0.18f + 0.1f * rng.uni() : 0.3f + 0.35f * rng.uni();   // öppen hat glesare
+        case mh::Role::Klick: return pad == 4 || pad == 5 ? 0.12f + 0.08f * rng.uni() : 0.15f + 0.2f * rng.uni();
+        case mh::Role::Bas:   return 0.2f + 0.2f * rng.uni();
+        case mh::Role::Ton:   return 0.1f + 0.15f * rng.uni();
+        case mh::Role::Rost:  return 0.08f + 0.12f * rng.uni();
+        case mh::Role::Luft: case mh::Role::Spoke: case mh::Role::Kick: default: return 0.25f;
+    }
+}
+
 void BetongProcessor::randomPattern()
 {
     pushUndo();
-    juce::Random rng;
+    juce::Random jr;
+    mh::Rng rng ((uint32_t) jr.nextInt());
     const float crazy = getParam ("crazy");
     Pattern p = getPattern();
 
-    static const int lanePads[kLanes][3] = { { 0, 0, 0 }, { 2, 2, 1 }, { 3, 4, 5 }, { 4, 5, 10 },
-                                             { 6, 7, 8 }, { 8, 9, 11 }, { 12, 12, 13 }, { 13, 14, 15 } };
-    const int calmLens[] = { 16, 16, 16, 16, 8, 12 };
-    const int wildLens[] = { 5, 7, 9, 11, 13, 15, 12, 10, 14, 6 };
+    static const int lanePads[kLanes][3] = { { 0, 0, 0 }, { 2, 2, 11 }, { 4, 5, 10 }, { 8, 9, 10 },
+                                             { 6, 7, 8 }, { 3, 3, 11 }, { 12, 12, 12 }, { 13, 14, 15 } };
 
     for (int li = 0; li < kLanes; ++li)
     {
@@ -1549,57 +1579,100 @@ void BetongProcessor::randomPattern()
         const bool keepMute = lane.mute;
         lane = Lane {};
         lane.mute = keepMute;
-        lane.pad = lanePads[li][rng.nextInt (3)];
+        lane.pad = lanePads[li][rng.below (3)];
+        const mh::Role role = roleForPad (lane.pad);
 
-        if (li == 0) // kicken håller golvet
+        if (role == mh::Role::Kick)   // kicken håller golvet
         {
             setStepsFromString (lane, "X...x...x...x...");
-            if (rng.nextFloat() < crazy * 0.5f) lane.steps[(size_t) (10 + rng.nextInt (6))].on = true;
-            if (rng.nextFloat() < crazy * 0.3f) { auto& s = lane.steps[15]; s.on = true; s.prob = 50; }
+            if (rng.chance (crazy * 0.35f)) { auto& s = lane.steps[(size_t) (rng.chance (0.5f) ? 14 : 11)]; s.on = true; s.ghost = true; s.prob = 50; }
             continue;
         }
 
-        lane.length = rng.nextFloat() < crazy * 0.8f ? wildLens[rng.nextInt (10)] : calmLens[rng.nextInt (6)];
-        const float r = rng.nextFloat();
-        lane.rate = r < crazy * 0.12f ? 2 : r < crazy * 0.2f ? 4 : r < crazy * 0.27f ? 5 : r < crazy * 0.32f ? 3 : 0;
-
-        if (li == 1 && lane.pad == 2) // stängd hat på offbeats eller 16-delar
+        const float target = roleDensity (role, lane.pad, rng);
+        const bool poly = rng.chance (crazy * 0.7f) && role != mh::Role::Bas;
+        bool hits[32] {}, ghosts[32] {}, accents[32] {};
+        int len = 16;
+        for (int attempt = 0; attempt < 16; ++attempt)
         {
-            setStepsFromString (lane, rng.nextBool() ? "..x...x...x...x." : "xxxxxxxxxxxxxxxx");
-            if (lane.length != 16) { lane.euclid = true; lane.hits = juce::jmax (2, lane.length / 2); }
-        }
-        else
-        {
-            lane.euclid = true;
-            const float density = li == 6 ? 0.45f : li == 7 ? 0.15f : 0.2f + rng.nextFloat() * 0.35f;
-            lane.hits = juce::jlimit (1, lane.length, juce::roundToInt (lane.length * density));
-            lane.rotate = rng.nextInt (juce::jmax (1, lane.length));
-        }
-        if (lane.euclid) applyEuclid (lane);
-        lane.euclid = false; // gör stegen redigerbara direkt
-
-        for (int s = 0; s < lane.length; ++s)
-        {
-            auto& st = lane.steps[(size_t) s];
-            if (! st.on) continue;
-            st.accent = rng.nextFloat() < 0.2f;
-            st.ghost = ! st.accent && rng.nextFloat() < 0.25f;
-            // bas och stabs (pad 13-16) får en basgång i F-moll
-            if (lane.pad >= 12)
+            std::fill (std::begin (hits), std::end (hits), false);
+            std::fill (std::begin (ghosts), std::end (ghosts), false);
+            std::fill (std::begin (accents), std::end (accents), false);
+            const auto& lib = mh::libraryFor (role);
+            if (! poly && ! lib.empty())
             {
-                static const int scale[] = { 0, 0, 0, 3, 5, 7, 10, 12, -2, -5 };
-                if (rng.nextFloat() < 0.3f + crazy * 0.5f) st.semi = (int8_t) scale[rng.nextInt (10)];
+                int best = 0; float bestScore = 1e9f;
+                for (size_t k = 0; k < lib.size(); ++k)
+                {
+                    const float sc = std::fabs (lib[k].density - target) + rng.uni() * 0.15f;
+                    if (sc < bestScore) { bestScore = sc; best = (int) k; }
+                }
+                const char* str = lib[(size_t) best].steps;
+                len = std::min ((int) std::strlen (str), 32);
+                for (int k = 0; k < len; ++k)
+                {
+                    hits[k] = str[k] != '.';
+                    ghosts[k] = str[k] == 'g';
+                    accents[k] = str[k] == 'X';
+                }
             }
-            if (rng.nextFloat() < crazy * 0.35f) st.prob = (uint8_t) (rng.nextBool() ? 50 : 25);
-            if (rng.nextFloat() < crazy * 0.15f) st.ratchet = (uint8_t) (2 + rng.nextInt (3));
+            else
+            {
+                len = mh::goodCycle (role == mh::Role::Tick ? mh::Role::Spoke : role, rng);
+                if (role == mh::Role::Tick && ! rng.chance (crazy)) len = 16;
+                const int h = std::clamp ((int) std::lround (target * len), 1, std::max (1, len - 1));
+                mh::euclid (h, len, rng.below (len), hits);
+                if (role == mh::Role::Tick && hits[0])   // hats undviker ettan: offbeat-känsla
+                {
+                    bool tmp[32] {};
+                    for (int k = 0; k < len; ++k) tmp[(k + 2) % len] = hits[k];
+                    std::copy (tmp, tmp + len, hits);
+                }
+                for (int k = 0; k < len; ++k) if (hits[k] && rng.chance (0.2f)) ghosts[k] = true;
+            }
+            if (role == mh::Role::Bas)   // bas på kicken blir spökslag
+                for (int k = 0; k < len; k += 4) if (hits[k]) ghosts[k] = true;
+            if (mh::rhythmIsMusical (role, hits, ghosts, len)) break;
         }
+
+        lane.length = len;
+        // ljud i moll: få toner, mest grundtonen
+        static const int bassNotes[] = { 0, 0, 0, 0, 0, 12, 7, 10, 3, -2 };
+        static const int stabNotes[] = { 0, 0, 3, 7, 7, 10, 12, -5 };
+        for (int k = 0; k < len; ++k)
+        {
+            auto& st = lane.steps[(size_t) k];
+            st.on = hits[k];
+            if (! st.on) continue;
+            st.accent = accents[k] || (! ghosts[k] && rng.chance (0.12f));
+            st.ghost = ghosts[k];
+            if (role == mh::Role::Bas) st.semi = (int8_t) bassNotes[rng.below (10)];
+            else if (role == mh::Role::Ton) st.semi = (int8_t) stabNotes[rng.below (8)];
+            // galenskap: sannolikhet och ratchets, men aldrig på basen och aldrig på mer än ett par steg
+            if (role != mh::Role::Bas && rng.chance (crazy * 0.25f)) st.prob = (uint8_t) (rng.chance (0.5f) ? 50 : 75);
+            if ((role == mh::Role::Tick || role == mh::Role::Klick) && rng.chance (crazy * 0.08f)) st.ratchet = (uint8_t) (2 + rng.below (2));
+        }
+        // ibland långsammare takt på texturer (aldrig på bas och hats)
+        if ((role == mh::Role::Ton || role == mh::Role::Rost) && rng.chance (crazy * 0.25f)) lane.rate = 2;
     }
     setPattern (p);
-    setParam ("swing", rng.nextFloat() * (0.15f + crazy * 0.35f));
+
+    // svängen från ett slumpat groove-DNA (udda 16-delarnas förskjutning -> swing)
+    const int dnaIdx = rng.below (mh::kNumDna - 1);
+    const auto& dna = mh::dnaTable (dnaIdx);
+    float odd = 0.0f;
+    for (int k = 1; k < 16; k += 2) odd += dna.offset[k];
+    odd /= 8.0f;
+    setParam ("swing", juce::jlimit (0.0f, 0.75f, 2.0f * odd + rng.uni() * 0.06f));
     for (int li = 0; li < kLanes; ++li)
         if (! p.lanes[(size_t) li].lock)
-            setParam (laneId (li, "swing"), (li > 0 && rng.nextFloat() < 0.15f + crazy * 0.3f) ? 0.2f + rng.nextFloat() * 0.4f : -0.05f);
-    currentPatternName = juce::String::fromUTF8 ("Slump-mönster");
+        {
+            const auto r = roleForPad (p.lanes[(size_t) li].pad);
+            // hats och perc får ibland lite mer sväng än resten, som en människa på en MPC
+            const bool extra = (r == mh::Role::Tick || r == mh::Role::Klick) && rng.chance (0.25f + crazy * 0.3f);
+            setParam (laneId (li, "swing"), extra ? juce::jlimit (0.0f, 0.75f, 2.0f * odd + 0.12f + rng.uni() * 0.15f) : -0.05f);
+        }
+    currentPatternName = juce::String::fromUTF8 ("Slump: ") + juce::String (dna.name);
     ++stateVersion;
 }
 
