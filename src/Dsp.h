@@ -137,7 +137,7 @@ public:
                     l = svfB[0].process (l, mode);
                     r = svfB[1].process (r, mode);
                 }
-                // resonansen får dista, som på Plastikmans Serge
+                // resonansen får dista, som på en gammal modulärsynt
                 l = fastTanh (l * 1.2f) / 1.2f;
                 r = fastTanh (r * 1.2f) / 1.2f;
             }

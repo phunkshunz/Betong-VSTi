@@ -1236,7 +1236,7 @@ juce::String BetongProcessor::aiPrompt() const
     }
 
     juce::String s;
-    s << juce::String::fromUTF8 ("STIL: [SKRIV HÄR vad du vill ha, t.ex. \"hypnotisk minimal som Plastikman 1994, torr och mörk\" eller ett låtnamn]\n\n")
+    s << juce::String::fromUTF8 ("STIL: [SKRIV HÄR vad du vill ha, t.ex. \"hypnotisk minimal, torr och mörk, som 1994\" eller ett låtnamn]\n\n")
       << juce::String::fromUTF8 ("Du är en technoproducent som programmerar trummaskinen BETONG. Gör ett mönster i stilen ovan. "
                                  "Om stilen är en låt eller artist: utgå från vad som är känt om dess tempo, groove, ljud och arrangemang, "
                                  "men kopiera inte låten, gör något nytt i samma anda.\n\n")

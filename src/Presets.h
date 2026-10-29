@@ -182,14 +182,14 @@ constexpr PatternPreset kPatterns[] = {
     { "Rave 93", 0.0f, { "1:16:X...x...x...x...", "4:16:..x...x...x...x.", "5:16:....x.......x..4", "14:16:x.....x.....x...", "15:16:x...............................", "13:16:x.xx.x.xx.x.xx.x", nullptr }, "Klassiskt 90-tal" },
     { "Ride Rusning", 0.05f, { "1:16:X...x...x...x...", "10:8:xxxxxxxx", "4:16:..x...x...x...x.", "5:16:....x.......x...", "13:16:..x...x...x..xx.", nullptr }, "Klassiskt 90-tal" },
     { "Tung Fyra", 0.0f, { "1:16:X...x...x...x...", "6:16:....X.......X...", "12:16:xxxxxxxxxxxxxxxx", "4:16:..x...x...x...x.", "2:16:x...x...x...x...", nullptr }, "Klassiskt 90-tal" },
-    // Plastikman minimal
-    { "Plast Klick", 0.08f, { "1:16:X...x...x...x...", "9:16:e:5:16:0", "13:16:x.x..x.xX..x.x.x", "3:12:..x..x..x..x", "10:16:e:3:16:2", nullptr }, "Plastikman minimal" },
-    { "Konsumerad", 0.0f, { "1:16:x.......x.......", "15:16:x...............................", "11:7:x..x...", "2:16:x...............", "10:16:e:2:16:5", nullptr }, "Plastikman minimal" },
-    { "Plast Ark", 0.0f, { "1:16:X...x...x...x...", "13:16:X.x2x.xxo.x.Xxx.", "3:12:..x..x..x..x", "11:16:...x.......x..o.", "14:16:..........x.....", nullptr }, "Plastikman minimal" },
-    { "Fem mot Tolv", 0.0f, { "1:16:X...x...x...x...", "9:5:x.x..", "7:12:x..x.x..x.x.", "3:16:..x...x...x...x.", "13:16:x...x..x..x.x...", nullptr }, "Plastikman minimal" },
-    { "Spritz", 0.12f, { "1:16:X...x...x...x...", "9:16:oo.o.po.o.op.o.p", "10:16:..3...p...2...o.", "3:16:..x...x...x...x.", "13:16:x..x....x..x....", nullptr }, "Plastikman minimal" },
-    { "Tom Konga Svep", 0.1f, { "1:16:X...x...x...x...", "7:16:x..x..x...x..x..", "8:16:..x...x.x...x..x", "9:16:.x...x.....x..x.", "3:16:..x...x...x...x.", nullptr }, "Plastikman minimal" },
-    { "Minimal Drift", 0.0f, { "1:16:X...x...x...x...", "9:15:x...x...x...x..", "3:16:..x...x...x...x.", "13:17:x..x..x..x..x..x.", "11:16:....x.......x...", nullptr }, "Plastikman minimal" },
+    // Plastisk minimal
+    { "Plast Klick", 0.08f, { "1:16:X...x...x...x...", "9:16:e:5:16:0", "13:16:x.x..x.xX..x.x.x", "3:12:..x..x..x..x", "10:16:e:3:16:2", nullptr }, "Plastisk minimal" },
+    { "Konsumerad", 0.0f, { "1:16:x.......x.......", "15:16:x...............................", "11:7:x..x...", "2:16:x...............", "10:16:e:2:16:5", nullptr }, "Plastisk minimal" },
+    { "Plast Ark", 0.0f, { "1:16:X...x...x...x...", "13:16:X.x2x.xxo.x.Xxx.", "3:12:..x..x..x..x", "11:16:...x.......x..o.", "14:16:..........x.....", nullptr }, "Plastisk minimal" },
+    { "Fem mot Tolv", 0.0f, { "1:16:X...x...x...x...", "9:5:x.x..", "7:12:x..x.x..x.x.", "3:16:..x...x...x...x.", "13:16:x...x..x..x.x...", nullptr }, "Plastisk minimal" },
+    { "Spritz", 0.12f, { "1:16:X...x...x...x...", "9:16:oo.o.po.o.op.o.p", "10:16:..3...p...2...o.", "3:16:..x...x...x...x.", "13:16:x..x....x..x....", nullptr }, "Plastisk minimal" },
+    { "Tom Konga Svep", 0.1f, { "1:16:X...x...x...x...", "7:16:x..x..x...x..x..", "8:16:..x...x.x...x..x", "9:16:.x...x.....x..x.", "3:16:..x...x...x...x.", nullptr }, "Plastisk minimal" },
+    { "Minimal Drift", 0.0f, { "1:16:X...x...x...x...", "9:15:x...x...x...x..", "3:16:..x...x...x...x.", "13:17:x..x..x..x..x..x.", "11:16:....x.......x...", nullptr }, "Plastisk minimal" },
     // Svensk loop-techno
     { "Stockholm Loop", 0.05f, { "1:16:X...x...x...x...", "15:16:x...............", "3:16:..x...x...x...x.", "5:16:....x.......x...", "8:16:...x..x....x..x.", "12:16:xxxxxxxxxxxxxxxx", nullptr }, "Svensk loop-techno" },
     { "Södermalm Funk", 0.3f, { "1:16:X...x...x...x...", "7:16:x..x..x.x..x..x.", "5:16:..x...x...x...x.", "3:16:xxxxxxxxxxxxxxxx", "13:16:..x..x..x..x..x.", nullptr }, "Svensk loop-techno" },
@@ -312,7 +312,7 @@ constexpr FxPreset kFx[] = {
     // Lo-fi
     { "SP-12 Grus", 2, 0.4f, 0.4f, 0.1f, 0.25f, 0.6f, 0.4f, 100.0f, 0.8f, 0.5f, 0.4f, 0.25f, "00000000", "70000000", "05555555", "00000000", "00000000", "Lo-fi" },
     { "Sexbitars Trä", 2, 0.45f, 0.4f, 0.1f, 0.3f, 0.6f, 0.4f, 100.0f, 0.8f, 0.5f, 0.4f, 0, "00000000", "70000000", "00009900", "00000000", "00000000", "Lo-fi" },
-    { "MPC Varm", 2, 0.4f, 0.3f, 0.2f, 0.25f, 0.6f, 0.3f, 90.0f, 0.8f, 0.5f, 0.35f, 0.15f, "00000000", "70000000", "03333333", "11111111", "00000000", "Lo-fi" },
+    { "Sampler Varm", 2, 0.4f, 0.3f, 0.2f, 0.25f, 0.6f, 0.3f, 90.0f, 0.8f, 0.5f, 0.35f, 0.15f, "00000000", "70000000", "03333333", "11111111", "00000000", "Lo-fi" },
     { "Kassett", 2, 0.5f, 0.25f, 0.9f, 0.35f, 0.6f, 0.3f, 90.0f, 0.7f, 0.5f, 0.3f, 0.2f, "00300330", "60000000", "02222222", "11111111", "00000000", "Lo-fi" },
     { "Vinylgolv", 1, 0.5f, 0.3f, 0.4f, 0.35f, 0.6f, 0.3f, 90.0f, 0.7f, 0.5f, 0.3f, 0.1f, "00000660", "60000000", "00000000", "00000000", "00000000", "Lo-fi" },
     { "Trasig Sampler", 3, 0.5f, 0.5f, 0.3f, 0.4f, 0.6f, 0.4f, 100.0f, 0.8f, 0.5f, 0.45f, 0.5f, "00990000", "70000000", "09999999", "00000000", "00000000", "Lo-fi" },
