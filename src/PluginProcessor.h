@@ -74,6 +74,12 @@ public:
 
     std::array<std::atomic<int>, betong::kLanes> laneStep {};
     std::array<std::atomic<int>, betong::kPads> padHits {};
+    // FRIKTION till VÄVEN: senaste släpet per spår, och räknare för spökslag, duck och studs
+    std::array<std::atomic<float>, betong::kLanes> uiDragMs {};
+    std::array<std::atomic<int>, betong::kLanes> uiGhost {}, uiDuck {}, uiStut {}, uiLaneHits {};
+    std::atomic<float> uiGlue { 0.0f };
+    void dicePocket();      // DICE // POCKET: nytt släp och polyrytmiska längder som svänger
+    void polyLengths();     // POLY: 16, 15, 13, 11 per roll
 
     // Pads
     struct PadInfo { betong::SamplePtr sample; int start = 0, end = 0; };
@@ -141,9 +147,20 @@ private:
         float gain = 1, gl = 1, gr = 1, amp = 1, decayCoef = 1, fade = 1, fadeStep = 0;
         bool releasing = false;
         int64_t samplesLeft = 0;
+        float dark = 0.0f, lpC = 0.0f, lpL = 0.0f, lpR = 0.0f;   // FRIKTION: mörkare spökslag
     };
     // flags: 1 = spela baklänges (växlar padens läge), 2 = kort slag (glitch)
-    void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi = 0.0f, int flags = 0);
+    void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi = 0.0f, int flags = 0,
+                     float decayMul = 1.0f, float dark = 0.0f);
+    // FRIKTION
+    struct FricKnobs
+    {
+        float pocket = 0, troghet = 0, humanMs = 0, interlock = 0, mratchet = 0, vdecay = 0, maxMs = 0;
+        std::array<float, betong::kLanes> laneDrag {};
+        bool any = false;
+    };
+    struct FricHit { double shiftMs = 0.0; float gain = 1.0f, decay = 1.0f, dark = 0.0f; bool ghost = false, ducked = false; int stutter = 0; };
+    FricKnobs readFric() const;
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
     struct SeqState;
@@ -153,6 +170,8 @@ private:
     int motorMask (const SeqState&, juce::int64 bar) const;                                  // spår som spelar enligt motorn
     void motorEvents (const SeqState&, juce::int64 bar, int& roll, int& thrown) const;       // rullning och dub-kast i takten
     float hash01 (juce::int64 n, int lane, juce::uint32 salt) const;
+    FricHit friktionHit (const SeqState&, int lane, juce::int64 n, int spb, betong::motor::Role role,
+                         const betong::Step& st, const FricKnobs& fk) const;
 
     juce::SharedResourcePointer<betong::BuiltInLibrary> builtIn;
     std::unique_ptr<juce::PropertiesFile> settings;
@@ -223,6 +242,12 @@ private:
     std::atomic<float>* pStutter = nullptr; std::atomic<float>* pStutLen = nullptr; std::atomic<float>* pFill = nullptr;
     std::atomic<float>* pSvaj = nullptr; std::atomic<float>* pGlitch = nullptr; std::atomic<float>* pDens = nullptr;
     std::atomic<float>* pHammer = nullptr; std::atomic<float>* pGlow = nullptr;
+    std::atomic<float>* pPocket = nullptr; std::atomic<float>* pTroghet = nullptr; std::atomic<float>* pHuman = nullptr;
+    std::atomic<float>* pInterlock = nullptr; std::atomic<float>* pMRatchet = nullptr; std::atomic<float>* pVDecay = nullptr;
+    std::atomic<float>* pGlue = nullptr;
+    std::array<std::atomic<float>*, betong::kLanes> pLaneDrag {};
+    float gluePump = 0.0f, glueLp[2] {};
+    bool glueRising = false;
     juce::uint32 glitchSeed = 0x5eed;
     std::atomic<float>* pMOn = nullptr; std::atomic<float>* pMMove = nullptr; std::atomic<float>* pMDepth = nullptr;
     std::atomic<float>* pMChaos = nullptr; std::atomic<float>* pMFilt = nullptr; std::atomic<float>* pMDub = nullptr;
@@ -239,7 +264,7 @@ private:
     float pumpEnv = 0.0f;
     bool pumpRising = false;
     int kickHitAt = -1;                 // sampel i blocket där kicken slog (för pumpen)
-    std::vector<float> pumpBuf;
+    std::vector<float> pumpBuf, glueBuf;
     struct LaneParams { std::atomic<float>* type; std::atomic<float>* cut; std::atomic<float>* res; std::atomic<float>* drive;
                         std::atomic<float>* env; std::atomic<float>* dec; std::atomic<float>* crush;
                         std::atomic<float>* sendA; std::atomic<float>* sendB; std::atomic<float>* vol; std::atomic<float>* pan;

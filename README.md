@@ -125,6 +125,17 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - **Master:** DJ-svep (vänster = LP, höger = HP), grus, clipper och bas-mono under 120 Hz.
 - **Stutter:** håll inne knappen för att loopa en bit av ljudet.
 
+**FRIKTION** (raden ovanför effekterna): mikrotiming och hocketing i Rominimal- och Perlon-anda. Kicken är ankaret och står alltid still.
+- **POCKET:** grundsläpet, 0–45 ms bakom rutnätet. Varje spår har en egen faktor, **SLÄP SPÅR**, i spårpanelen.
+- **TRÖGHET:** slag i rad släpar mer och mer (+8, +18, +30 ms) och släpper vid nästa paus.
+- **HUMANIZE:** ± upp till 3 ms analogt fladder per slag.
+- **INTERLOCK:** clap/rim före perc före hats. Upp till 50 % duckas krockande slag i volym och svans. Över 50 % flyttas det svagare slaget 1/32 eller 1/64 bakåt som ett spökslag, så trummorna svarar varandra.
+- **MIKRO-RATCHET:** chans att ett slag studsar 2–3 gånger, snabbare och svagare.
+- **VEL → DECAY:** spökslag och sena slag blir kortare och mörkare, accenter öppnar sin svans.
+- **TAPE GLUE:** kicken trycker ner svansarna från resten, och allt går genom en varm bandmättnad.
+- **VÄVEN** visar var varje slag landar. **DICE // POCKET** slumpar allt detta plus nya längder (11, 13, 15, 16). **POLY** ger trumspåren 16, 15, 13 och 11 steg. Ångra tar tillbaka.
+- Gamla projekt öppnas med FRIKTION på noll och låter som förut.
+
 **MIDI:** C1 och uppåt (not 36–51) spelar pad 1–16.
 
 ## Ljuden

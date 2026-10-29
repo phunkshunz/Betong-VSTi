@@ -38,7 +38,7 @@ constexpr int kDefaultLanePads[kLanes] = { 0, 2, 3, 4, 6, 8, 12, 13 };
 } // namespace
 
 //==============================================================================
-enum class Unit { Pct, Hz, Ms, Db, Semi, Bpm, Pan, Sweep, Swing, LaneSwing, Dens };
+enum class Unit { Pct, Hz, Ms, Db, Semi, Bpm, Pan, Sweep, Swing, LaneSwing, Dens, Ms1, Fac };
 
 static juce::String formatValue (Unit u, float v)
 {
@@ -55,6 +55,8 @@ static juce::String formatValue (Unit u, float v)
         case Unit::Sweep: return std::abs (v) < 0.02f ? String::fromUTF8 ("Av") : (v < 0 ? "LP " : "HP ") + String (juce::roundToInt (std::abs (v) * 100.0f)) + " %";
         case Unit::Swing: return String (juce::roundToInt (50.0f + v * 50.0f)) + " %";
         case Unit::Dens: return std::abs (v) < 0.02f ? String ("0") : (v > 0 ? "+" : "-") + String (juce::roundToInt (std::abs (v) * 100.0f)) + " %";
+        case Unit::Ms1:   return String::fromUTF8 ("± ") + String (v, 1) + " ms";
+        case Unit::Fac:   return String::fromUTF8 ("× ") + String (v, 2);
         case Unit::LaneSwing: return v < 0.0f ? String ("Global") : String (juce::roundToInt (50.0f + v * 50.0f)) + " %";
     }
     return String (v, 2);
@@ -102,6 +104,14 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     f ("dens", "Densitet", { -1.0f, 1.0f }, 0.0f, Unit::Dens);
     f ("hammer", "Hammare", { 0.0f, 1.0f }, 0.0f);   // SMIDET: tätare, hårdare, fler skurar
     f ("glow", "Glöd", { 0.0f, 1.0f }, 0.0f);        // SMIDET: resonans, drive och mer rumble
+    // FRIKTION: mikrotiming, hocketing och tejp. Allt på noll = rakt rutnät som förut.
+    f ("pocket", "Pocket / släp", { 0.0f, 45.0f }, 0.0f, Unit::Ms);
+    f ("troghet", String::fromUTF8 ("Tröghet"), { 0.0f, 1.0f }, 0.0f);
+    f ("humanize", "Humanize", { 0.0f, 3.0f }, 0.0f, Unit::Ms1);
+    f ("interlock", "Interlock", { 0.0f, 1.0f }, 0.0f);
+    f ("mratchet", "Mikro-ratchet", { 0.0f, 1.0f }, 0.0f);
+    f ("vdecay", "Velocity till decay", { 0.0f, 1.0f }, 0.0f);
+    f ("tapeglue", "Tape glue / pump", { 0.0f, 1.0f }, 0.0f);
 
     for (int l = 0; l < kLanes; ++l)
     {
@@ -118,6 +128,7 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         f (BetongProcessor::laneId (l, "vol"), n + "volym", { 0.0f, 1.5f }, 1.0f);
         f (BetongProcessor::laneId (l, "pan"), n + "panorering", { -1.0f, 1.0f }, 0.0f, Unit::Pan);
         f (BetongProcessor::laneId (l, "swing"), n + "swing", { -0.05f, 0.75f }, -0.05f, Unit::LaneSwing);
+        f (BetongProcessor::laneId (l, "drag"), n + String::fromUTF8 ("släp"), { 0.0f, 2.0f }, 1.0f, Unit::Fac);
     }
     for (int p = 0; p < kPads; ++p)
     {
@@ -173,6 +184,9 @@ BetongProcessor::BetongProcessor()
     pRSize = raw ("rSize"); pRDrive = raw ("rDrive"); pRCut = raw ("rCut"); pRDuck = raw ("rDuck"); pRRet = raw ("rRet");
     pStutter = raw ("stutter"); pStutLen = raw ("stutLen"); pFill = raw ("fill");
     pSvaj = raw ("svaj"); pGlitch = raw ("glitch"); pDens = raw ("dens"); pHammer = raw ("hammer"); pGlow = raw ("glow");
+    pPocket = raw ("pocket"); pTroghet = raw ("troghet"); pHuman = raw ("humanize"); pInterlock = raw ("interlock");
+    pMRatchet = raw ("mratchet"); pVDecay = raw ("vdecay"); pGlue = raw ("tapeglue");
+    for (int l = 0; l < kLanes; ++l) pLaneDrag[(size_t) l] = raw (laneId (l, "drag"));
     glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     pMOn = raw ("mOn"); pMMove = raw ("mMove"); pMDepth = raw ("mDepth"); pMChaos = raw ("mChaos");
     pMFilt = raw ("mFilt"); pMDub = raw ("mDub"); pMPump = raw ("mPump"); pMFeel = raw ("mFeel");
@@ -196,6 +210,10 @@ BetongProcessor::BetongProcessor()
     applyKit (findIndex (kKits, kNumKits, kIsSmidet ? "Smedjan" : "Betong Grund"));
     applyPattern (findIndex (kPatterns, kNumPatterns, BETONG_DEFAULT_PATTERN));
     applyFx (findIndex (kFx, kNumFx, kIsSmidet ? "Smedjeglöd" : "Fuktigt Betonggolv"));
+    // en ny maskin svänger direkt: lagom släp, tröghet och interlock. Sparade projekt ersätter detta.
+    for (auto [id, v] : { std::pair<const char*, float> { "pocket", 14.0f }, { "troghet", 0.55f }, { "humanize", 1.5f },
+                          { "interlock", 0.4f }, { "mratchet", 0.08f }, { "vdecay", 0.5f }, { "tapeglue", 0.3f } })
+        setParam (id, v);
 
     startTimerHz (1);
 }
@@ -235,6 +253,7 @@ void BetongProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
     sideLp.setCutoff (120.0f, sr);
     for (auto& v : voices) v.s = nullptr;
     pumpBuf.assign ((size_t) maxBlock, 1.0f);
+    glueBuf.assign ((size_t) maxBlock, 1.0f);
     throwEnv.fill (0.0f);
     pumpEnv = 0.0f;
     setLatencySamples (juce::roundToInt (chains[0].getLatency()));
@@ -322,7 +341,7 @@ int BetongProcessor::laneForPad (int pad) const
     return kLanes; // direktbussen
 }
 
-void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi, int flags)
+void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi, int flags, float decayMul, float dark)
 {
     auto& slot = padSlots[(size_t) pad];
     const Sample* s = slot.sample.load();
@@ -369,8 +388,14 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
     v.delay = offset;
     v.amp = 1.0f; v.fade = 1.0f; v.releasing = false;
     v.decayCoef = decay >= 0.999f ? 1.0f
-                                  : std::exp (-1.0f / (float) ((0.015 * std::pow (250.0, (double) decay)) * sr));
+                                  : std::exp (-1.0f / (float) ((0.015 * std::pow (250.0, (double) decay)) * sr * decayMul));
+    if (decay >= 0.999f && decayMul < 0.999f)   // FRIKTION: även ett ljud utan decay kan bli kortare (spökslag)
+        v.decayCoef = std::exp (-1.0f / (float) (0.35 * decayMul * sr));
     if (flags & 2) v.decayCoef = std::exp (-1.0f / (float) (0.025 * sr)); // glitch: avhugget slag
+    // FRIKTION: spökslag blir mörkare (en enkel lågpass runt 2 kHz)
+    v.dark = juce::jlimit (0.0f, 1.0f, dark);
+    v.lpC = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi * 2000.0f / (float) sr);
+    v.lpL = v.lpR = 0.0f;
     v.samplesLeft = (int64_t) (sr * 40.0);
     *target = v;
     padHits[(size_t) pad].fetch_add (1);
@@ -403,8 +428,13 @@ void BetongProcessor::renderVoices (int numSamples)
                 const float c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
                 return ((c3 * fr + c2) * fr + c1) * fr + y1;
             };
-            const float l = herm (inL[i0], inL[idx], inL[i2], inL[i3]);
-            const float r = herm (inR[i0], inR[idx], inR[i2], inR[i3]);
+            float l = herm (inL[i0], inL[idx], inL[i2], inL[i3]);
+            float r = herm (inR[i0], inR[idx], inR[i2], inR[i3]);
+            if (v.dark > 0.0f)
+            {
+                v.lpL += (l - v.lpL) * v.lpC; v.lpR += (r - v.lpR) * v.lpC;
+                l += (v.lpL - l) * v.dark; r += (v.lpR - r) * v.dark;
+            }
 
             // mjuk start (1 ms) mot klick när en slice börjar mitt i ett ljud
             const float g = v.gain * v.amp * v.fade;
@@ -613,6 +643,9 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
     float glitch = juce::jmin (1.0f, pGlitch->load() + pHammer->load() * 0.25f);
     if (motorOn) glitch = juce::jmin (1.0f, glitch + motor::glitchBoost (ms, motor::energyAt (ms, ppqStart / 4.0)));
     const double ppqPerMs = bpm / 60000.0;
+    const auto fk = readFric();
+    // hur långt bakåt i tiden ett slag kan ha dragits in i det här blocket
+    const double maxShiftPpq = fk.any ? fk.maxMs * ppqPerMs + 0.125 + 0.35 : 0.0;
 
     bool anySolo = false;
     for (auto& l : audioPattern.lanes) anySolo |= l.solo;
@@ -639,7 +672,7 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
         const bool fillRoll = fill && li > 0 && lane.pad >= 4 && lane.pad <= 7;
         const bool fillDouble = fill && li > 0 && ! fillRoll;
 
-        const auto first = (juce::int64) std::floor (ppqStart * spb) - 1;
+        const auto first = (juce::int64) std::floor ((ppqStart - maxShiftPpq) * spb) - 1;
         const auto last = (juce::int64) std::floor (ppqEnd * spb) + 1; // +1: mikrotiming kan dra nästa slag hit
         for (auto n = juce::jmax ((juce::int64) 0, first); n <= last; ++n)
         {
@@ -681,14 +714,19 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
                 t0 += motor::microMs (ms, li, role, n) * ppqPerMs;   // mikrotiming
                 velMul = motor::velocityWave (ms, li, role, n);     // velocity-våg
             }
+            // FRIKTION: släp, tröghet, humanize, interlock (duck eller spökrull), mikro-ratchet och velocity till decay
+            FricHit fh;
+            if (fk.any && ! fillRoll) fh = friktionHit (seq, li, n, spb, role, st, fk);
+            t0 += fh.shiftMs * ppqPerMs;
             const int rat = ratOverride > 0 ? ratOverride : juce::jlimit (1, 4, (int) st.ratchet);
             for (int k = 0; k < rat; ++k)
             {
-                const double tk = t0 + (double) k / (spb * rat);
+                // täta ratchets släpar också mer och mer
+                const double tk = t0 + (double) k / (spb * rat) + (k > 0 ? fk.troghet * 4.0 * k * ppqPerMs : 0.0);
                 if (tk < ppqStart || tk >= ppqEnd) continue;
                 if (st.prob < 100 && audioRng.nextInt (100) >= st.prob) continue;
                 int offset = juce::jlimit (0, numSamples - 1, (int) ((tk - ppqStart) * samplesPerBeat));
-                float gain = stepGain (st) * (k == 0 ? 1.0f : 0.85f) * velMul;
+                float gain = stepGain (st) * (k == 0 ? 1.0f : 0.85f) * velMul * fh.gain;
                 if (fillRoll) gain *= 0.45f + 0.55f * (float) (std::fmod (tk, 4.0) / 4.0);
                 float semiHit = semiF;
                 if (svaj > 0.001f)
@@ -699,14 +737,158 @@ void BetongProcessor::runSequencer (int numSamples, double ppqStart, double bpm)
                     gain *= 1.0f - svaj * 0.35f * h01 (20 + kk);
                     semiHit += (h01 (30) - 0.5f) * svaj * 0.3f;
                 }
-                startVoice (lane.pad, li, gain, offset, true, semiHit, flags);
+                startVoice (lane.pad, li, gain, offset, true, semiHit, flags, fh.decay, fh.dark);
+                if (k == 0)
+                {
+                    uiDragMs[(size_t) li].store ((float) fh.shiftMs);
+                    uiLaneHits[(size_t) li].fetch_add (1);
+                    if (fh.ghost) uiGhost[(size_t) li].fetch_add (1);
+                    if (fh.ducked) uiDuck[(size_t) li].fetch_add (1);
+                }
                 laneTriggered[(size_t) li] = true;
                 if (throwHit) throwEnv[(size_t) li] = 1.0f;
                 if (li == 0 && role == motor::Kick && k == 0) kickHitAt = kickHitAt < 0 ? offset : juce::jmin (kickHitAt, offset);
                 laneTrigAmount[(size_t) li] = juce::jmax (laneTrigAmount[(size_t) li], st.accent ? 1.0f : st.ghost ? 0.35f : 0.7f);
             }
+            // MIKRO-RATCHET: slaget studsar 2-3 gånger, snabbare och svagare, som en repig nål eller en sen kvintol
+            if (fh.stutter > 0 && ! (st.prob < 100 && h01 (77) * 100.0f >= (float) st.prob))
+            {
+                double tb = t0;
+                for (int b = 1; b <= fh.stutter; ++b)
+                {
+                    tb += 0.1 * (1.0 - 0.18 * (b - 1));   // 1/32-kvintoler som tätnar
+                    if (tb < ppqStart || tb >= ppqEnd) continue;
+                    const int off = juce::jlimit (0, numSamples - 1, (int) ((tb - ppqStart) * samplesPerBeat));
+                    startVoice (lane.pad, li, stepGain (st) * velMul * fh.gain * std::pow (0.55f, (float) b), off, true,
+                                semiF, flags, 0.45f, juce::jmin (1.0f, 0.3f + 0.25f * (float) b));
+                    if (b == 1) uiStut[(size_t) li].fetch_add (1);
+                }
+            }
         }
     }
+}
+
+BetongProcessor::FricKnobs BetongProcessor::readFric() const
+{
+    FricKnobs f;
+    f.pocket = pPocket->load();
+    f.troghet = pTroghet->load();
+    f.humanMs = pHuman->load();
+    f.interlock = pInterlock->load();
+    f.mratchet = pMRatchet->load();
+    f.vdecay = pVDecay->load();
+    for (int l = 0; l < kLanes; ++l) f.laneDrag[(size_t) l] = pLaneDrag[(size_t) l]->load();
+    f.maxMs = f.pocket * 2.0f * 1.25f + 40.0f * f.troghet + f.humanMs;
+    f.any = f.pocket > 0.01f || f.troghet > 0.001f || f.humanMs > 0.01f || f.interlock > 0.001f || f.mratchet > 0.001f || f.vdecay > 0.001f;
+    return f;
+}
+
+// Spårets prioritet i INTERLOCK: lägre = starkare. Kicken och tonerna är inte med (kicken har pumpen).
+static int interlockRank (motor::Role r)
+{
+    switch (r)
+    {
+        case motor::Clap: return 1;
+        case motor::Perc: return 2;
+        case motor::Hat: case motor::OpenHat: return 3;
+        default: return -1;
+    }
+}
+
+BetongProcessor::FricHit BetongProcessor::friktionHit (const SeqState& q, int li, juce::int64 n, int spb, motor::Role role,
+                                                      const Step& st, const FricKnobs& fk) const
+{
+    FricHit h;
+    if (role == motor::Kick) return h;   // ankaret: alltid på rutnätet
+    auto h01 = [&] (juce::uint32 salt) { return hash01 (n, li, 9000u + salt); };
+    const auto& lane = q.pattern.lanes[(size_t) li];
+
+    // POCKET: grundsläpet, olika mycket per roll, gånger spårets egen faktor
+    float roleF = 1.0f;
+    switch (role)
+    {
+        case motor::Hat: case motor::OpenHat: roleF = 1.0f; break;
+        case motor::Clap: roleF = 0.8f; break;
+        case motor::Perc: roleF = 1.2f; break;
+        case motor::Bass: roleF = 0.3f; break;
+        case motor::Stab: roleF = 0.6f; break;
+        case motor::Lead: roleF = 0.5f; break;
+        default: roleF = 1.0f; break;
+    }
+    double ms = fk.pocket * roleF * fk.laneDrag[(size_t) li];
+
+    // TRÖGHET: slag i rad släpar mer och mer (+8, +18, +30 ms) och släpper vid nästa paus
+    if (fk.troghet > 0.001f)
+    {
+        int run = 0;
+        for (int b = 1; b <= 3; ++b)
+        {
+            if (n - b < 0 || ! effectiveStep (q, li, n - b, 0).on) break;
+            ++run;
+        }
+        const bool next = effectiveStep (q, li, n + 1, 0).on;
+        if (run > 0 || next)
+        {
+            static const float add[4] = { 8.0f, 18.0f, 30.0f, 30.0f };
+            ms += fk.troghet * add[juce::jmin (run, 3)];
+        }
+    }
+    // HUMANIZE: ± några ms, samma varje varv (följer slumpfröet), så det andas men inte brusar
+    if (fk.humanMs > 0.01f) ms += (h01 (1) * 2.0f - 1.0f) * fk.humanMs;
+
+    // INTERLOCK: krockar slaget med ett starkare mitt- eller diskantspår?
+    const int myRank = interlockRank (role);
+    if (fk.interlock > 0.001f && myRank > 0)
+    {
+        const double t = (double) n / spb;
+        bool clash = false;
+        for (int lj = 0; lj < kLanes && ! clash; ++lj)
+        {
+            if (lj == li) continue;
+            const auto& other = q.pattern.lanes[(size_t) lj];
+            if (other.mute) continue;
+            const int r = interlockRank (motor::roleOf (other.pad));
+            if (r < 1 || r > myRank || (r == myRank && lj > li)) continue;
+            const int spbj = kRates[juce::jlimit (0, kNumRates - 1, other.rate)].stepsPerBeat;
+            const double m = t * spbj;
+            const auto mi = (juce::int64) std::llround (m);
+            if (std::abs (m - (double) mi) > 1.0e-6) continue;
+            clash = effectiveStep (q, lj, mi, 0).on;
+        }
+        if (clash)
+        {
+            if (fk.interlock > 0.5f && h01 (2) < (fk.interlock - 0.5f) * 2.0f)
+            {   // SPÖKRULL: flytta 1/32 eller 1/64 bakåt, tystare, kortare, mörkare
+                const double beats = h01 (3) < 0.55f ? 0.125 : 0.0625;
+                ms += beats * 60000.0 / currentBpm.load();
+                h.gain *= 0.6f; h.decay *= 0.55f; h.dark = 0.6f; h.ghost = true;
+            }
+            else
+            {   // DUCK/CHOKE: det starkare spåret trycker ner det svagare, både volym och svans
+                const float a = juce::jmin (1.0f, fk.interlock * 2.0f);
+                h.gain *= 1.0f - 0.5f * a;
+                h.decay *= 1.0f - 0.6f * a;
+                h.ducked = true;
+            }
+        }
+    }
+
+    // VELOCITY TILL DECAY: spökslag kortare och mörkare, accenter öppnar svansen
+    if (fk.vdecay > 0.001f)
+    {
+        if (st.accent) h.decay *= 1.0f + 0.7f * fk.vdecay;
+        else if (st.ghost || h.ghost) { h.decay *= 1.0f - 0.45f * fk.vdecay; h.dark = juce::jmin (1.0f, h.dark + 0.45f * fk.vdecay); }
+        // ju senare slaget landar, desto mörkare (det har "tappat energi" på vägen)
+        h.dark = juce::jmin (1.0f, h.dark + fk.vdecay * (float) juce::jlimit (0.0, 1.0, ms / 60.0) * 0.35f);
+    }
+
+    // MIKRO-RATCHET: chans att slaget studsar (aldrig på taktslagen)
+    if (fk.mratchet > 0.001f && (n % spb) != 0 && h01 (4) < fk.mratchet * 0.25f)
+        h.stutter = h01 (5) < 0.6f ? 2 : 3;
+
+    h.shiftMs = juce::jmax (-3.0, ms);
+    juce::ignoreUnused (lane);
+    return h;
 }
 
 //==============================================================================
@@ -826,6 +1008,24 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             }
         }
 
+        // TAPE GLUE / PUMP: kickens energi trycker ner rumssvansarna från resten, så maskinen andas i baktakt
+        const float glue = pGlue->load();
+        const bool glueOn = glue > 0.001f && (int) glueBuf.size() >= n;
+        if (glueOn)
+        {
+            const float rel = std::exp (-1.0f / (float) (beatSec * 0.28 * sr));
+            const float att = std::exp (-1.0f / (0.002f * (float) sr));
+            for (int i = 0; i < n; ++i)
+            {
+                if (i == kickHitAt) glueRising = true;
+                if (glueRising) { gluePump = 1.0f - (1.0f - gluePump) * att; if (gluePump > 0.98f) glueRising = false; }
+                else gluePump *= rel;
+                glueBuf[(size_t) i] = 1.0f - glue * 0.45f * gluePump;
+            }
+            uiGlue.store (gluePump);
+        }
+        else { gluePump = 0.0f; glueRising = false; }
+
         // spårkedjor och sändningar
         sendA.clear (0, n); sendB.clear (0, n);
         auto* outL = buffer.getWritePointer (0, done);
@@ -879,7 +1079,7 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             auto* bM = sendB.getWritePointer (0);
             for (int i = 0; i < n; ++i)
             {
-                const float pg = ducked ? pumpBuf[(size_t) i] : 1.0f;
+                const float pg = (ducked ? pumpBuf[(size_t) i] : 1.0f) * (glueOn && li > 0 && laneData.pad > 1 ? glueBuf[(size_t) i] : 1.0f);
                 const float L = l[i] * gl * pg, R = r[i] * gr * pg;
                 outL[i] += L; outR[i] += R;
                 aL[i] += L * sa; aR[i] += R * sa;
@@ -930,6 +1130,23 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         {
             outL[i] = (outL[i] + dL[i] * dRet + rm[i] * rRet) * 0.5f;
             outR[i] = (outR[i] + dR[i] * dRet + rm[i] * rRet) * 0.5f;
+        }
+
+        // TAPE GLUE: varm, asymmetrisk bandmättnad över hela mixen, toppen rundas av runt 12 kHz
+        if (glueOn)
+        {
+            const float drive = 1.0f + glue * 4.0f, bias = 0.15f * glue;
+            const float norm = 1.0f / std::pow (drive, 0.6f), offs = std::tanh (bias);
+            const float c = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi * 12000.0f / (float) sr);
+            const float mix = juce::jmin (1.0f, glue * 1.5f);
+            float* ch[2] = { outL, outR };
+            for (int k = 0; k < 2; ++k)
+                for (int i = 0; i < n; ++i)
+                {
+                    const float y = (std::tanh (ch[k][i] * drive + bias) - offs) * norm;
+                    glueLp[k] += (y - glueLp[k]) * c;
+                    ch[k][i] += (glueLp[k] - ch[k][i]) * mix;
+                }
         }
 
         // svep: filterkoefficienter uppdateras var 32:a sampel
@@ -1818,7 +2035,13 @@ void BetongProcessor::restoreState (const juce::ValueTree& tree)
     paramsOnly.removeChild (paramsOnly.getChildWithName ("PADS"), nullptr);
     paramsOnly.removeChild (paramsOnly.getChildWithName ("PATTERN"), nullptr);
     paramsOnly.removeChild (paramsOnly.getChildWithName ("SCENES"), nullptr);
+    std::vector<juce::String> missing;
+    for (auto id : { "pocket", "troghet", "humanize", "interlock", "mratchet", "vdecay", "tapeglue" })
+        if (! paramsOnly.getChildWithProperty ("id", id).isValid()) missing.push_back (id);
     apvts.replaceState (paramsOnly);
+    // projekt från före FRIKTION: allt på noll, så de låter exakt som när de sparades
+    for (auto& id : missing)
+        if (auto* prm = apvts.getParameter (id)) prm->setValueNotifyingHost (prm->getDefaultValue());
 
     auto pads = tree.getChildWithName ("PADS");
     for (int p = 0; p < kPads && p < pads.getNumChildren(); ++p)
@@ -1882,6 +2105,67 @@ void BetongProcessor::timerCallback()
     graveyard.erase (std::remove_if (graveyard.begin(), graveyard.end(),
                                      [now] (auto& g) { return now - g.second > 45000; }),
                      graveyard.end());
+}
+
+//==============================================================================
+// POLY: varje trumspår får sin egen längd efter roll. Kicken 16, hats 15, clap/rim 13, perc 11 och 13 ...
+// Spåren glider isär och möts igen först efter hundratals takter, men kicken håller golvet.
+void BetongProcessor::polyLengths()
+{
+    pushUndo();
+    int percCount = 0;
+    for (int li = 0; li < kLanes; ++li)
+    {
+        const auto pad = getPattern().lanes[(size_t) li].pad;
+        const auto role = (li == 0 && pad <= 1) ? motor::Kick : motor::roleOf (pad);
+        int len = 16;
+        switch (role)
+        {
+            case motor::Hat: case motor::OpenHat: len = 15; break;
+            case motor::Clap: len = 13; break;
+            case motor::Perc: len = (percCount++ % 2) == 0 ? 11 : 13; break;
+            default: len = 16; break;
+        }
+        editLane (li, [len] (Lane& l) { if (! l.lock) l.length = len; });
+    }
+    ++stateVersion;
+}
+
+// DICE // POCKET: nytt släp, tröghet och interlock, egna släp-faktorer per spår och nya
+// polyrytmiska längder. Alltid inom ramar som svänger, aldrig så det spårar ur. Ångra tar tillbaka.
+void BetongProcessor::dicePocket()
+{
+    pushUndo();
+    juce::Random rng;
+    auto range = [&] (float lo, float hi) { return lo + (hi - lo) * rng.nextFloat(); };
+    setParam ("pocket", range (6.0f, 24.0f));
+    setParam ("troghet", range (0.3f, 0.85f));
+    setParam ("humanize", range (0.6f, 2.2f));
+    setParam ("interlock", range (0.2f, 0.8f));
+    setParam ("mratchet", rng.nextFloat() < 0.6f ? range (0.04f, 0.25f) : 0.0f);
+    setParam ("vdecay", range (0.3f, 0.85f));
+    setParam ("tapeglue", range (0.1f, 0.55f));
+    for (int l = 0; l < kLanes; ++l) setParam (laneId (l, "drag"), range (0.5f, 1.6f));
+
+    static const int sets[][4] = { { 15, 13, 11, 16 }, { 16, 15, 13, 11 }, { 15, 11, 13, 16 }, { 13, 15, 11, 16 } };
+    const auto& pick = sets[rng.nextInt (4)];
+    int perc = 0, elevens = 0;
+    for (int li = 0; li < kLanes; ++li)
+    {
+        const auto pad = getPattern().lanes[(size_t) li].pad;
+        const auto role = (li == 0 && pad <= 1) ? motor::Kick : motor::roleOf (pad);
+        if (role == motor::Kick || motor::isTonal (role) || role == motor::Fx) continue;
+        int len = role == motor::Hat || role == motor::OpenHat ? pick[0] : role == motor::Clap ? pick[1] : pick[2 + (perc++ % 2)];
+        if (len == 11 && ++elevens > 1) len = 13;   // högst ett spår på 11
+        const int rot = rng.nextInt (len);
+        editLane (li, [len, rot] (Lane& l)
+        {
+            if (l.lock) return;
+            l.length = len;
+            if (l.euclid) l.rotate = rot;
+        });
+    }
+    ++stateVersion;
 }
 
 juce::AudioProcessorEditor* BetongProcessor::createEditor() { return new BetongEditor (*this); }

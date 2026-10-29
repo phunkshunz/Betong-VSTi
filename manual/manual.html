@@ -35,7 +35,8 @@
   <li><span>10</span>Effects and performance</li>
   <li><span>11</span>MIDI and automation</li>
   <li><span>12</span>Recipes</li>
-  <li><span>13</span>Troubleshooting</li>
+  <li><span>13</span>FRIKTION: micro timing and interlock</li>
+  <li><span>14</span>Troubleshooting</li>
 </ol>
 
 <h2><span class="n">01</span>Welcome</h2>
@@ -475,7 +476,25 @@
   <li>Hold <span class="k">STUTTER</span> at 1/16 for the last bar, then let go and turn <span class="k">SVEP</span> back to the centre.</li>
 </ol>
 
-<h2><span class="n">13</span>Troubleshooting</h2>
+<h2><span class="n">13</span>FRIKTION: micro timing and interlock</h2>
+<p class="lead">The FRIKTION row above the effects stops BETONG from sitting on a stiff grid. The kick stays locked as the anchor, everything else is pulled back, leans on each other and stumbles in a controlled way. Everything on zero = the straight grid. Projects saved before FRIKTION open with it on zero.</p>
+<table>
+  <thead><tr><th>Control</th><th>What it does</th></tr></thead>
+  <tbody>
+    <tr><td><span class="k">POCKET</span></td><td>The base drag, 0–45 ms behind the grid, for everything except the kick. Hats drag fully, perc a bit more, clap a bit less, bass and tones only slightly. Each track also has its own factor, <span class="k">SLÄP SPÅR</span>, in the track panel.</td></tr>
+    <tr><td><span class="k">TRÖGHET</span></td><td>Inertia. Hits in a row drag more and more (+8, +18, +30 ms), as if pulled through syrup, and snap back at the next pause. Ratchets drag too.</td></tr>
+    <tr><td><span class="k">HUMANIZE</span></td><td>Up to ±3 ms of analogue flutter per hit. It repeats every cycle, so it breathes without becoming noise.</td></tr>
+    <tr><td><span class="k">INTERLOCK</span></td><td>The tracks listen to each other: clap/rim before perc before hats. Up to 50 %, a weaker hit that lands on the same step as a stronger one is ducked in level and decay. Above 50 %, it moves 1/32 or 1/64 later as a quieter, shorter, darker ghost note, so the drums answer each other in a rolling conversation.</td></tr>
+    <tr><td><span class="k">MIKRO-RATCHET</span></td><td>Chance that a hit bounces 2–3 times, faster and quieter, like a scratched needle or a late quintuplet. Never on the beats.</td></tr>
+    <tr><td><span class="k">VEL → DECAY</span></td><td>Ghost notes and late hits get shorter and darker; accents open their tails.</td></tr>
+    <tr><td><span class="k">TAPE GLUE</span></td><td>The kick pushes down the tails of everything else (pump), and the whole mix goes through a warm, asymmetric tape saturation. The machine breathes on the off-beat.</td></tr>
+    <tr><td><span class="k">VÄVEN</span></td><td>The weave. One row per track: the line is the grid, the dot is where the hit landed, the trail shows the last hits. S = ghost note, D = ducked, R = micro ratchet.</td></tr>
+    <tr><td><span class="k">DICE // POCKET</span></td><td>New drag, inertia, interlock and tape, own drag factors per track and new polymetric lengths (11, 13, 15, 16). Always something that swings. <span class="k">Ångra</span> takes it back.</td></tr>
+    <tr><td><span class="k">POLY</span></td><td>Gives the drum tracks their own lengths by role: kick 16, hats 15, clap/rim 13, perc 11 and 13. They drift apart and meet again only after hundreds of bars. Locked tracks are left alone.</td></tr>
+  </tbody>
+</table>
+
+<h2><span class="n">14</span>Troubleshooting</h2>
 <table>
   <thead><tr><th>Problem</th><th>Try this</th></tr></thead>
   <tbody>

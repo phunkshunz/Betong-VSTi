@@ -1688,6 +1688,33 @@ BetongContent::BetongContent (BetongProcessor& p)
     dicePattern.onClick = [this] { proc.randomPattern(); selectionChanged(); };
     diceAll.onClick = [this] { proc.randomAll(); selectionChanged(); };
     undoButton.onClick = [this] { proc.undoRandom(); selectionChanged(); };
+
+    // FRIKTION
+    {
+        struct KD { Knob* k; const char* id; const char* name; juce::Colour col; const char* tip; };
+        const KD kd[] = {
+            { &kPocket, "pocket", "POCKET", sodium, "Grundsläpet: hur sent allt utom kicken landar bakom rutnätet, 0-45 ms. Kicken är ankaret och står still. Varje spår har en egen faktor (SLÄP SPÅR i spårpanelen)." },
+            { &kTroghet, "troghet", "TRÖGHET", sodium, "Slag i rad släpar mer och mer: +8, +18, +30 ms, som genom sirap, och släpper vid nästa paus. Ratchets släpar också." },
+            { &kHuman, "humanize", "HUMANIZE", concrete, "± upp till 3 ms analogt fladder per slag. Samma varje varv, så det andas men brusar inte." },
+            { &kInterlock, "interlock", "INTERLOCK", cold, "Spåren lyssnar på varandra: clap/rim före perc före hats. Upp till 50 %: krockande slag duckas i volym och svans. Över 50 %: det svagare slaget flyttas 1/32 eller 1/64 bakåt som ett spökslag, så trummorna svarar varandra." },
+            { &kMRatchet, "mratchet", "MIKRO-RATCHET", cold, "Chans att ett slag studsar 2-3 gånger, snabbare och svagare, som en repig nål eller en sen kvintol. Aldrig på taktslagen." },
+            { &kVDecay, "vdecay", "VEL → DECAY", concrete, "Spökslag och sena slag blir kortare och mörkare, accenter öppnar sin svans." },
+            { &kGlue, "tapeglue", "TAPE GLUE", juce::Colour (0xffffb066), "Kicken trycker ner svansarna från resten (pump) och allt går genom en varm, asymmetrisk bandmättnad. Maskinen andas i baktakt." },
+        };
+        for (auto& k : kd)
+        {
+            k.k->attach (s, k.id, utf8 (k.name));
+            k.k->setAccent (k.col);
+            k.k->slider.setTooltip (utf8 (k.tip));
+            addAndMakeVisible (*k.k);
+        }
+        pocketDice.setTooltip (utf8 ("Slumpar nytt släp, tröghet, interlock och tejp, egna släp-faktorer per spår och nya polyrytmiska längder (11, 13, 15, 16). Alltid något som svänger. Ångra tar tillbaka."));
+        pocketDice.onClick = [this] { proc.dicePocket(); selectionChanged(); };
+        polyButton.setTooltip (utf8 ("Ger trumspåren egna längder efter roll: kick 16, hats 15, clap/rim 13, perc 11 och 13. Spåren glider isär och möts igen först efter hundratals takter. Låsta spår rörs inte. Ångra tar tillbaka."));
+        polyButton.onClick = [this] { proc.polyLengths(); selectionChanged(); };
+        weave = std::make_unique<WeaveView> (proc);
+        for (auto* c : std::initializer_list<juce::Component*> { &pocketDice, &polyButton, weave.get() }) addAndMakeVisible (*c);
+    }
     for (auto* b : std::initializer_list<juce::Component*> { &diceKit, &diceFx, &dicePattern, &diceAll, &undoButton }) addAndMakeVisible (*b);
     diceKit.setTooltip (utf8 ("Slumpa ljud till alla olåsta pads"));
     diceFx.setTooltip (utf8 ("Slumpa effekter"));
@@ -1735,6 +1762,9 @@ BetongContent::BetongContent (BetongProcessor& p)
     addAndMakeVisible (filterType);
     for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing, &kPitch, &kDecay, &kPadVol, &kPadPan }) addAndMakeVisible (*k);
     kLaneSwing.setAccent (cold);
+    kLaneDrag.setAccent (sodium);
+    kLaneDrag.slider.setTooltip (utf8 ("Spårets egen släp-faktor gånger POCKET. Kicken släpar aldrig."));
+    addAndMakeVisible (kLaneDrag);
     revButton.setClickingTogglesState (true);
     addAndMakeVisible (revButton);
     kEnv.setAccent (cold); kDec.setAccent (cold);
@@ -1942,7 +1972,7 @@ void BetongContent::setSidePage (int page)
     tabFilter.setToggleState (filter, juce::dontSendNotification);
     tabEuclid.setToggleState (euclid, juce::dontSendNotification);
     tabMotor.setToggleState (motorPage, juce::dontSendNotification);
-    for (auto* c : std::initializer_list<juce::Component*> { &filterType, &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing })
+    for (auto* c : std::initializer_list<juce::Component*> { &filterType, &kCut, &kRes, &kDrive, &kEnv, &kDec, &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing, &kLaneDrag })
         c->setVisible (filter);
     // motorfliken tar hela sidopanelen, padens rattar göms så länge (BETONG)
     for (auto* c : std::initializer_list<juce::Component*> { &kPitch, &kDecay, &kPadVol, &kPadPan, &revButton })
@@ -1989,6 +2019,7 @@ void BetongContent::selectionChanged()
         kVol.attach (s, BetongProcessor::laneId (l, "vol"), "VOLYM");
         kPan.attach (s, BetongProcessor::laneId (l, "pan"), "PANORERING");
         kLaneSwing.attach (s, BetongProcessor::laneId (l, "swing"), utf8 ("SWING SPÅR"));
+        kLaneDrag.attach (s, BetongProcessor::laneId (l, "drag"), utf8 ("SLÄP SPÅR"));
     }
     if (p != shownPad)
     {
@@ -2109,6 +2140,7 @@ void BetongContent::paint (juce::Graphics& g)
     // effekter
     const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
     for (int i = 0; i < 4; ++i) drawPanel (g, fxArea[i], utf8 (fxTitles[i]));
+    drawPanel (g, fricArea, "FRIKTION", {});
 }
 
 void BetongContent::resized()
@@ -2121,7 +2153,22 @@ void BetongContent::resized()
     fxArea[0] = {};
     auto fxRow = r.removeFromBottom (96);
     r.removeFromBottom (12);
+    fricArea = r.removeFromBottom (112);
+    r.removeFromBottom (12);
     seqArea = r;
+    {
+        auto f = fricArea.reduced (12, 6);
+        auto head = f.removeFromTop (22);
+        head.removeFromLeft (90);
+        pocketDice.setBounds (head.removeFromLeft (150).reduced (0, 1));
+        head.removeFromLeft (6);
+        polyButton.setBounds (head.removeFromLeft (150).reduced (0, 1));
+        f.removeFromTop (4);
+        auto knobs = f.removeFromLeft (7 * 74);
+        for (auto* k : { &kPocket, &kTroghet, &kHuman, &kInterlock, &kMRatchet, &kVDecay, &kGlue }) k->setBounds (knobs.removeFromLeft (74));
+        f.removeFromLeft (14);
+        weave->setBounds (f.withTrimmedTop (-24));
+    }
 
     // header
     {
@@ -2181,7 +2228,7 @@ void BetongContent::resized()
         auto row1 = s.removeFromTop (70);
         auto row2 = s.removeFromTop (70);
         const int kw = row1.getWidth() / 6;
-        for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec }) k->setBounds (row1.removeFromLeft (kw));
+        for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec, &kLaneDrag }) k->setBounds (row1.removeFromLeft (kw));
         for (auto* k : { &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing }) k->setBounds (row2.removeFromLeft (kw));
         s.removeFromTop (8);
         auto padRow = s.removeFromTop (70);
@@ -2404,4 +2451,96 @@ void BetongEditor::resized()
     const float scale = (float) getWidth() / (float) BetongContent::W;
     content.setTransform (juce::AffineTransform::scale (scale));
     content.setBounds (0, 0, BetongContent::W, BetongContent::H);
+}
+
+//==============================================================================
+void WeaveView::timerCallback()
+{
+    for (int l = 0; l < betong::kLanes; ++l)
+    {
+        const int h = proc.uiLaneHits[(size_t) l].load();
+        if (h != seenHits[(size_t) l])
+        {
+            seenHits[(size_t) l] = h;
+            flash[(size_t) l] = 1.0f;
+            auto& p = trailPos[(size_t) l];
+            trail[(size_t) l][(size_t) p] = proc.uiDragMs[(size_t) l].load();
+            p = (p + 1) % kTrail;
+        }
+        auto bump = [] (std::atomic<int>& src, int& seen, float& f) { const int v = src.load(); if (v != seen) { seen = v; f = 1.0f; } };
+        bump (proc.uiGhost[(size_t) l], seenGhost[(size_t) l], fS[(size_t) l]);
+        bump (proc.uiDuck[(size_t) l], seenDuck[(size_t) l], fD[(size_t) l]);
+        bump (proc.uiStut[(size_t) l], seenStut[(size_t) l], fR[(size_t) l]);
+        for (auto* f : { &flash[(size_t) l], &fS[(size_t) l], &fD[(size_t) l], &fR[(size_t) l] }) *f *= 0.86f;
+    }
+    glue = juce::jmax (proc.uiGlue.load(), glue * 0.8f);
+    repaint();
+}
+
+void WeaveView::paint (juce::Graphics& g)
+{
+    using namespace BetongColours;
+    auto r = getLocalBounds().toFloat();
+    g.setColour (ground);
+    g.fillRoundedRectangle (r, 4.0f);
+    g.setColour (line);
+    g.drawRoundedRectangle (r.reduced (0.5f), 4.0f, 1.0f);
+
+    auto head = r.removeFromTop (13.0f);
+    g.setColour (muted);
+    g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+    g.drawText (utf8 ("VÄVEN · var slaget landar bakom rutnätet"), head.withTrimmedLeft (6.0f), juce::Justification::centredLeft, false);
+
+    auto body = r.reduced (4.0f, 1.0f);
+    const float labelW = 22.0f, flagW = 36.0f;
+    const float x0 = body.getX() + labelW, x1 = body.getRight() - flagW;
+    const float msMax = 100.0f;
+    auto xAt = [&] (float ms) { return x0 + (x1 - x0) * juce::jlimit (0.0f, 1.0f, ms / msMax); };
+    for (int ms = 10; ms < (int) msMax; ms += 10)
+    {
+        g.setColour (line.withAlpha (ms % 50 == 0 ? 1.0f : 0.5f));
+        g.drawVerticalLine ((int) xAt ((float) ms), body.getY(), body.getBottom());
+    }
+    g.setColour (muted.withAlpha (0.7f));
+    g.setFont (juce::FontOptions (8.0f));
+    g.drawText ("50 ms", juce::Rectangle<float> (xAt (50.0f) + 2.0f, head.getY(), 40.0f, head.getHeight()), juce::Justification::centredLeft, false);
+
+    const float rowH = body.getHeight() / (float) betong::kLanes;
+    for (int l = 0; l < betong::kLanes; ++l)
+    {
+        auto row = juce::Rectangle<float> (body.getX(), body.getY() + rowH * (float) l, body.getWidth(), rowH);
+        const auto col = lane (l);
+        if (fD[(size_t) l] > 0.02f)
+        {
+            g.setColour (cold.withAlpha (0.22f * fD[(size_t) l]));
+            g.fillRect (row.withLeft (x0).withRight (x1));
+        }
+        g.setColour (col.withAlpha (0.5f + 0.5f * flash[(size_t) l]));
+        g.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+        g.drawText (juce::String (l + 1), row.withWidth (labelW - 4.0f), juce::Justification::centredRight, false);
+        g.setColour (text.withAlpha (0.45f));
+        g.drawVerticalLine ((int) x0, row.getY() + 1.0f, row.getBottom() - 1.0f);
+        for (int i = 1; i < kTrail; ++i)
+        {
+            const int idx = (trailPos[(size_t) l] - 1 - i + kTrail * 2) % kTrail;
+            g.setColour (col.withAlpha ((1.0f - (float) i / (float) kTrail) * 0.45f));
+            g.fillEllipse (juce::Rectangle<float> (3.0f, 3.0f).withCentre ({ xAt (trail[(size_t) l][(size_t) idx]), row.getCentreY() }));
+        }
+        const float now = trail[(size_t) l][(size_t) ((trailPos[(size_t) l] - 1 + kTrail) % kTrail)];
+        const float sz = 5.0f + 4.0f * flash[(size_t) l];
+        g.setColour (col.withAlpha (0.4f + 0.6f * flash[(size_t) l]));
+        g.fillEllipse (juce::Rectangle<float> (sz, sz).withCentre ({ xAt (now), row.getCentreY() }));
+        auto flagArea = row.withLeft (x1 + 2.0f);
+        const char* lt[3] = { "S", "D", "R" };
+        const float fl[3] = { fS[(size_t) l], fD[(size_t) l], fR[(size_t) l] };
+        g.setFont (juce::FontOptions (8.5f, juce::Font::bold));
+        for (int k = 0; k < 3; ++k)
+        {
+            auto c = flagArea.removeFromLeft (flagW / 3.0f);
+            g.setColour ((k == 1 ? cold : sodium).withAlpha (0.15f + 0.85f * fl[k]));
+            g.drawText (lt[k], c, juce::Justification::centred, false);
+        }
+    }
+    g.setColour (sodium.withAlpha (0.7f));
+    g.fillRect (juce::Rectangle<float> (x0, r.getBottom() - 2.0f, (x1 - x0) * juce::jlimit (0.0f, 1.0f, glue), 2.0f));
 }

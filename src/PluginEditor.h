@@ -280,6 +280,25 @@ private:
 };
 
 //==============================================================================
+// VÄVEN: FRIKTION i realtid. En rad per spår: strecket är rutnätet, pricken är var slaget landade,
+// svansen bakom är de senaste slagen. S = spökslag, D = duckad av ett starkare spår, R = mikro-ratchet.
+class WeaveView : public juce::Component, private juce::Timer
+{
+public:
+    explicit WeaveView (BetongProcessor& p) : proc (p) { startTimerHz (30); setInterceptsMouseClicks (false, false); }
+    ~WeaveView() override { stopTimer(); }
+    void paint (juce::Graphics&) override;
+private:
+    void timerCallback() override;
+    BetongProcessor& proc;
+    static constexpr int kTrail = 8;
+    std::array<std::array<float, kTrail>, betong::kLanes> trail {};
+    std::array<int, betong::kLanes> trailPos {}, seenHits {}, seenGhost {}, seenDuck {}, seenStut {};
+    std::array<float, betong::kLanes> flash {}, fS {}, fD {}, fR {};
+    float glue = 0.0f;
+};
+
+//==============================================================================
 class BetongContent : public juce::Component, private juce::Timer
 {
 public:
@@ -290,7 +309,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int W = 1280, H = 820;
+    static constexpr int W = 1280, H = 944;
 
 private:
     void timerCallback() override;
@@ -319,7 +338,7 @@ private:
     // sidopanel
     juce::ComboBox filterType;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> filterTypeAtt;
-    Knob kCut, kRes, kDrive, kEnv, kDec, kCrush, kSendA, kSendB, kVol, kPan, kLaneSwing;
+    Knob kCut, kRes, kDrive, kEnv, kDec, kCrush, kSendA, kSendB, kVol, kPan, kLaneSwing, kLaneDrag;
     Knob kPitch, kDecay, kPadVol, kPadPan;
     juce::TextButton revButton { utf8 ("Baklänges") };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> revAtt;
@@ -367,7 +386,14 @@ private:
     Knob kDFb, kDTone, kDWob, kDRet, kRSize, kRDrive, kRCut, kRDuck, kRRet, kSweep, kMCrush, kClip, kOut;
 
     std::unique_ptr<juce::FileChooser> chooser;
-    AboutOverlay about { BETONG_PRODUCT_NAME, juce::String::fromUTF8 (BETONG_ABOUT_LINE " · v1.0") };
+    // FRIKTION
+    juce::Rectangle<int> fricArea;
+    Knob kPocket, kTroghet, kHuman, kInterlock, kMRatchet, kVDecay, kGlue;
+    DiceButton pocketDice { "DICE // POCKET", true };
+    juce::TextButton polyButton { juce::String::fromUTF8 ("POLY 16·15·13·11") };
+    std::unique_ptr<WeaveView> weave;
+
+    AboutOverlay about { BETONG_PRODUCT_NAME, juce::String::fromUTF8 (BETONG_ABOUT_LINE " · v1.1") };
     juce::Rectangle<int> logoArea;
     int seenVersion = -1;
     int shownPad = -1, shownLane = -1;
