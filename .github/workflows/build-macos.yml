@@ -48,7 +48,7 @@ jobs:
     env:
       # CMake-målen, samma lista som BETONG_MACHINES i CMakeLists.txt.
       # tools/check_machines.py kontrollerar att de stämmer.
-      MASKINER: "Betong Smidet"
+      MASKINER: "Betong"
     steps:
       - uses: actions/checkout@v4
 
@@ -95,7 +95,7 @@ jobs:
     needs: [manual, kontroll]
     runs-on: windows-2022
     env:
-      MASKINER: "Betong Smidet"
+      MASKINER: "Betong"
     steps:
       - uses: actions/checkout@v4
 
@@ -150,7 +150,7 @@ jobs:
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('BETONG bygge {0}', github.run_number) }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          body: "Zippen innehåller två maskiner, BETONG och SMIDET, och båda ligger under tillverkaren Phunkshunz i DAW:en. Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
+          body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
           files: |
             dist/BETONG-macOS.zip
             dist/BETONG-Windows.zip

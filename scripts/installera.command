@@ -44,4 +44,4 @@ if [ ${#apps[@]} -gt 0 ]; then
 fi
 echo ""
 echo "Starta om Bitwig, eller tryck Rescan under Settings > Locations > Plug-ins."
-echo "Sök på BETONG eller SMIDET. Båda ligger under tillverkaren Phunkshunz."
+echo "Sök på BETONG. Den ligger under tillverkaren Phunkshunz."

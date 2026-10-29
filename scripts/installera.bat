@@ -30,6 +30,6 @@ echo.
 echo Klart! Maskinerna ligger nu i:
 echo   %DEST%
 echo Starta om Bitwig, eller tryck Rescan under Settings ^> Locations ^> Plug-ins.
-echo Sok pa BETONG eller SMIDET. Bada ligger under tillverkaren Phunkshunz.
+echo Sok pa BETONG. Den ligger under tillverkaren Phunkshunz.
 echo.
 pause

@@ -2,28 +2,9 @@
 
 Techno-sampler som VST3 och AU för macOS. Den hackar upp ljud och gör skeva, polyrytmiska beats. Allt ska låta som ett fuktigt betonggolv.
 
-Zippen innehåller två maskiner som bygger på samma motor:
-
-- **BETONG**, techno-samplern. Öppnar med det rena grundkitet och mönstret Grund 130.
-- **SMIDET**, den euklidiska smedjan. En helt egen maskin utan pads och vågform: ringarna är huvudfönstret, ljuden är städ, hammare, kedjor och klockor, och två makron (HAMMARE och GLÖD) styr allt. Röd i stället för orange.
-
-Båda har egna inställningar och ligger under tillverkaren Phunkshunz i Bitwig. Installationsskriptet installerar båda.
+SMIDET har flyttat till ett eget plugin: https://github.com/phunkshunz/Smidet-VSTi
 
 Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i pluginet för att läsa om båtvarvet Docklands, där allt började.
-
-## SMIDET, den euklidiska smedjan
-
-- **Ringarna** fyller vänstra halvan. Varje spår är en ring. Dra runt för att rotera, dra upp/ner eller rulla för antal slag, dubbelklicka för euklid på/av. Klicka på en ring för att välja spår.
-- **M, S och +** bredvid varje spår i ringlistan: mute, solo och ladda egen sampling. Mutade spår blir mörka i ringen.
-- **Egna samplingar:** dra in ljudfiler på en ring eller ett spårnamn. Flera filer på en gång hamnar på spåret och spåren under. Knappen **Ladda egen sampling...** i smedjan gör samma sak för valt spår.
-- **Högerklick** på en ring eller ett spårnamn: mute, solo, lås, euklid, ljud ur biblioteket, egen sampling, provlyssna, avmuta alla och stäng av all solo.
-- **Smedjan** (panelen till höger) visar valt spår: pad, takt, längd, euklid, mute, solo och lås, plus knappen **Ljud** som väljer ljud direkt ur biblioteket (Smedja först).
-- **HAMMARE:** tätare, hårdare och fler skurar. Vrider upp densitet, glitch, drive och clipper på en gång.
-- **GLÖD:** resonans, drive, mer filter-envelope, mer delay och mer rumble. Smedjan börjar glöda.
-- **Ljuden:** 16 smedjeljud i kategorin Smedja (städ stämda i F-moll, stålhammare, slagg, plåt, kedja, fjäder, härdning, blåsbälg, gjutklocka, rör, skrot och gnistor) plus städkick, smideshats och hammarknack.
-- **Kiten:** Smedjan, Järnverket, Klockgjuteriet, Valsverk Euklid, Rost och Gnistor och Kall Härdning.
-- **Mönstren:** mappen **Smide** har 14 helt euklidiska, polymetriska mönster. Öppnar med Smedjans Puls och effekten Smedjeglöd.
-- Allt annat (scener, fill, svaj, glitch, euklid-fliken, filter, effekter) delar SMIDET med BETONG.
 
 ## Ladda ner
 

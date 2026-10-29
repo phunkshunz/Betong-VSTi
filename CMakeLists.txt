@@ -32,8 +32,7 @@ FetchContent_MakeAvailable(JUCE)
 # per tillverkare, annars kan DAW:en blanda ihop maskinerna.
 # tools/check_machines.py kontrollerar allt detta, och körs av bygget.
 set(BETONG_MACHINES
-    "Betong|BETONG|Btng|com.phunkshunz.betong|techno-sampler|TECHNO SAMPLER|Grund 130"
-    "Smidet|SMIDET|Smdt|com.phunkshunz.smidet|euklidisk smedja|EUKLIDISK SMEDJA|Smedjans Puls")
+    "Betong|BETONG|Btng|com.phunkshunz.betong|techno-sampler|TECHNO SAMPLER|Grund 130")
 
 if(APPLE)
     set(BETONG_PLUGIN_FORMATS VST3 AU Standalone)
