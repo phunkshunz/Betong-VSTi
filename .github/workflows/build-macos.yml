@@ -84,11 +84,32 @@ jobs:
           done
           cd dist && ditto -c -k --keepParent BETONG BETONG-macOS.zip
 
+      # Ljudbiblioteket gör den universella filen stor. Två mindre filer, en per processor,
+      # håller sig under Payhips gräns på 100 MB.
+      - name: Dela per processor (Apple Silicon och Intel)
+        run: |
+          cd dist
+          for arch in arm64 x86_64; do
+            if [ $arch = arm64 ]; then name=AppleSilicon; else name=Intel; fi
+            rm -rf "$name" && mkdir "$name" && cp -R BETONG "$name/"
+            for b in "$name"/BETONG/*.vst3 "$name"/BETONG/*.component "$name"/BETONG/*.app; do
+              exe=$(defaults read "$PWD/$b/Contents/Info" CFBundleExecutable)
+              f="$b/Contents/MacOS/$exe"
+              lipo "$f" -thin $arch -output "$f.thin" && mv "$f.thin" "$f"
+              codesign --force --deep --sign - "$b"
+            done
+            (cd "$name" && ditto -c -k --keepParent BETONG ../BETONG-macOS-$name.zip)
+          done
+          ls -la *.zip
+
       - name: Ladda upp
         uses: actions/upload-artifact@v4
         with:
           name: BETONG-macOS
-          path: dist/BETONG-macOS.zip
+          path: |
+            dist/BETONG-macOS.zip
+            dist/BETONG-macOS-AppleSilicon.zip
+            dist/BETONG-macOS-Intel.zip
           retention-days: 1
 
   windows:
@@ -153,5 +174,7 @@ jobs:
           body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
           files: |
             dist/BETONG-macOS.zip
+            dist/BETONG-macOS-AppleSilicon.zip
+            dist/BETONG-macOS-Intel.zip
             dist/BETONG-Windows.zip
             dist/BETONG-Manual.pdf
