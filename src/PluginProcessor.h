@@ -92,6 +92,8 @@ public:
     void triggerPad (int pad);                                    // från GUI:t
     void triggerPadPitched (int pad, int semi);                   // provlyssna en ton
     int laneForPad (int pad) const;
+    static int padForMidi (int note, int channel, int map, float& semi);
+    std::atomic<bool> midiInMode { false };
 
     // Presets och slump
     void applyKit (int index);
@@ -245,6 +247,8 @@ private:
     std::atomic<float>* pPocket = nullptr; std::atomic<float>* pTroghet = nullptr; std::atomic<float>* pHuman = nullptr;
     std::atomic<float>* pInterlock = nullptr; std::atomic<float>* pMRatchet = nullptr; std::atomic<float>* pVDecay = nullptr;
     std::atomic<float>* pGlue = nullptr;
+    std::atomic<float>* pSeqMode = nullptr;
+    std::atomic<float>* pMidiMap = nullptr;
     std::array<std::atomic<float>*, betong::kLanes> pLaneDrag {};
     float gluePump = 0.0f, glueLp[2] {};
     bool glueRising = false;

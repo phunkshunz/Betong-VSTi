@@ -112,6 +112,9 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     f ("mratchet", "Mikro-ratchet", { 0.0f, 1.0f }, 0.0f);
     f ("vdecay", "Velocity till decay", { 0.0f, 1.0f }, 0.0f);
     f ("tapeglue", "Tape glue / pump", { 0.0f, 1.0f }, 0.0f);
+    // MIDI IN: stäng av BETONGS sekvenser och låt DAW:en, GLAPP eller KOLV spela padsen
+    c ("seqMode", "Sekvenser", StringArray { "INTERN", String::fromUTF8 ("MIDI IN (sekvensern av)") }, 0);
+    c ("midiMap", "MIDI-karta", StringArray { "BETONG (C1 = pad 1)", String::fromUTF8 ("GM-trummor"), String::fromUTF8 ("GM, bara kanal 10") }, 0);
 
     for (int l = 0; l < kLanes; ++l)
     {
@@ -186,6 +189,7 @@ BetongProcessor::BetongProcessor()
     pSvaj = raw ("svaj"); pGlitch = raw ("glitch"); pDens = raw ("dens"); pHammer = raw ("hammer"); pGlow = raw ("glow");
     pPocket = raw ("pocket"); pTroghet = raw ("troghet"); pHuman = raw ("humanize"); pInterlock = raw ("interlock");
     pMRatchet = raw ("mratchet"); pVDecay = raw ("vdecay"); pGlue = raw ("tapeglue");
+    pSeqMode = raw ("seqMode"); pMidiMap = raw ("midiMap");
     for (int l = 0; l < kLanes; ++l) pLaneDrag[(size_t) l] = raw (laneId (l, "drag"));
     glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     pMOn = raw ("mOn"); pMMove = raw ("mMove"); pMDepth = raw ("mDepth"); pMChaos = raw ("mChaos");
@@ -332,6 +336,32 @@ void BetongProcessor::triggerPadPitched (int pad, int semi)
     if (n1 > 0) padFifoData[(size_t) s1] = value;
     else if (n2 > 0) padFifoData[(size_t) s2] = value;
     padFifo.finishedWrite (n1 + n2);
+}
+
+// MIDI-not till pad. GM-kartan följer pad-rollerna (1 kick, 3 stängd hat, 4 öppen, 5 clap, 6 virvel,
+// 7–8 toms, 9–10 perc, 11 rim, 12 shaker). Perc-toner mellan 60 och 90 spelar pad 9 och behåller melodin.
+int BetongProcessor::padForMidi (int note, int channel, int map, float& semi)
+{
+    semi = 0.0f;
+    if (map == 0) return note - 36;
+    if (map == 2 && channel != 10) return -1;
+    switch (note)
+    {
+        case 35: case 36: return 0;
+        case 37: return 10;
+        case 38: case 40: return 5;
+        case 39: return 4;
+        case 41: case 43: return 6;
+        case 45: case 47: case 48: case 50: return 7;
+        case 42: case 44: return 2;
+        case 46: case 51: case 53: case 59: return 3;
+        case 49: case 52: case 55: case 57: return 15;
+        case 54: case 69: case 70: case 82: return 11;
+        case 56: return 8;
+        default: break;
+    }
+    if (note >= 60 && note <= 90) { semi = (float) juce::jlimit (-12, 12, note - 75); return 8; }
+    return -1;
 }
 
 int BetongProcessor::laneForPad (int pad) const
@@ -924,6 +954,8 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     wasInternal = useInternal;
     if (useInternal) ppq = internalPpq;
     const bool sequencing = hostIsPlaying || useInternal;
+    const bool seqOff = pSeqMode->load() > 0.5f;
+    midiInMode.store (seqOff);
     const double beatSec = 60.0 / bpm;
 
     // scenbyte: på nästa takt (4 taktslag) när det spelar, direkt annars
@@ -971,17 +1003,28 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             padFifo.finishedRead (n1 + n2);
         }
 
-        // MIDI: C1 (36) och uppåt spelar pad 1-16
+        // MIDI: BETONG-kartan (C1 = pad 1) eller GM-trummor. I läget MIDI IN är det enda som spelar.
+        const int map = (int) pMidiMap->load();
         for (const auto m : midi)
         {
             const auto msg = m.getMessage();
             if (m.samplePosition < done || m.samplePosition >= done + n || ! msg.isNoteOn()) continue;
-            const int pad = msg.getNoteNumber() - 36;
-            if (juce::isPositiveAndBelow (pad, kPads))
-                startVoice (pad, laneForPad (pad), msg.getFloatVelocity(), m.samplePosition - done, false);
+            float semi = 0.0f;
+            const int pad = padForMidi (msg.getNoteNumber(), msg.getChannel(), map, semi);
+            if (! juce::isPositiveAndBelow (pad, kPads)) continue;
+            const int li = laneForPad (pad);
+            const int off = m.samplePosition - done;
+            startVoice (pad, li, msg.getFloatVelocity(), off, seqOff, semi);
+            if (juce::isPositiveAndBelow (li, kLanes))
+            {
+                // samma bokföring som sekvensern: spårets filter-envelope, pumpen och tape glue reagerar
+                laneTriggered[(size_t) li] = true;
+                laneTrigAmount[(size_t) li] = juce::jmax (laneTrigAmount[(size_t) li], 0.4f + 0.6f * msg.getFloatVelocity());
+                if (li == 0) kickHitAt = kickHitAt < 0 ? off : juce::jmin (kickHitAt, off);
+            }
         }
 
-        if (sequencing)
+        if (sequencing && ! seqOff)
         {
             const double chunkPpq = ppq + (double) done / (sr * beatSec);
             runSequencer (n, chunkPpq, bpm);

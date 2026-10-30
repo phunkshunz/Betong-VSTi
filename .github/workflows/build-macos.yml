@@ -44,7 +44,7 @@ jobs:
 
   macos:
     needs: [manual, kontroll]
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       # CMake-målen, samma lista som BETONG_MACHINES i CMakeLists.txt.
       # tools/check_machines.py kontrollerar att de stämmer.

@@ -1873,6 +1873,19 @@ BetongContent::BetongContent (BetongProcessor& p)
             if ((prm->getValue() > 0.5f) != down) prm->setValueNotifyingHost (down ? 1.0f : 0.0f);
     };
     for (auto* c : std::initializer_list<juce::Component*> { &delayTime, &stutLen, &freezeButton, &stutterButton }) addAndMakeVisible (*c);
+
+    // MIDI IN: sekvensern av, padsen spelas från DAW:en, GLAPP eller KOLV
+    midiInButton.setButtonText (utf8 ("MIDI IN"));
+    midiInButton.setClickingTogglesState (true);
+    midiInButton.setTooltip (utf8 ("På: BETONGS egen sekvenser är av. Padsen spelas bara av MIDI från Bitwig, GLAPP eller KOLV."));
+    midiInButton.setColour (juce::TextButton::buttonOnColourId, sodium);
+    midiInAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "seqMode", midiInButton);
+    if (auto* prm = dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter ("midiMap")))
+        midiMapBox.addItemList (prm->choices, 1);
+    midiMapBox.setTooltip (utf8 ("Vilka toner som spelar vilken pad. BETONG: C1 = pad 1. GM-trummor: vanliga trumnoter, till exempel från KOLV med KANALER = GM."));
+    midiMapAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "midiMap", midiMapBox);
+    addAndMakeVisible (midiInButton);
+    addAndMakeVisible (midiMapBox);
     kDFb.attach (s, "dFb", utf8 ("ÅTERKOPPL.")); kDTone.attach (s, "dTone", "TON"); kDWob.attach (s, "dWob", "WOBBLE"); kDRet.attach (s, "dRet", utf8 ("NIVÅ"));
     kRSize.attach (s, "rSize", "STORLEK"); kRDrive.attach (s, "rDrive", "DRIVE"); kRCut.attach (s, "rCut", "CUTOFF");
     kRDuck.attach (s, "rDuck", "DUCK"); kRRet.attach (s, "rRet", utf8 ("NIVÅ"));
@@ -2073,7 +2086,7 @@ void BetongContent::timerCallback()
     }
 
     const bool host = proc.hostPlaying.load();
-    playButton.setButtonText (host ? utf8 ("DAW") : (playButton.getToggleState() ? utf8 ("STOPP") : utf8 ("SPELA")));
+    playButton.setButtonText (proc.midiInMode.load() ? utf8 ("MIDI") : host ? utf8 ("DAW") : (playButton.getToggleState() ? utf8 ("STOPP") : utf8 ("SPELA")));
     playButton.setEnabled (! host);
     undoButton.setEnabled (proc.canUndo());
     // scenknappar: aktiv = fylld, köad = blinkar
@@ -2290,14 +2303,22 @@ void BetongContent::resized()
         auto m = fxArea[2].reduced (10, 6); m.removeFromTop (18);
         layoutKnobs (m, { &kSweep, &kMCrush, &kClip, &kOut });
         auto pf = fxArea[3].reduced (12, 8); pf.removeFromTop (22);
+        {
+            // översta raden: MIDI IN och kartan
+            auto mrow = pf.removeFromTop (22);
+            midiInButton.setBounds (mrow.removeFromLeft (84));
+            mrow.removeFromLeft (6);
+            midiMapBox.setBounds (mrow);
+            pf.removeFromTop (6);
+        }
         bpmKnob.setBounds (pf.removeFromRight (60).expanded (0, 8));
         pf.removeFromRight (6);
-        playButton.setBounds (pf.removeFromRight (78).withSizeKeepingCentre (78, 44));
+        playButton.setBounds (pf.removeFromRight (78).withSizeKeepingCentre (78, juce::jmin (44, pf.getHeight())));
         pf.removeFromRight (8);
         auto col = pf.removeFromRight (64);
         stutLen.setBounds (col.withSizeKeepingCentre (64, 26));
         pf.removeFromRight (6);
-        stutterButton.setBounds (pf.withSizeKeepingCentre (pf.getWidth(), 44));
+        stutterButton.setBounds (pf.withSizeKeepingCentre (pf.getWidth(), juce::jmin (44, pf.getHeight())));
     }
 
     logoArea = headerArea.reduced (16, 8).removeFromLeft (150);

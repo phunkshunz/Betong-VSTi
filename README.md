@@ -138,6 +138,20 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 
 **MIDI:** C1 och uppåt (not 36–51) spelar pad 1–16.
 
+## MIDI IN: spela BETONG från Bitwig, GLAPP eller KOLV
+
+Tryck **MIDI IN** i panelen PERFORMANCE. Då är BETONGS egen sekvenser av, och padsen spelar bara när det kommer MIDI. Inget kaosar runt varandra.
+
+Välj karta i rutan bredvid:
+
+| Karta | Använd när |
+|---|---|
+| **BETONG (C1 = pad 1)** | GLAPP, eller egna MIDI-klipp: C1 = pad 1, C#1 = pad 2 och så vidare. |
+| **GM-trummor** | Vanliga trumnoter (kick 36, hat 42/46, clap 39, rim 37 ...), till exempel KOLV med BETONG i racket. |
+| **GM, bara kanal 10** | KOLV på ett eget spår med MIDI UT och **KANALER = GM**: trummorna kommer på kanal 10, och basen och stabben på kanal 1–2 ignoreras. |
+
+Med GM-kartan spelar perc-toner (60–90) pad 9 och behåller melodin. Spårens filter-envelope, pumpen och tape glue reagerar på MIDI-slagen precis som på sekvensern.
+
 ## Ljuden
 
 235 egna ljud i 24-bit, syntade från grunden i `tools/make_library.py`. Grunden är en kärna av rena, feta trummaskinstrummor (kickar, hats, clap, snare, rim, toms och ride) som alla ligger på jämna nivåer. De är fria att använda i egna låtar.

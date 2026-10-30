@@ -382,6 +382,10 @@ private:
     juce::ComboBox delayTime, stutLen;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> delayTimeAtt, stutLenAtt;
     juce::TextButton freezeButton { "Freeze" }, stutterButton { "STUTTER" };
+    juce::TextButton midiInButton;
+    juce::ComboBox midiMapBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> midiInAtt;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> midiMapAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> freezeAtt;
     Knob kDFb, kDTone, kDWob, kDRet, kRSize, kRDrive, kRCut, kRDuck, kRRet, kSweep, kMCrush, kClip, kOut;
 
