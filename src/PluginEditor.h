@@ -414,6 +414,9 @@ public:
     void paint (juce::Graphics& g) override { g.fillAll (BetongColours::ground); }
 
 private:
+    void byggPanel();
+
     BetongProcessor& proc;
-    BetongContent content;
+    std::unique_ptr<BetongContent> content;
+    sprak::Knapp sprakKnapp;
 };

@@ -3,6 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Identity.h"
+#include "Sprak.h"
 
 // Utseende: fuktig betong, natriumorange och kall cyan.
 namespace BetongColours
@@ -28,7 +29,8 @@ inline juce::Colour lane (int i)
 }
 } // namespace BetongColours
 
-inline juce::String utf8 (const char* s) { return juce::String::fromUTF8 (s); }
+// All svensk text går genom utf8(): den blir engelsk när EN är valt.
+inline juce::String utf8 (const char* s) { return sprak::tr (juce::String::fromUTF8 (s)); }
 
 class BetongLnF : public juce::LookAndFeel_V4
 {
@@ -169,7 +171,7 @@ public:
         auto bottom = r.removeFromBottom (26);
         g.setColour (muted);
         g.setFont (juce::FontOptions (9.5f));
-        g.drawText (name, bottom.removeFromTop (12), juce::Justification::centred, true);
+        g.drawText (sprak::tr (name), bottom.removeFromTop (12), juce::Justification::centred, true);
         g.setColour (text);
         g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
         g.drawText (slider.getTextFromValue (slider.getValue()), bottom, juce::Justification::centred, true);
@@ -193,7 +195,7 @@ public:
         setSliderStyle (juce::Slider::LinearBar);
         setTextBoxStyle (juce::Slider::TextBoxAbove, false, 0, 0);
     }
-    juce::String getTextFromValue (double v) override { return prefix + "  " + juce::Slider::getTextFromValue (v); }
+    juce::String getTextFromValue (double v) override { return sprak::tr (prefix) + "  " + juce::Slider::getTextFromValue (v); }
     juce::String prefix;
 };
 
@@ -210,12 +212,12 @@ inline void drawPanel (juce::Graphics& g, juce::Rectangle<int> r, const juce::St
         auto t = r.reduced (12, 8).removeFromTop (16);
         g.setColour (text);
         g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
-        g.drawText (title, t, juce::Justification::centredLeft, true);
+        g.drawText (sprak::tr (title), t, juce::Justification::centredLeft, true);
         if (sub.isNotEmpty())
         {
             g.setColour (muted);
             g.setFont (juce::FontOptions (10.0f));
-            g.drawText (sub, t, juce::Justification::centredRight, true);
+            g.drawText (sprak::tr (sub), t, juce::Justification::centredRight, true);
         }
     }
 }

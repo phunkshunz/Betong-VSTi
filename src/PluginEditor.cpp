@@ -13,7 +13,7 @@ using namespace betong;
 
 namespace
 {
-const juce::StringArray kChopModes { "Anslag", utf8 ("Jämnt 8"), utf8 ("Jämnt 16") };
+const juce::StringArray kChopModes { "Anslag", juce::String::fromUTF8 ("Jämnt 8"), juce::String::fromUTF8 ("Jämnt 16") };
 
 juce::String upper (const juce::String& t)
 {
@@ -598,16 +598,16 @@ void StepGrid::showStepMenu (int s)
     m.addSectionHeader ("STEG " + juce::String (s + 1));
     m.addItem (1, utf8 ("På / av"));
     juce::PopupMenu lvl;
-    lvl.addItem (21, "Stark");
-    lvl.addItem (22, "Normal");
-    lvl.addItem (23, "Svag (ghost)");
-    m.addSubMenu ("Styrka", lvl);
+    lvl.addItem (21, utf8 ("Stark"));
+    lvl.addItem (22, utf8 ("Normal"));
+    lvl.addItem (23, utf8 ("Svag (ghost)"));
+    m.addSubMenu (utf8 ("Styrka"), lvl);
     juce::PopupMenu tone;
     for (int v = 12; v >= -12; --v) tone.addItem (200 + v + 24, (v > 0 ? "+" : "") + juce::String (v) + utf8 (v == 0 ? " (grundton)" : ""));
-    m.addSubMenu ("Ton", tone);
+    m.addSubMenu (utf8 ("Ton"), tone);
     juce::PopupMenu prob;
     for (int v : { 100, 75, 50, 25, 10 }) prob.addItem (100 + v, juce::String (v) + " %");
-    m.addSubMenu ("Sannolikhet", prob);
+    m.addSubMenu (utf8 ("Sannolikhet"), prob);
     juce::PopupMenu rat;
     for (int v = 1; v <= 4; ++v) rat.addItem (10 + v, v == 1 ? utf8 ("Ingen") : juce::String::charToString (0xd7) + juce::String (v));
     m.addSubMenu ("Ratchet", rat);
@@ -619,7 +619,7 @@ void StepGrid::showStepMenu (int s)
         if (c == CondFill) cond.addSeparator();
         cond.addItem (300 + c, utf8 (condName (c)) + utf8 (help[c]));
     }
-    m.addSubMenu ("Villkor", cond);
+    m.addSubMenu (utf8 ("Villkor"), cond);
     m.addSeparator();
     m.addItem (3, utf8 ("Töm spåret"));
     m.addItem (4, utf8 ("Fyll varje steg"));
@@ -795,7 +795,7 @@ void LaneRow::showLaneMenu()
     for (int k = 0; k < kNumLife; ++k) life.addItem (400 + k, utf8 (lifeName (k)), true, l.life == k);
     m.addSubMenu ("Game of Life", life);
     juce::PopupMenu cr;
-    cr.addItem (500, "Av", true, l.callResp == 0);
+    cr.addItem (500, utf8 ("Av"), true, l.callResp == 0);
     cr.addItem (501, utf8 ("Fråga (spelar först)"), true, l.callResp == 1);
     cr.addItem (502, utf8 ("Svar (spelar sedan)"), true, l.callResp == 2);
     cr.addSeparator();
@@ -2452,9 +2452,19 @@ void BetongContent::mouseMove (const juce::MouseEvent& e)
 }
 
 //==============================================================================
-BetongEditor::BetongEditor (BetongProcessor& p) : AudioProcessorEditor (&p), proc (p), content (p)
+BetongEditor::BetongEditor (BetongProcessor& p) : AudioProcessorEditor (&p), proc (p)
 {
-    addAndMakeVisible (content);
+    sprak::laddaOm();
+    byggPanel();
+    sprakKnapp.accent = BetongColours::sodium;
+    sprakKnapp.onClick = [this]
+    {
+        sprak::sattEngelska (! sprak::engelska());
+        // bygg om panelen efter klicket, aldrig mitt i det
+        juce::Component::SafePointer<BetongEditor> self (this);
+        juce::MessageManager::callAsync ([self] { if (self != nullptr) self->byggPanel(); });
+    };
+    addAndMakeVisible (sprakKnapp);
     // passa skärmen: gamla 13-tumsskärmar får en mindre start-storlek
     float scale = 1.0f;
     if (auto* d = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay())
@@ -2467,11 +2477,28 @@ BetongEditor::BetongEditor (BetongProcessor& p) : AudioProcessorEditor (&p), pro
 
 BetongEditor::~BetongEditor() = default;
 
+void BetongEditor::byggPanel()
+{
+    content.reset();
+    content = std::make_unique<BetongContent> (proc);
+    sprak::oversattAllt (*content);
+    addAndMakeVisible (*content);
+    sprakKnapp.toFront (false);
+    sprakKnapp.repaint();
+    resized();
+}
+
 void BetongEditor::resized()
 {
     const float scale = (float) getWidth() / (float) BetongContent::W;
-    content.setTransform (juce::AffineTransform::scale (scale));
-    content.setBounds (0, 0, BetongContent::W, BetongContent::H);
+    if (content != nullptr)
+    {
+        content->setTransform (juce::AffineTransform::scale (scale));
+        content->setBounds (0, 0, BetongContent::W, BetongContent::H);
+    }
+    // SV | EN uppe i högra hörnet av huvudet, i samma skala som panelen
+    sprakKnapp.setTransform (juce::AffineTransform::scale (scale));
+    sprakKnapp.setBounds (BetongContent::W - 16 - 4 - 38, 16 + 4, 38, 14);
 }
 
 //==============================================================================
