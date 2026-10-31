@@ -38,7 +38,7 @@ public:
         g.drawText ("MASKINHALLEN", r.removeFromTop (48), juce::Justification::centredLeft);
         g.setColour (muted);
         g.setFont (juce::FontOptions (10.5f));
-        g.drawText (utf8 ("BETONG  ·  ARMERING  ·  FUKT"), r.removeFromTop (16), juce::Justification::centredLeft);
+        g.drawText (utf8 ("PHUNKSHUNZ AUDIO"), r.removeFromTop (16), juce::Justification::centredLeft);
         r.removeFromTop (26);
 
         g.setColour (text);

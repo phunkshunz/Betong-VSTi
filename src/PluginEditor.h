@@ -397,7 +397,7 @@ private:
     juce::TextButton polyButton { juce::String::fromUTF8 ("POLY 16·15·13·11") };
     std::unique_ptr<WeaveView> weave;
 
-    AboutOverlay about { BETONG_PRODUCT_NAME, juce::String::fromUTF8 (BETONG_ABOUT_LINE " · v1.1") };
+    AboutOverlay about { BETONG_PRODUCT_NAME, juce::String::fromUTF8 (BETONG_ABOUT_LINE " · v1.2") };
     juce::Rectangle<int> logoArea;
     int seenVersion = -1;
     int shownPad = -1, shownLane = -1;
