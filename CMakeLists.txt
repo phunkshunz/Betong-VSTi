@@ -45,6 +45,11 @@ file(GLOB BETONG_LIBRARY CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/li
 juce_add_binary_data(BetongData SOURCES ${BETONG_LIBRARY})
 
 function(betong_add_machine target product code bundle about tagline pattern)
+    # Linux: bygg även LV2
+    set(PHZ_EXTRA_FORMATS "")
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(PHZ_EXTRA_FORMATS LV2)
+    endif()
     juce_add_plugin(${target}
         COMPANY_NAME "Phunkshunz"
         PRODUCT_NAME "${product}"
@@ -59,7 +64,8 @@ function(betong_add_machine target product code bundle about tagline pattern)
         COPY_PLUGIN_AFTER_BUILD FALSE
         VST3_CATEGORIES Instrument Sampler Drum
         AU_MAIN_TYPE kAudioUnitType_MusicDevice
-        FORMATS ${BETONG_PLUGIN_FORMATS})
+        LV2URI "https://phunkshunz.github.io/lv2/${target}"
+        FORMATS ${BETONG_PLUGIN_FORMATS} ${PHZ_EXTRA_FORMATS})
 
     target_sources(${target}
         PRIVATE

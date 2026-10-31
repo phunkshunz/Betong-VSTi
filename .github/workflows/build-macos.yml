@@ -151,12 +151,52 @@ jobs:
           path: dist/BETONG-Windows.zip
           retention-days: 1
 
+  linux:
+    needs: manual
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installera beroenden
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev libjack-jackd2-dev ladspa-sdk libcurl4-openssl-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libwebkit2gtk-4.0-dev libglu1-mesa-dev mesa-common-dev
+
+      - name: Konfigurera
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Bygg
+        run: cmake --build build --config Release --target Betong_VST3 Betong_LV2 -j 4
+
+      - name: Hämta manualen
+        uses: actions/download-artifact@v4
+        with:
+          name: BETONG-Manual
+          path: dist/BETONG
+
+      - name: Paketera
+        run: |
+          mkdir -p dist/BETONG
+          for t in Betong; do
+            cp -R build/${t}_artefacts/Release/VST3/*.vst3 dist/BETONG/
+            cp -R build/${t}_artefacts/Release/LV2/*.lv2 dist/BETONG/
+          done
+          cp scripts/installera-linux.sh dist/BETONG/
+          chmod +x dist/BETONG/installera-linux.sh
+          cd dist && zip -r -y BETONG-Linux.zip BETONG
+
+      - name: Ladda upp
+        uses: actions/upload-artifact@v4
+        with:
+          name: BETONG-Linux
+          path: dist/BETONG-Linux.zip
+
   # Varje bygge på main blir en release, så att
   # .../releases/latest/download/BETONG-macOS.zip och BETONG-Windows.zip
   # alltid ger senaste versionen.
   release:
     if: github.event_name == 'push'
-    needs: [manual, macos, windows]
+    needs: [manual, macos, windows, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -171,10 +211,11 @@ jobs:
           name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('BETONG bygge {0}', github.run_number) }}
           target_commitish: ${{ github.sha }}
           make_latest: true
-          body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
+          body: "Ladda ner BETONG-macOS.zip (Mac) eller BETONG-Windows.zip (Windows) eller BETONG-Linux.zip (Linux, VST3 + LV2) nedan. Installera enligt README. Manualen ligger i zippen och som PDF här."
           files: |
             dist/BETONG-macOS.zip
             dist/BETONG-macOS-AppleSilicon.zip
             dist/BETONG-macOS-Intel.zip
             dist/BETONG-Windows.zip
+            dist/BETONG-Linux.zip
             dist/BETONG-Manual.pdf
