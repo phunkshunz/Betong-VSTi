@@ -791,6 +791,18 @@ def true_peak(y):
     return np.max(np.abs(resample_poly(y, 4, 1))) if len(y) > 64 else np.max(np.abs(y))
 levels = []
 
+import re
+def slutfade(name, x):
+    """Mjuk uttoning i slutet. One-shots får 8-60 ms cosinus-uttoning (en kort linjär
+    uttoning på en kick med ringande bas låter som ett klick). Loopar och mattor
+    behåller 5 ms så att de loopar utan glapp."""
+    loop = name.startswith("Lp") or category(name) == "T" or re.search(r"_1[0-9]{2}$", name)
+    if loop: return fade(x, 5)
+    dur = len(x) / FS
+    n = min(len(x), int(FS * min(0.06, max(0.008, 0.2 * dur))))
+    x = x.copy(); x[-n:] *= np.cos(np.linspace(0, np.pi / 2, n)) ** 2
+    return x
+
 # ---------------------------------------------------------------- SPARA
 os.makedirs(OUT, exist_ok=True)
 for f in os.listdir(OUT):
@@ -799,7 +811,7 @@ tmp = tempfile.mkdtemp()
 for name, x in lib.items():
     x = np.nan_to_num(np.asarray(x, dtype=np.float64))
     x = filt(x, "high", 18)                      # bort med DC
-    x = fadein(fade(x, 5), 0.3)
+    x = fadein(slutfade(name, x), 0.3)
     y = resample_poly(x, 1, FS // OUT_FS)        # 96 k -> 48 k med anti-alias-filter
     rms = short_rms_max(y, OUT_FS)
     gain = 10 ** (TARGET[category(name)] / 20) / (rms + 1e-12)

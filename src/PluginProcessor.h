@@ -150,6 +150,8 @@ private:
         bool releasing = false;
         int64_t samplesLeft = 0;
         float dark = 0.0f, lpC = 0.0f, lpL = 0.0f, lpR = 0.0f;   // FRIKTION: mörkare spökslag
+        float att = 1.0f, attStep = 1.0f;   // mjuk start när en slice börjar mitt i ett ljud
+        double edge = 1.0;                  // mjukt slut (i källsamplar) innan slicens gräns
     };
     // flags: 1 = spela baklänges (växlar padens läge), 2 = kort slag (glitch)
     void startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi = 0.0f, int flags = 0,

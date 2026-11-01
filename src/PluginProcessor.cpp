@@ -394,10 +394,11 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
 
     Voice* target = nullptr;
     for (auto& v : voices) if (v.s == nullptr) { target = &v; break; }
-    if (target == nullptr) // stjäl den äldsta (minst kvar)
+    if (target == nullptr) // alla upptagna: ta den som hörs minst (då märks stölden minst)
     {
         target = &voices[0];
-        for (auto& v : voices) if (v.samplesLeft < target->samplesLeft) target = &v;
+        auto hors = [] (const Voice& v) { return v.gain * v.amp * v.fade * (v.releasing ? 0.25f : 1.0f); };
+        for (auto& v : voices) if (hors (v) < hors (*target)) target = &v;
     }
 
     const auto& prm = pp[(size_t) pad];
@@ -427,6 +428,11 @@ void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, boo
     v.lpC = 1.0f - std::exp (-2.0f * juce::MathConstants<float>::pi * 2000.0f / (float) sr);
     v.lpL = v.lpR = 0.0f;
     v.samplesLeft = (int64_t) (sr * 40.0);
+    // börjar slicen mitt i ljudet (eller baklänges) tonas den in på 1 ms mot klick
+    v.att = (start > 0 || reverse) ? 0.0f : 1.0f;
+    v.attStep = 1.0f / (float) juce::jmax (1.0, 0.001 * sr);
+    // och tonas ut de sista 3 ms före gränsen (viktigt baklänges: där slutar ljudet i själva slaget)
+    v.edge = juce::jmax (1.0, juce::jmin (0.003 * s->sampleRate, (double) (end - start) * 0.25));
     *target = v;
     padHits[(size_t) pad].fetch_add (1);
 }
@@ -466,8 +472,14 @@ void BetongProcessor::renderVoices (int numSamples)
                 l += (v.lpL - l) * v.dark; r += (v.lpR - r) * v.dark;
             }
 
-            // mjuk start (1 ms) mot klick när en slice börjar mitt i ett ljud
-            const float g = v.gain * v.amp * v.fade;
+            // mjuk start och mjukt slut mot klick
+            float edgeG = v.att;
+            if (v.att < 1.0f) v.att = juce::jmin (1.0f, v.att + v.attStep);
+            {
+                const double rem = v.inc >= 0.0 ? (double) hi - v.pos : v.pos - (double) lo;
+                if (rem < v.edge) edgeG *= (float) juce::jmax (0.0, rem / v.edge);
+            }
+            const float g = v.gain * v.amp * v.fade * edgeG;
             oL[i] += l * g * v.gl;
             oR[i] += r * g * v.gr;
 
