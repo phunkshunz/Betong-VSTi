@@ -427,6 +427,14 @@
 <p><span class="k o">STUTTER</span> loops a short piece of the output while you hold it down. Pick the length in the menu next to it: 1/4, 1/8, 1/16 or 1/32. <span class="k">TEMPO</span> sets BETONG's own tempo (60–200 BPM) when it plays without a DAW.</p>
 
 <h2><span class="n">11</span>MIDI and automation</h2>
+<h3>MIDI out</h3>
+<p>BETONG sends its sequencer out as MIDI while it plays: everything you hear, with the MOTOR, life, swing and micro-timing. Pick the mode in the <span class="k">MIDI OUT</span> menu next to MIDI IN.</p>
+<ul>
+  <li><b>Track → channel 1–8:</b> track 1 on channel 1, track 2 on channel 2, and so on. Drum tracks use pad notes (C1 = pad 1). Bass, stabs and leads use real pitches with F2 as the root. Record each channel to its own track, or let a track drive another synth.</li>
+  <li><b>BETONG map, channel 1:</b> every hit as a pad note (C1 = pad 1), to drive a second BETONG or a drum rack.</li>
+  <li><b>Off:</b> no MIDI out.</li>
+</ul>
+<p>In Bitwig, Reaper and Cubase you pick BETONG as the MIDI input on another track. Notes from your keyboard are not passed through, only the sequencer's hits. When the transport stops, all notes are released.</p>
 <h3>Play the pads from a keyboard</h3>
 <p>BETONG listens to MIDI notes 36–51, so 16 keys play pads 1–16. Note 36 is called C1 in most DAWs (C3 in FL Studio). Velocity sets how loud the pad plays. You can play pads by MIDI while the sequencer runs, for fills on top of the pattern.</p>
 <table>

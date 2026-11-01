@@ -26,7 +26,7 @@ public:
 
     const juce::String getName() const override { return BETONG_PRODUCT_NAME; }
     bool acceptsMidi() const override { return true; }
-    bool producesMidi() const override { return false; }
+    bool producesMidi() const override { return true; }
     bool isMidiEffect() const override { return false; }
     double getTailLengthSeconds() const override { return std::numeric_limits<double>::infinity(); } // aldrig sövas av DAW:en (Bitwig)
 
@@ -251,6 +251,17 @@ private:
     std::atomic<float>* pGlue = nullptr;
     std::atomic<float>* pSeqMode = nullptr;
     std::atomic<float>* pMidiMap = nullptr;
+    // MIDI UT: sekvenserns slag skickas ut som noter (0 av, 1 spår -> kanal 1-8, 2 BETONG-karta kanal 1)
+    std::atomic<float>* pMidiOut = nullptr;
+    struct MidiEv { int ch = 1, note = 36; juce::uint8 vel = 0; int t = 0; };   // vel 0 = note off
+    std::array<MidiEv, 256> midiQueue {};
+    int midiQueueN = 0;
+    juce::MidiBuffer midiOutBuf;
+    bool midiEmit = false;     // sant medan sekvensern kör, så att bara dess slag skickas ut
+    int midiEmitBase = 0;      // var i blocket det aktuella delblocket börjar
+    int midiNoteLen = 1000;    // notlängd i samplar (en halv 16-del)
+    void emitMidi (int pad, int lane, float gain, int offset, float semi);
+    void flushMidi (juce::MidiBuffer& out, int total, bool allOff);
     std::array<std::atomic<float>*, betong::kLanes> pLaneDrag {};
     float gluePump = 0.0f, glueLp[2] {};
     bool glueRising = false;

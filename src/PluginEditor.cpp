@@ -1886,6 +1886,12 @@ BetongContent::BetongContent (BetongProcessor& p)
     midiMapAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "midiMap", midiMapBox);
     addAndMakeVisible (midiInButton);
     addAndMakeVisible (midiMapBox);
+    // MIDI UT: sekvenserns slag ut till DAW:en, ett spår per kanal eller som BETONG-karta
+    if (auto* prm = dynamic_cast<juce::AudioParameterChoice*> (proc.apvts.getParameter ("midiOut")))
+        midiOutBox.addItemList (prm->choices, 1);
+    midiOutBox.setTooltip (utf8 ("MIDI UT: sekvenserns slag skickas ut som noter. Spår → kanal 1-8: varje spår på egen kanal, så du kan spela in dem på egna spår eller styra andra syntar. Bas, stab och lead får riktiga toner (F2 = grundton). BETONG-karta: C1 = pad 1 på kanal 1."));
+    midiOutAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (proc.apvts, "midiOut", midiOutBox);
+    addAndMakeVisible (midiOutBox);
     kDFb.attach (s, "dFb", utf8 ("ÅTERKOPPL.")); kDTone.attach (s, "dTone", "TON"); kDWob.attach (s, "dWob", "WOBBLE"); kDRet.attach (s, "dRet", utf8 ("NIVÅ"));
     kRSize.attach (s, "rSize", "STORLEK"); kRDrive.attach (s, "rDrive", "DRIVE"); kRCut.attach (s, "rCut", "CUTOFF");
     kRDuck.attach (s, "rDuck", "DUCK"); kRRet.attach (s, "rRet", utf8 ("NIVÅ"));
@@ -2308,7 +2314,10 @@ void BetongContent::resized()
             auto mrow = pf.removeFromTop (22);
             midiInButton.setBounds (mrow.removeFromLeft (84));
             mrow.removeFromLeft (6);
-            midiMapBox.setBounds (mrow);
+            const int half = (mrow.getWidth() - 6) / 2;
+            midiMapBox.setBounds (mrow.removeFromLeft (half));
+            mrow.removeFromLeft (6);
+            midiOutBox.setBounds (mrow);
             pf.removeFromTop (6);
         }
         bpmKnob.setBounds (pf.removeFromRight (60).expanded (0, 8));

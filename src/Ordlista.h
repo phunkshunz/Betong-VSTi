@@ -8,6 +8,7 @@ namespace sprak
 inline constexpr Par kOrdlista[] =
 {
     { "Anslag", "Velocity" },
+    { "MIDI UT: sekvenserns slag skickas ut som noter. Spår → kanal 1-8: varje spår på egen kanal, så du kan spela in dem på egna spår eller styra andra syntar. Bas, stab och lead får riktiga toner (F2 = grundton). BETONG-karta: C1 = pad 1 på kanal 1.", "MIDI OUT: the sequencer's hits are sent out as notes. Track → channel 1-8: each track on its own channel, so you can record them to separate tracks or drive other synths. Bass, stab and lead get real pitches (F2 = root). BETONG map: C1 = pad 1 on channel 1." },
     { "Jämnt 8", "Even 8" },
     { "Jämnt 16", "Even 16" },
     { "Tom", "Empty" },

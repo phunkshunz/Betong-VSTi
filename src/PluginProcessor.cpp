@@ -162,6 +162,8 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     // MORF mellan scener
     f ("morph", "Morf", { 0.0f, 1.0f }, 0.0f);
     c ("morphTo", "Morf mot scen", { "A", "B", "C", "D" }, 1);
+    // MIDI UT (sist i listan så att gamla projekt och automation behåller sina platser)
+    c ("midiOut", "MIDI UT", StringArray { "MIDI UT: av", String::fromUTF8 ("MIDI UT: spår → kanal 1-8"), "MIDI UT: BETONG-karta, kanal 1" }, 1);
     return layout;
 }
 
@@ -189,7 +191,7 @@ BetongProcessor::BetongProcessor()
     pSvaj = raw ("svaj"); pGlitch = raw ("glitch"); pDens = raw ("dens"); pHammer = raw ("hammer"); pGlow = raw ("glow");
     pPocket = raw ("pocket"); pTroghet = raw ("troghet"); pHuman = raw ("humanize"); pInterlock = raw ("interlock");
     pMRatchet = raw ("mratchet"); pVDecay = raw ("vdecay"); pGlue = raw ("tapeglue");
-    pSeqMode = raw ("seqMode"); pMidiMap = raw ("midiMap");
+    pSeqMode = raw ("seqMode"); pMidiMap = raw ("midiMap"); pMidiOut = raw ("midiOut");
     for (int l = 0; l < kLanes; ++l) pLaneDrag[(size_t) l] = raw (laneId (l, "drag"));
     glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     pMOn = raw ("mOn"); pMMove = raw ("mMove"); pMDepth = raw ("mDepth"); pMChaos = raw ("mChaos");
@@ -246,6 +248,8 @@ void BetongProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     sr = sampleRate;
     maxBlock = juce::jmax (32, samplesPerBlock);
+    midiOutBuf.ensureSize (4096);
+    midiQueueN = 0;
     for (auto& b : laneBufs) b.setSize (2, maxBlock);
     for (auto& c : chains) c.prepare (sr, maxBlock);
     sendA.setSize (2, maxBlock); sendB.setSize (1, maxBlock);
@@ -371,8 +375,58 @@ int BetongProcessor::laneForPad (int pad) const
     return kLanes; // direktbussen
 }
 
+void BetongProcessor::emitMidi (int pad, int lane, float gain, int offset, float semi)
+{
+    const int mode = (int) pMidiOut->load();
+    if (mode == 0 || ! juce::isPositiveAndBelow (pad, kPads)) return;
+    int ch = 1, note = 36 + pad;
+    if (mode == 1)
+    {
+        // varje spår på egen kanal. Samma noter som när mönstret dras ut som MIDI:
+        // trumspår = pad-noter (C1 = pad 1), tonala spår = riktiga toner med F2 som grundton
+        ch = juce::jlimit (1, 16, (lane < kLanes ? lane : kLanes) + 1);
+        const int st = (int) std::lround (semi);
+        if (pad >= 12 || st != 0) note = 41 + st;
+    }
+    note = juce::jlimit (0, 127, note);
+    const auto vel = (juce::uint8) juce::jlimit (1, 127, (int) std::lround (juce::jmin (1.0f, gain) * 127.0f));
+    const int t = juce::jmax (0, midiEmitBase + offset);
+    if (midiQueueN + 2 > (int) midiQueue.size()) return;
+    // samma not ligger kvar: släpp den först (ett note off direkt före det nya slaget)
+    for (int i = 0; i < midiQueueN; ++i)
+        if (midiQueue[(size_t) i].vel == 0 && midiQueue[(size_t) i].ch == ch && midiQueue[(size_t) i].note == note && midiQueue[(size_t) i].t > t)
+            midiQueue[(size_t) i].t = t;
+    midiQueue[(size_t) midiQueueN++] = { ch, note, vel, t };
+    midiQueue[(size_t) midiQueueN++] = { ch, note, (juce::uint8) 0, t + midiNoteLen };
+}
+
+void BetongProcessor::flushMidi (juce::MidiBuffer& out, int total, bool allOff)
+{
+    // note off först om de ligger på samma sampel som ett nytt slag
+    for (int pass = 0; pass < 2; ++pass)
+        for (int i = 0; i < midiQueueN; ++i)
+        {
+            const auto& e = midiQueue[(size_t) i];
+            const bool off = e.vel == 0;
+            if ((pass == 0) != off) continue;
+            if (allOff && off) out.addEvent (juce::MidiMessage::noteOff (e.ch, e.note), 0);
+            else if (! allOff && e.t < total)
+                out.addEvent (off ? juce::MidiMessage::noteOff (e.ch, e.note) : juce::MidiMessage::noteOn (e.ch, e.note, e.vel), juce::jmax (0, e.t));
+        }
+    int k = 0;
+    for (int i = 0; i < midiQueueN; ++i)
+    {
+        auto e = midiQueue[(size_t) i];
+        if (allOff || e.t < total) continue;
+        e.t -= total;
+        midiQueue[(size_t) k++] = e;
+    }
+    midiQueueN = k;
+}
+
 void BetongProcessor::startVoice (int pad, int lane, float gain, int offset, bool chokeLane, float semi, int flags, float decayMul, float dark)
 {
+    if (midiEmit) emitMidi (pad, lane, gain, offset, semi);
     auto& slot = padSlots[(size_t) pad];
     const Sample* s = slot.sample.load();
     if (s == nullptr) return;
@@ -968,6 +1022,7 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
     const bool sequencing = hostIsPlaying || useInternal;
     const bool seqOff = pSeqMode->load() > 0.5f;
     midiInMode.store (seqOff);
+    midiNoteLen = juce::jmax (1, (int) (60.0 / bpm * sr / 8.0));   // en halv 16-del
     const double beatSec = 60.0 / bpm;
 
     // scenbyte: på nästa takt (4 taktslag) när det spelar, direkt annars
@@ -1039,7 +1094,9 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         if (sequencing && ! seqOff)
         {
             const double chunkPpq = ppq + (double) done / (sr * beatSec);
+            midiEmit = true; midiEmitBase = done;
             runSequencer (n, chunkPpq, bpm);
+            midiEmit = false;
         }
 
         renderVoices (n);
@@ -1266,6 +1323,11 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
         motorLaneMask.store (motorMask (seq, (juce::int64) std::floor (bar)));
     }
     else motorLaneMask.store (0xFF);
+
+    // MIDI UT: bara sekvenserns slag går ut (inkommande MIDI ekas inte). Stannar transporten släpps alla toner.
+    midiOutBuf.clear();
+    flushMidi (midiOutBuf, total, ! sequencing);
+    midi.swapWith (midiOutBuf);
 
     if (useInternal)
         internalPpq += (double) total / (sr * beatSec);
