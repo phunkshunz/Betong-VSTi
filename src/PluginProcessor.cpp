@@ -330,6 +330,116 @@ int BetongProcessor::chopToPads (int sourcePad, int mode, float sensitivity)
     return n;
 }
 
+//==============================================================================
+// SLÄPP IN: loopen analyseras (Slapp.h), de renaste slagen blir pads, slagens platser blir mönstret
+// och loopens släp och swing ställs in i FRIKTION. Hela loopen läggs på pad 16 och spår 8 (tystat).
+juce::String BetongProcessor::slappInFile (const juce::File& file)
+{
+    auto s = loadSampleFile (file, formats);
+    return s ? slappIn (s) : juce::String::fromUTF8 ("Kunde inte läsa filen");
+}
+
+juce::String BetongProcessor::slappInPad (int pad)
+{
+    auto info = getPad (pad);
+    if (! info.sample) return juce::String::fromUTF8 ("Paden är tom");
+    return slappIn (info.sample, info.start, info.end);   // padens område, så att en redan hackad loop också går
+}
+
+juce::String BetongProcessor::slappIn (SamplePtr loop, int from, int to)
+{
+    using namespace betong::slapp;
+    if (! loop) return juce::String::fromUTF8 ("Inget ljud");
+    const int full = loop->data.getNumSamples();
+    from = juce::jlimit (0, juce::jmax (0, full - 1), from);
+    to = to < 0 ? full : juce::jlimit (from + 1, full, to);
+    auto r = [&]
+    {
+        if (from == 0 && to == full) return analyse (*loop, currentBpm.load());
+        Sample part;                                   // bara padens område analyseras
+        part.data.setSize (loop->data.getNumChannels(), to - from);
+        for (int ch = 0; ch < part.data.getNumChannels(); ++ch) part.data.copyFrom (ch, 0, loop->data, ch, from, to - from);
+        part.sampleRate = loop->sampleRate;
+        auto res = analyse (part, currentBpm.load());
+        for (auto& v : res.hits) for (auto& h : v) h.sample += from;   // tillbaka till originalets platser
+        return res;
+    }();
+    if (! r.ok) return juce::String::fromUTF8 ("Hittade inga slag i loopen");
+    pushUndo();
+
+    const int len = to;
+    const int pre = (int) (loop->sampleRate * 0.0015);           // lite förslag så att anslaget kommer med
+    auto slice = [&] (int k, int idx, int pad)
+    {
+        if (idx < 0 || pad < 0) return;
+        const auto& v = r.hits[(size_t) k];
+        const int start = juce::jmax (from, v[(size_t) idx].sample - pre);
+        int end = juce::jmin (len, start + r.sliceLen[(size_t) k]);
+        for (const auto& h : v)                                  // nästa slag i samma grupp klipper
+            if (h.sample > v[(size_t) idx].sample + pre * 4 && h.sample - pre < end) end = h.sample - pre;
+        end = juce::jmax (start + (int) (loop->sampleRate * 0.025), end);
+        // egen kopia med gruppens namn, så att padsen heter KICK, CLAP ... (källan är densamma, så projektet sparas som förut)
+        auto named = std::make_shared<Sample> (*loop);
+        named->name = juce::String::fromUTF8 (kindName (k)) + juce::String::fromUTF8 (" · ") + loop->name;
+        setPad (pad, named, start, juce::jmin (len, end));
+    };
+    for (int k = 0; k < kKinds; ++k)
+    {
+        slice (k, r.best[(size_t) k], kPadFor[k]);
+        slice (k, r.second[(size_t) k], kVariantPad[k]);
+    }
+    setPad (kLoopPad, loop, from, to);
+
+    auto p = getPattern();
+    for (int k = 0; k < kKinds; ++k)
+    {
+        auto& L = p.lanes[(size_t) kLaneFor[k]];
+        if (L.lock) continue;
+        L = laneFor (r, k, L);
+        const int li = kLaneFor[k];
+        // filtret öppet, så att loopens ljud hörs som det är
+        setParam (laneId (li, "type"), 5.0f);
+        setParam (laneId (li, "cut"), 18000.0f);
+        setParam (laneId (li, "res"), 0.15f);
+        setParam (laneId (li, "drive"), 0.0f);
+        setParam (laneId (li, "env"), 0.0f);
+        setParam (laneId (li, "crush"), 0.0f);
+        setParam (laneId (li, "vol"), 1.0f);
+        setParam (laneId (li, "swing"), r.swing[(size_t) k]);
+        setParam (laneId (li, "drag"), r.dragFactor[(size_t) k]);
+    }
+    {   // hela loopen på spår 8, tystat: slå på det för att jämföra med originalet
+        auto& L = p.lanes[(size_t) kLoopLane];
+        if (! L.lock)
+        {
+            L = laneFor (r, Kick, L);
+            for (auto& st : L.steps) st = Step();
+            L.pad = kLoopPad;
+            if (r.bars <= 2) { L.rate = 0; L.length = r.bars * 16; }
+            else             { L.rate = 1; L.length = 32; }   // åttondelar: 32 steg = 4 takter
+            L.steps[0].on = true;
+            L.mute = true;
+            setParam (laneId (kLoopLane, "type"), 5.0f);
+            setParam (laneId (kLoopLane, "cut"), 18000.0f);
+            setParam (laneId (kLoopLane, "env"), 0.0f);
+            setParam (laneId (kLoopLane, "drag"), 0.0f);
+            setParam (laneId (kLoopLane, "swing"), 0.0f);
+        }
+    }
+    setPattern (p);
+    if (r.pocketMs > 0.0f) setParam ("pocket", r.pocketMs);
+
+    currentKit = juce::String::fromUTF8 ("SLÄPP IN: ") + loop->name;
+    juce::String sum = juce::String (r.bars) + (r.bars == 1 ? " takt" : " takter");
+    for (int k = 0; k < kKinds; ++k)
+        if (! r.hits[(size_t) k].empty())
+            sum << juce::String::fromUTF8 (" · ") << juce::String::fromUTF8 (kindName (k)) << " " << (int) r.hits[(size_t) k].size();
+    if (r.pocketMs > 0.0f) sum << juce::String::fromUTF8 (" · släp ") << juce::roundToInt (r.pocketMs) << " ms";
+    lastSlapp = sum;
+    ++stateVersion;
+    return sum;
+}
+
 void BetongProcessor::triggerPad (int pad) { triggerPadPitched (pad, 0); }
 
 void BetongProcessor::triggerPadPitched (int pad, int semi)
@@ -1678,6 +1788,7 @@ void BetongProcessor::copySceneTo (int target)
 
 void BetongProcessor::applyKit (int index)
 {
+    lastSlapp = {};
     index = juce::jlimit (0, kNumKits - 1, index);
     for (int p = 0; p < kPads; ++p)
     {

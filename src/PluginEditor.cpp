@@ -249,6 +249,7 @@ void PadGrid::showPadMenu (int pad)
     m.addSeparator();
     m.addItem (1, utf8 ("Ladda fil..."));
     m.addItem (2, utf8 ("Hacka detta ljud till alla pads"));
+    m.addItem (3, utf8 ("SLÄPP IN: kit och mönster ur detta ljud"));
 
     m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (this).withMousePosition(),
                      [this, pad, names] (int r)
@@ -266,6 +267,7 @@ void PadGrid::showPadMenu (int pad)
                                                    });
                          }
                          else if (r == 2) proc.chopToPads (pad, 0, 0.6f);
+                         else if (r == 3) proc.slappInPad (pad);
                          if (selectChanged) selectChanged();
                      });
 }
@@ -1754,7 +1756,14 @@ BetongContent::BetongContent (BetongProcessor& p)
         selectionChanged();
     };
     chopButton.setColour (juce::TextButton::textColourOffId, sodium);
-    for (auto* c : std::initializer_list<juce::Component*> { &loadButton, &libButton, &chopButton, &chopMode, &sensitivity }) addAndMakeVisible (*c);
+    // BETONG 3: SLÄPP IN
+    slappButton.setButtonText (utf8 ("SLÄPP IN"));
+    slappButton.setColour (juce::TextButton::buttonColourId, sodium.withAlpha (0.85f));
+    slappButton.setColour (juce::TextButton::textColourOffId, juce::Colours::black);
+    slappButton.setTooltip (utf8 ("Välj en trumloop. BETONG hittar kick, clap, hats och perc, gör ett kit av de renaste slagen "
+                                  "och ett mönster av var de landar. Loopens släp och swing följer med. Hela loopen ligger på pad 16 och spår 8 (tystat). Ångra tar tillbaka."));
+    slappButton.onClick = [this] { slappFromFile(); };
+    for (auto* c : std::initializer_list<juce::Component*> { &loadButton, &libButton, &chopButton, &chopMode, &sensitivity, &slappButton }) addAndMakeVisible (*c);
     addChildComponent (library);
 
     // sidopanel
@@ -1934,6 +1943,19 @@ BetongContent::~BetongContent()
 {
     stopTimer();
     setLookAndFeel (nullptr);
+}
+
+void BetongContent::slappFromFile()
+{
+    chooser = std::make_unique<juce::FileChooser> (utf8 ("Välj en trumloop"), juce::File(), BetongProcessor::audioWildcard);
+    chooser->launchAsync (juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles, [this] (const juce::FileChooser& fc)
+    {
+        if (! fc.getResult().existsAsFile()) return;
+        proc.slappInFile (fc.getResult());
+        proc.selectedPad = 0; proc.selectedLane = 0;
+        selectionChanged();
+        repaint();
+    });
 }
 
 void BetongContent::openFileForSelectedPad()
@@ -2139,7 +2161,8 @@ void BetongContent::paint (juce::Graphics& g)
     else
     {
         drawPanel (g, waveArea, utf8 ("SAMPLING · PAD ") + juce::String (proc.selectedPad + 1));
-        drawPanel (g, padsArea, "PADS", utf8 ("Klick spelar · högerklick väljer ljud · dra in filer"));
+        drawPanel (g, padsArea, "PADS", proc.lastSlapp.isNotEmpty() ? utf8 ("SLÄPP IN: ") + proc.lastSlapp
+                                                                    : utf8 ("Klick spelar · högerklick väljer ljud · dra in filer"));
     }
 
     // sidopanel
@@ -2219,12 +2242,13 @@ void BetongContent::resized()
     {
         auto w = waveArea.reduced (12, 8);
         auto top = w.removeFromTop (24);
-        top.removeFromLeft (260);
+        top.removeFromLeft (150);
         chopButton.setBounds (top.removeFromRight (120)); top.removeFromRight (6);
         sensitivity.setBounds (top.removeFromRight (130).reduced (0, 2)); top.removeFromRight (6);
         chopMode.setBounds (top.removeFromRight (92)); top.removeFromRight (6);
         libButton.setBounds (top.removeFromRight (80)); top.removeFromRight (6);
-        loadButton.setBounds (top.removeFromRight (86));
+        loadButton.setBounds (top.removeFromRight (86)); top.removeFromRight (6);
+        slappButton.setBounds (top.removeFromRight (86));
         w.removeFromTop (6);
         wave.setBounds (w);
     }

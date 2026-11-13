@@ -55,6 +55,14 @@ Den engelska manualen ligger i zippen som **BETONG-Manual.pdf**. Källan finns i
 - **Ångra:** backar de senaste 20 slumpningarna.
 - **Lås** på ett spår gör att slumpen låter det spåret vara.
 
+**SLÄPP IN (nytt i 1.4): en loop blir kit, mönster och groove**
+- Tryck **SLÄPP IN** och välj en trumloop (eller högerklicka på en pad och välj SLÄPP IN).
+- BETONG lyssnar i tre band och hittar kick, clap/virvel, stängda och öppna hats och två sorters perc, även när de slår samtidigt.
+- Det renaste slaget i varje grupp blir padens ljud (pad 1, 5, 3, 4, 7 och 8, näst bästa slaget på pad 2, 6, 9 och 10), och var slagen landar blir mönstret på spår 1-6.
+- Loopens groove följer med: hur sent hats och perc ligger blir FRIKTIONENS släp, och udda 16-delar som ligger efter blir spårets swing.
+- Hela loopen ligger på pad 16 och spår 8, tystat. Slå på det för att jämföra med originalet.
+- Tryck sedan **MOTOR**, så utvecklas loopen till en hel låt. **Ångra** tar tillbaka.
+
 **Sampling och pads**
 - **Klick på en pad:** spelar den och väljer den.
 - **Högerklick på en pad:** välj ett av de 235 inbyggda ljuden eller en egen fil.

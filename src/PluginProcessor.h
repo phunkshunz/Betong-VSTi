@@ -7,6 +7,7 @@
 #include "Motor.h"
 #include "Library.h"
 #include "Identity.h"
+#include "Slapp.h"
 
 // BETONG: techno-sampler med 16 pads, 8-spårs polyrytmisk sequencer,
 // techno-filter, dub-delay, rumble och slump.
@@ -89,6 +90,11 @@ public:
     bool loadFileToPad (int pad, const juce::File& file);
     void loadBuiltInToPad (int pad, const juce::String& name);
     int chopToPads (int sourcePad, int mode, float sensitivity); // returnerar antal bitar
+    // BETONG 3: SLÄPP IN. En loop blir kit + mönster + groove. Returnerar en rad att visa i panelen.
+    juce::String slappIn (betong::SamplePtr loop, int from = 0, int to = -1);
+    juce::String slappInFile (const juce::File& file);
+    juce::String slappInPad (int pad);
+    juce::String lastSlapp;
     void triggerPad (int pad);                                    // från GUI:t
     void triggerPadPitched (int pad, int semi);                   // provlyssna en ton
     int laneForPad (int pad) const;

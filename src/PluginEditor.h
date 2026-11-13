@@ -317,6 +317,7 @@ private:
     void selectLane (int lane);
     void refreshPresetBoxes();
     void openFileForSelectedPad();
+    void slappFromFile();
 
     BetongProcessor& proc;
     BetongLnF lnf;
@@ -331,7 +332,7 @@ private:
     WaveView wave;
     PadGrid pads;
     LibraryPanel library;
-    juce::TextButton loadButton { "Ladda ljud" }, libButton { "Bibliotek" }, chopButton { "Hacka till pads" };
+    juce::TextButton loadButton { "Ladda ljud" }, libButton { "Bibliotek" }, chopButton { "Hacka till pads" }, slappButton;
     juce::ComboBox chopMode;
     juce::Slider sensitivity;
 
