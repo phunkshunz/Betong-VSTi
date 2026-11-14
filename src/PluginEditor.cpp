@@ -764,20 +764,20 @@ void LaneRow::resized()
         lockButton.setBounds (right.removeFromLeft (38));
         return;
     }
-    auto r = getLocalBounds().reduced (2, 3);
-    labelArea = r.removeFromLeft (118);
-    auto put = [&] (juce::Component& c, int w) { c.setBounds (r.removeFromLeft (w)); r.removeFromLeft (5); };
-    put (padBox, 70);
-    put (lenSlider, 58);
-    put (rateBox, 70);
-    put (euclidButton, 26);
-    put (hitsSlider, 58);
-    put (rotSlider, 58);
-    auto right = r.removeFromRight (3 * 30 + 4);
-    muteButton.setBounds (right.removeFromLeft (28)); right.removeFromLeft (2);
-    soloButton.setBounds (right.removeFromLeft (28)); right.removeFromLeft (2);
-    lockButton.setBounds (right.removeFromLeft (34));
-    r.removeFromRight (6);
+    auto r = getLocalBounds().reduced (2, 2);
+    labelArea = r.removeFromLeft (104);
+    auto put = [&] (juce::Component& c, int w) { c.setBounds (r.removeFromLeft (w)); r.removeFromLeft (4); };
+    put (padBox, 64);
+    put (lenSlider, 52);
+    put (rateBox, 62);
+    put (euclidButton, 24);
+    put (hitsSlider, 52);
+    put (rotSlider, 52);
+    auto right = r.removeFromRight (3 * 28 + 4);
+    muteButton.setBounds (right.removeFromLeft (26)); right.removeFromLeft (2);
+    soloButton.setBounds (right.removeFromLeft (26)); right.removeFromLeft (2);
+    lockButton.setBounds (right.removeFromLeft (32));
+    r.removeFromRight (4);
     grid.setBounds (r);
 }
 
@@ -1933,6 +1933,23 @@ BetongContent::BetongContent (BetongProcessor& p)
         setRingMode (true);
     }
 
+    // nedre delens flikar
+    {
+        const char* names[3] = { "FRIKTION", "EFFEKTER", "SPELA" };
+        for (int i = 0; i < 3; ++i)
+        {
+            auto& b = lowTab[i];
+            b.setButtonText (utf8 (names[i]));
+            b.setClickingTogglesState (false);
+            b.onClick = [this, i] { setLowPage (i); };
+            addAndMakeVisible (b);
+        }
+        lowTab[0].setTooltip (utf8 ("FRIKTION: var slagen landar bakom rutnätet"));
+        lowTab[1].setTooltip (utf8 ("EFFEKTER: dub-delay, rumble och master"));
+        lowTab[2].setTooltip (utf8 ("SPELA: MIDI in och ut, stutter, play och internt tempo"));
+        if (! kIsSmidet) setLowPage (0);
+    }
+
     setSize (W, H);
     selectionChanged();
     addChildComponent (about);
@@ -2004,6 +2021,21 @@ void BetongContent::showMorphMenu()
     {
         if (r > 0) proc.setParam ("morphTo", (float) (r - 1));
     });
+}
+
+void BetongContent::setLowPage (int page)
+{
+    lowPage = page;
+    for (int i = 0; i < 3; ++i) lowTab[i].setToggleState (i == page, juce::dontSendNotification);
+    std::initializer_list<juce::Component*> fric { &pocketDice, &polyButton, &kPocket, &kTroghet, &kHuman, &kInterlock, &kMRatchet, &kVDecay, &kGlue };
+    std::initializer_list<juce::Component*> fx { &delayTime, &freezeButton, &kDFb, &kDTone, &kDWob, &kDRet, &kRSize, &kRDrive, &kRCut, &kRDuck, &kRRet,
+                                                 &kSweep, &kMCrush, &kClip, &kOut };
+    std::initializer_list<juce::Component*> play { &midiInButton, &midiMapBox, &midiOutBox, &bpmKnob, &playButton, &stutLen, &stutterButton };
+    for (auto* c : fric) c->setVisible (page == 0);
+    if (weave) weave->setVisible (page == 0);
+    for (auto* c : fx) c->setVisible (page == 1);
+    for (auto* c : play) c->setVisible (page == 2);
+    repaint (lowArea);
 }
 
 void BetongContent::setSidePage (int page)
@@ -2136,22 +2168,22 @@ void BetongContent::paint (juce::Graphics& g)
 
     // header
     drawPanel (g, headerArea, {});
-    auto h = headerArea.reduced (16, 8);
-    auto logo = h.removeFromLeft (150);
+    auto h = headerArea.reduced (12, 6);
+    auto logo = h.removeFromLeft (140);
     g.setColour (sodium);
-    g.setFont (juce::FontOptions (36.0f, juce::Font::bold).withHorizontalScale (0.78f));
-    g.drawText (BETONG_PRODUCT_NAME, logo.removeFromTop (36), juce::Justification::centredLeft);
+    g.setFont (juce::FontOptions (31.0f, juce::Font::bold).withHorizontalScale (0.78f));
+    g.drawText (BETONG_PRODUCT_NAME, logo.removeFromTop (30), juce::Justification::centredLeft);
     g.setColour (muted);
     g.setFont (juce::FontOptions (9.5f));
     g.drawText (utf8 (BETONG_TAGLINE " · MASKINHALLEN"), logo, juce::Justification::topLeft);
 
-    auto bpmArea = headerArea.reduced (16, 8).removeFromRight (90);
+    auto bpmArea = headerArea.reduced (12, 6).removeFromRight (80);
     g.setColour (muted);
     g.setFont (juce::FontOptions (9.0f));
     g.drawText (proc.hostPlaying.load() ? utf8 ("BPM · VÄRD") : utf8 ("BPM"), bpmArea.removeFromTop (14), juce::Justification::centredLeft);
     g.setColour (text);
-    g.setFont (juce::FontOptions (26.0f, juce::Font::bold).withHorizontalScale (0.8f));
-    g.drawText (juce::String (proc.currentBpm.load(), 1), bpmArea.removeFromTop (30), juce::Justification::centredLeft);
+    g.setFont (juce::FontOptions (23.0f, juce::Font::bold).withHorizontalScale (0.8f));
+    g.drawText (juce::String (proc.currentBpm.load(), 1), bpmArea.removeFromTop (26), juce::Justification::centredLeft);
 
     // vågform + pads (BETONG) eller smedjepanelen (SMIDET)
     if (kIsSmidet)
@@ -2173,188 +2205,211 @@ void BetongContent::paint (juce::Graphics& g)
         drawPanel (g, sideArea, utf8 ("SPÅR ") + juce::String (proc.selectedLane + 1),
                    "PAD " + juce::String (proc.selectedPad + 1));
         g.setColour (line);
-        g.drawHorizontalLine (sideArea.getY() + 206, (float) sideArea.getX() + 12, (float) sideArea.getRight() - 12);
+        g.drawHorizontalLine (sideArea.getY() + 170, (float) sideArea.getX() + 12, (float) sideArea.getRight() - 12);
     }
 
     // sequencer
     drawPanel (g, seqArea, kIsSmidet ? utf8 ("SMEDJANS RINGAR") : juce::String ("SEQUENCER"));
 
-    // effekter
-    const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
-    for (int i = 0; i < 4; ++i) drawPanel (g, fxArea[i], utf8 (fxTitles[i]));
-    drawPanel (g, fricArea, "FRIKTION", {});
+    // den nedre delen: en panel med flikar
+    if (kIsSmidet)
+    {
+        const char* fxTitles[] = { "DUB-DELAY", "RUMBLE", "MASTER", "PERFORMANCE · INTERNT TEMPO" };
+        for (int i = 0; i < 4; ++i) drawPanel (g, fxArea[i], utf8 (fxTitles[i]));
+        drawPanel (g, fricArea, "FRIKTION", {});
+        return;
+    }
+    drawPanel (g, lowArea, {});
+    if (lowPage == 1)
+    {
+        // små rubriker över varje grupp
+        const char* t[3] = { "DUB-DELAY", "RUMBLE", "MASTER" };
+        for (int i = 0; i < 3; ++i)
+        {
+            g.setColour (muted); g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+            g.drawText (utf8 (t[i]), fxArea[i].withHeight (14), juce::Justification::centredLeft);
+            if (i > 0) { g.setColour (line); g.drawVerticalLine (fxArea[i].getX() - 6, (float) fxArea[i].getY(), (float) fxArea[i].getBottom()); }
+        }
+    }
+    if (lowPage == 2)
+    {
+        g.setColour (muted); g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+        g.drawText (utf8 ("INTERNT TEMPO OCH MIDI"), fxArea[3].withHeight (14), juce::Justification::centredLeft);
+    }
 }
 
 void BetongContent::resized()
 {
-    auto r = getLocalBounds().reduced (16);
-    headerArea = r.removeFromTop (64);
-    r.removeFromTop (12);
-    auto mid = r.removeFromTop (296);
-    r.removeFromTop (12);
-    fxArea[0] = {};
-    auto fxRow = r.removeFromBottom (96);
-    r.removeFromBottom (12);
-    fricArea = r.removeFromBottom (112);
-    r.removeFromBottom (12);
+    // KOMPAKT: 1100 x 714. Huvud, mitten (sampling, pads, spåret), sequencern och en nedre panel med flikar.
+    auto r = getLocalBounds().reduced (12);
+    headerArea = r.removeFromTop (52);
+    r.removeFromTop (8);
+    auto mid = r.removeFromTop (236);
+    r.removeFromTop (8);
+    lowArea = r.removeFromBottom (124);
+    r.removeFromBottom (8);
     seqArea = r;
-    {
-        auto f = fricArea.reduced (12, 6);
-        auto head = f.removeFromTop (22);
-        head.removeFromLeft (90);
-        pocketDice.setBounds (head.removeFromLeft (150).reduced (0, 1));
-        head.removeFromLeft (6);
-        polyButton.setBounds (head.removeFromLeft (150).reduced (0, 1));
-        f.removeFromTop (4);
-        auto knobs = f.removeFromLeft (7 * 74);
-        for (auto* k : { &kPocket, &kTroghet, &kHuman, &kInterlock, &kMRatchet, &kVDecay, &kGlue }) k->setBounds (knobs.removeFromLeft (74));
-        f.removeFromLeft (14);
-        weave->setBounds (f.withTrimmedTop (-24));
-    }
+    fricArea = lowArea;
 
     // header
     {
-        auto h = headerArea.reduced (16, 10);
-        h.removeFromLeft (150);
-        h.removeFromRight (96);
-        auto knobs = h.removeFromRight (116);
-        crazyKnob.setBounds (knobs.removeFromLeft (58).expanded (0, 6));
-        swingKnob.setBounds (knobs.removeFromLeft (58).expanded (0, 6));
-        h.removeFromRight (8);
-        undoButton.setBounds (h.removeFromRight (58).reduced (0, 4));
+        auto h = headerArea.reduced (12, 8);
+        h.removeFromLeft (140);
+        h.removeFromRight (84);
+        auto knobs = h.removeFromRight (104);
+        crazyKnob.setBounds (knobs.removeFromLeft (52).expanded (0, 6));
+        swingKnob.setBounds (knobs.removeFromLeft (52).expanded (0, 6));
         h.removeFromRight (6);
-        diceAll.setBounds (h.removeFromRight (72).reduced (0, 4)); h.removeFromRight (4);
-        dicePattern.setBounds (h.removeFromRight (102).reduced (0, 4)); h.removeFromRight (4);
-        diceFx.setBounds (h.removeFromRight (58).reduced (0, 4)); h.removeFromRight (4);
-        diceKit.setBounds (h.removeFromRight (64).reduced (0, 4)); h.removeFromRight (10);
-        const int w = (h.getWidth() - 12) / 3;
-        kitBox.setBounds (h.removeFromLeft (w).reduced (0, 6)); h.removeFromLeft (6);
-        patternBox.setBounds (h.removeFromLeft (w).reduced (0, 6)); h.removeFromLeft (6);
-        fxBox.setBounds (h.reduced (0, 6));
+        undoButton.setBounds (h.removeFromRight (54).reduced (0, 3));
+        h.removeFromRight (4);
+        diceAll.setBounds (h.removeFromRight (66).reduced (0, 3)); h.removeFromRight (3);
+        dicePattern.setBounds (h.removeFromRight (92).reduced (0, 3)); h.removeFromRight (3);
+        diceFx.setBounds (h.removeFromRight (52).reduced (0, 3)); h.removeFromRight (3);
+        diceKit.setBounds (h.removeFromRight (58).reduced (0, 3)); h.removeFromRight (8);
+        const int w = (h.getWidth() - 8) / 3;
+        kitBox.setBounds (h.removeFromLeft (w).reduced (0, 5)); h.removeFromLeft (4);
+        patternBox.setBounds (h.removeFromLeft (w).reduced (0, 5)); h.removeFromLeft (4);
+        fxBox.setBounds (h.reduced (0, 5));
     }
 
     // mitten
-    sideArea = mid.removeFromRight (452);
-    mid.removeFromRight (12);
-    waveArea = mid.removeFromTop (128);
-    mid.removeFromTop (12);
+    sideArea = mid.removeFromRight (404);
+    mid.removeFromRight (8);
+    waveArea = mid.removeFromTop (86);
+    mid.removeFromTop (8);
     padsArea = mid;
     {
-        auto w = waveArea.reduced (12, 8);
-        auto top = w.removeFromTop (24);
-        top.removeFromLeft (150);
-        chopButton.setBounds (top.removeFromRight (120)); top.removeFromRight (6);
-        sensitivity.setBounds (top.removeFromRight (130).reduced (0, 2)); top.removeFromRight (6);
-        chopMode.setBounds (top.removeFromRight (92)); top.removeFromRight (6);
-        libButton.setBounds (top.removeFromRight (80)); top.removeFromRight (6);
-        loadButton.setBounds (top.removeFromRight (86)); top.removeFromRight (6);
-        slappButton.setBounds (top.removeFromRight (86));
-        w.removeFromTop (6);
+        auto w = waveArea.reduced (10, 6);
+        auto top = w.removeFromTop (22);
+        top.removeFromLeft (110);
+        chopButton.setBounds (top.removeFromRight (96)); top.removeFromRight (4);
+        sensitivity.setBounds (top.removeFromRight (110).reduced (0, 1)); top.removeFromRight (4);
+        chopMode.setBounds (top.removeFromRight (84)); top.removeFromRight (4);
+        libButton.setBounds (top.removeFromRight (66)); top.removeFromRight (4);
+        loadButton.setBounds (top.removeFromRight (76)); top.removeFromRight (4);
+        slappButton.setBounds (top.removeFromRight (76));
+        w.removeFromTop (4);
         wave.setBounds (w);
     }
-    pads.setBounds (padsArea.reduced (12, 8).withTrimmedTop (24));
+    pads.setBounds (padsArea.reduced (10, 6).withTrimmedTop (20));
     library.setBounds (waveArea.getUnion (padsArea));
 
     // sidopanel: spårets filter (2 rader rattar) + pad
     {
-        auto s = sideArea.reduced (12, 8);
-        auto tabs = s.removeFromTop (24).withTrimmedBottom (3);
-        tabs.removeFromLeft (70);
-        tabFilter.setBounds (tabs.removeFromLeft (76)); tabs.removeFromLeft (4);
-        tabEuclid.setBounds (tabs.removeFromLeft (76)); tabs.removeFromLeft (4);
-        tabMotor.setBounds (tabs.removeFromLeft (76));
-        euclidPanel->setBounds (s.withHeight (24 + 6 + 70 + 70));
+        auto s = sideArea.reduced (10, 6);
+        auto tabs = s.removeFromTop (22).withTrimmedBottom (2);
+        tabs.removeFromLeft (64);
+        tabFilter.setBounds (tabs.removeFromLeft (70)); tabs.removeFromLeft (4);
+        tabEuclid.setBounds (tabs.removeFromLeft (70)); tabs.removeFromLeft (4);
+        tabMotor.setBounds (tabs.removeFromLeft (70));
+        euclidPanel->setBounds (s.withHeight (22 + 4 + 56 + 56));
         motorPanel->setBounds (s.withTrimmedTop (2));
-        auto typeRow = s.removeFromTop (24);
+        auto typeRow = s.removeFromTop (22);
         filterType.setBounds (typeRow.removeFromLeft (110));
-        s.removeFromTop (6);
-        auto row1 = s.removeFromTop (70);
-        auto row2 = s.removeFromTop (70);
+        s.removeFromTop (4);
+        auto row1 = s.removeFromTop (56);
+        auto row2 = s.removeFromTop (56);
         const int kw = row1.getWidth() / 6;
         for (auto* k : { &kCut, &kRes, &kDrive, &kEnv, &kDec, &kLaneDrag }) k->setBounds (row1.removeFromLeft (kw));
         for (auto* k : { &kCrush, &kSendA, &kSendB, &kVol, &kPan, &kLaneSwing }) k->setBounds (row2.removeFromLeft (kw));
         s.removeFromTop (8);
-        auto padRow = s.removeFromTop (70);
+        auto padRow = s.removeFromTop (56);
         for (auto* k : { &kPitch, &kDecay, &kPadVol, &kPadPan }) k->setBounds (padRow.removeFromLeft (kw));
-        padRow.removeFromLeft (10);
-        revButton.setBounds (padRow.withSizeKeepingCentre (padRow.getWidth(), 30));
+        padRow.removeFromLeft (8);
+        revButton.setBounds (padRow.withSizeKeepingCentre (padRow.getWidth(), 26));
     }
 
     // sequencer
     {
-        auto s = seqArea.reduced (12, 8);
-        auto head = s.removeFromTop (24).withTrimmedBottom (3);
-        head.removeFromLeft (110);
-        for (auto& b : sceneButtons) { b.setBounds (head.removeFromLeft (30)); head.removeFromLeft (3); }
+        auto s = seqArea.reduced (10, 6);
+        auto head = s.removeFromTop (22).withTrimmedBottom (2);
+        head.removeFromLeft (96);
+        for (auto& b : sceneButtons) { b.setBounds (head.removeFromLeft (26)); head.removeFromLeft (3); }
+        head.removeFromLeft (4);
+        copyScene.setBounds (head.removeFromLeft (88));
         head.removeFromLeft (6);
-        copyScene.setBounds (head.removeFromLeft (104));
+        fillButton.setBounds (head.removeFromLeft (52));
         head.removeFromLeft (8);
-        fillButton.setBounds (head.removeFromLeft (64));
-        head.removeFromLeft (10);
-        svajSlider.setBounds (head.removeFromLeft (124));
-        head.removeFromLeft (6);
-        glitchSlider.setBounds (head.removeFromLeft (124));
-        head.removeFromLeft (6);
-        densSlider.setBounds (head.removeFromLeft (140));
-        head.removeFromLeft (10);
-        ringButton.setBounds (head.removeFromLeft (60));
-        head.removeFromLeft (6);
-        motorButton.setBounds (head.removeFromLeft (76));
-        head.removeFromLeft (6);
-        breedButton.setBounds (head.removeFromLeft (58));
-        head.removeFromLeft (6);
-        morphSlider.setBounds (head.removeFromLeft (juce::jmin (128, head.getWidth())));
+        svajSlider.setBounds (head.removeFromLeft (104));
+        head.removeFromLeft (4);
+        glitchSlider.setBounds (head.removeFromLeft (104));
+        head.removeFromLeft (4);
+        densSlider.setBounds (head.removeFromLeft (118));
+        head.removeFromLeft (8);
+        ringButton.setBounds (head.removeFromLeft (52));
+        head.removeFromLeft (4);
+        motorButton.setBounds (head.removeFromLeft (64));
+        head.removeFromLeft (4);
+        breedButton.setBounds (head.removeFromLeft (54));
+        head.removeFromLeft (4);
+        morphSlider.setBounds (head.removeFromLeft (juce::jmin (112, head.getWidth())));
         const int rh = s.getHeight() / kLanes;
         ringView->setBounds (s);
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));
     }
 
-    // effekter
+    // den nedre panelen: flikarna och innehållet på samma plats
     {
-        const int gap = 8;
-        const int ws[] = { 340, 300, 270 };
-        auto f = fxRow;
-        for (int i = 0; i < 3; ++i) { fxArea[i] = f.removeFromLeft (ws[i]); f.removeFromLeft (gap); }
-        fxArea[3] = f;
+        auto a = lowArea.reduced (10, 6);
+        auto tabs = a.removeFromTop (22);
+        for (int i = 0; i < 3; ++i) { lowTab[i].setBounds (tabs.removeFromLeft (92)); tabs.removeFromLeft (4); }
+        a.removeFromTop (4);
 
-        auto layoutKnobs = [] (juce::Rectangle<int> area, std::initializer_list<Knob*> knobs)
+        // FRIKTION
         {
-            const int kw = area.getWidth() / (int) knobs.size();
-            for (auto* k : knobs) k->setBounds (area.removeFromLeft (kw));
-        };
-        auto d = fxArea[0].reduced (10, 6); d.removeFromTop (18);
-        auto dl = d.removeFromLeft (84);
-        delayTime.setBounds (dl.removeFromTop (26)); dl.removeFromTop (6);
-        freezeButton.setBounds (dl.removeFromTop (26));
-        d.removeFromLeft (6);
-        layoutKnobs (d, { &kDFb, &kDTone, &kDWob, &kDRet });
-        auto rm = fxArea[1].reduced (10, 6); rm.removeFromTop (18);
-        layoutKnobs (rm, { &kRSize, &kRDrive, &kRCut, &kRDuck, &kRRet });
-        auto m = fxArea[2].reduced (10, 6); m.removeFromTop (18);
-        layoutKnobs (m, { &kSweep, &kMCrush, &kClip, &kOut });
-        auto pf = fxArea[3].reduced (12, 8); pf.removeFromTop (22);
+            auto f = a;
+            auto head = tabs.withTrimmedLeft (8);
+            pocketDice.setBounds (head.removeFromLeft (150).reduced (0, 1));
+            head.removeFromLeft (6);
+            polyButton.setBounds (head.removeFromLeft (150).reduced (0, 1));
+            auto knobs = f.removeFromLeft (7 * 70);
+            for (auto* k : { &kPocket, &kTroghet, &kHuman, &kInterlock, &kMRatchet, &kVDecay, &kGlue }) k->setBounds (knobs.removeFromLeft (70));
+            f.removeFromLeft (12);
+            weave->setBounds (f);
+        }
+        // EFFEKTER: dub-delay, rumble och master på en rad
         {
-            // översta raden: MIDI IN och kartan
-            auto mrow = pf.removeFromTop (22);
+            auto e = a;
+            auto layoutKnobs = [] (juce::Rectangle<int> area, std::initializer_list<Knob*> knobs)
+            {
+                const int kw = area.getWidth() / (int) knobs.size();
+                for (auto* k : knobs) k->setBounds (area.removeFromLeft (kw));
+            };
+            fxArea[0] = e.removeFromLeft (390); e.removeFromLeft (12);
+            fxArea[1] = e.removeFromLeft (330); e.removeFromLeft (12);
+            fxArea[2] = e;
+            auto d = fxArea[0].withTrimmedTop (14);
+            auto dl = d.removeFromLeft (80);
+            delayTime.setBounds (dl.removeFromTop (24)); dl.removeFromTop (6);
+            freezeButton.setBounds (dl.removeFromTop (24));
+            d.removeFromLeft (6);
+            layoutKnobs (d, { &kDFb, &kDTone, &kDWob, &kDRet });
+            layoutKnobs (fxArea[1].withTrimmedTop (14), { &kRSize, &kRDrive, &kRCut, &kRDuck, &kRRet });
+            layoutKnobs (fxArea[2].withTrimmedTop (14), { &kSweep, &kMCrush, &kClip, &kOut });
+        }
+        // SPELA
+        {
+            fxArea[3] = a;
+            auto pf = a.withTrimmedTop (16);
+            auto mrow = pf.removeFromLeft (420).withSizeKeepingCentre (420, 24);
             midiInButton.setBounds (mrow.removeFromLeft (84));
             mrow.removeFromLeft (6);
             const int half = (mrow.getWidth() - 6) / 2;
             midiMapBox.setBounds (mrow.removeFromLeft (half));
             mrow.removeFromLeft (6);
             midiOutBox.setBounds (mrow);
-            pf.removeFromTop (6);
+            pf.removeFromLeft (20);
+            stutterButton.setBounds (pf.removeFromLeft (110).withSizeKeepingCentre (110, 40));
+            pf.removeFromLeft (6);
+            stutLen.setBounds (pf.removeFromLeft (64).withSizeKeepingCentre (64, 24));
+            pf.removeFromLeft (20);
+            playButton.setBounds (pf.removeFromLeft (90).withSizeKeepingCentre (90, 40));
+            pf.removeFromLeft (12);
+            bpmKnob.setBounds (pf.removeFromLeft (64));
         }
-        bpmKnob.setBounds (pf.removeFromRight (60).expanded (0, 8));
-        pf.removeFromRight (6);
-        playButton.setBounds (pf.removeFromRight (78).withSizeKeepingCentre (78, juce::jmin (44, pf.getHeight())));
-        pf.removeFromRight (8);
-        auto col = pf.removeFromRight (64);
-        stutLen.setBounds (col.withSizeKeepingCentre (64, 26));
-        pf.removeFromRight (6);
-        stutterButton.setBounds (pf.withSizeKeepingCentre (pf.getWidth(), juce::jmin (44, pf.getHeight())));
     }
 
-    logoArea = headerArea.reduced (16, 8).removeFromLeft (150);
+    logoArea = headerArea.reduced (12, 6).removeFromLeft (140);
     about.setBounds (getLocalBounds());
     if (kIsSmidet) layoutSmidet();
 }

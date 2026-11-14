@@ -10,3 +10,4 @@ demo/*.npy
 # python
 __pycache__/
 *.pyc
+build-test/

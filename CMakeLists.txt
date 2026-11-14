@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(BETONG VERSION 1.4.0)
+project(BETONG VERSION 1.5.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -117,4 +117,15 @@ if(MSVC)
     if(TARGET Smidet)
         target_compile_options(Smidet PRIVATE /utf-8 /bigobj)
     endif()
+endif()
+
+# Panelbild: cmake -B build -DBETONG_SNAPSHOT=ON
+option(BETONG_SNAPSHOT "Bygg verktyget som ritar panelen" OFF)
+if(BETONG_SNAPSHOT)
+    juce_add_console_app(BetongSnapshot PRODUCT_NAME "BetongSnapshot")
+    target_sources(BetongSnapshot PRIVATE tests/gui_snapshot.cpp src/PluginProcessor.cpp src/PluginEditor.cpp src/Library.cpp)
+    target_compile_definitions(BetongSnapshot PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=0
+        JucePlugin_Name="BETONG" BETONG_PRODUCT_NAME="BETONG" BETONG_ABOUT_LINE="techno-sampler" BETONG_TAGLINE="TECHNO SAMPLER" BETONG_DEFAULT_PATTERN="Grund 130"
+        JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XRENDER=0 JUCE_USE_XSHM=0 JUCE_ALSA=0 JUCE_JACK=0)
+    target_link_libraries(BetongSnapshot PRIVATE BetongData juce::juce_audio_utils juce::juce_audio_formats juce::juce_dsp PUBLIC juce::juce_recommended_config_flags)
 endif()

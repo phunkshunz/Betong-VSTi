@@ -309,7 +309,7 @@ public:
     void paint (juce::Graphics&) override;
     void resized() override;
 
-    static constexpr int W = 1280, H = 944;
+    static constexpr int W = 1100, H = 714;   // kompakt (förut 1280 x 944): den nedre delen i flikar
 
 private:
     void timerCallback() override;
@@ -362,6 +362,11 @@ private:
     std::unique_ptr<RingView> ringView;
     juce::TooltipWindow tooltips { this, 700 };
     int sidePage = 0;   // 0 filter, 1 euklid, 2 motor
+    // den nedre delen: FRIKTION, EFFEKTER och SPELA i flikar
+    juce::TextButton lowTab[3];
+    int lowPage = 0;
+    void setLowPage (int page);
+    juce::Rectangle<int> lowArea;
 public:
     enum SidePage { PageFilter = 0, PageEuclid, PageMotor };
     void setSidePage (int page);

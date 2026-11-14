@@ -302,5 +302,11 @@ inline constexpr Par kOrdlista[] =
     { "BERUSAD GUNG", "DRUNK SWAY" },
     { "MIKROHUS", "MICRO HOUSE" },
     { "EGEN", "CUSTOM" },
+    // ---- BETONG 3: kompakt panel
+    { "EFFEKTER", "EFFECTS" },
+    { "INTERNT TEMPO OCH MIDI", "INTERNAL TEMPO AND MIDI" },
+    { "FRIKTION: var slagen landar bakom rutnätet", "FRICTION: where the hits land behind the grid" },
+    { "EFFEKTER: dub-delay, rumble och master", "EFFECTS: dub delay, rumble and master" },
+    { "SPELA: MIDI in och ut, stutter, play och internt tempo", "PLAY: MIDI in and out, stutter, play and internal tempo" },
 };
 } // namespace sprak
