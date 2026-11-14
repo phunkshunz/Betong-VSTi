@@ -363,7 +363,15 @@ private:
     juce::TooltipWindow tooltips { this, 700 };
     int sidePage = 0;   // 0 filter, 1 euklid, 2 motor
     // den nedre delen: FRIKTION, EFFEKTER och SPELA i flikar
-    juce::TextButton lowTab[3];
+    juce::TextButton lowTab[4];
+    // BETONG 3: LEVANDE-fliken
+    Knob kLiv, kUtbrott;
+    juce::TextButton fangaButton, navButton;
+    juce::ComboBox fangaLen;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> navAtt;
+    juce::Rectangle<int> livInfo, fangaInfo, navInfo;
+    juce::String fangaMsg;
+    int ubShown = 0, ubHold = 0;
     int lowPage = 0;
     void setLowPage (int page);
     juce::Rectangle<int> lowArea;

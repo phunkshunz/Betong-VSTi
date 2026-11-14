@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(BETONG VERSION 1.5.0)
+project(BETONG VERSION 1.6.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -128,4 +128,11 @@ if(BETONG_SNAPSHOT)
         JucePlugin_Name="BETONG" BETONG_PRODUCT_NAME="BETONG" BETONG_ABOUT_LINE="techno-sampler" BETONG_TAGLINE="TECHNO SAMPLER" BETONG_DEFAULT_PATTERN="Grund 130"
         JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XRENDER=0 JUCE_USE_XSHM=0 JUCE_ALSA=0 JUCE_JACK=0)
     target_link_libraries(BetongSnapshot PRIVATE BetongData juce::juce_audio_utils juce::juce_audio_formats juce::juce_dsp PUBLIC juce::juce_recommended_config_flags)
+
+    juce_add_console_app(BetongLevandeTest PRODUCT_NAME "BetongLevandeTest")
+    target_sources(BetongLevandeTest PRIVATE tests/levande_test.cpp src/PluginProcessor.cpp src/PluginEditor.cpp src/Library.cpp)
+    target_compile_definitions(BetongLevandeTest PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_STANDALONE_APPLICATION=0
+        JucePlugin_Name="BETONG" BETONG_PRODUCT_NAME="BETONG" BETONG_ABOUT_LINE="techno-sampler" BETONG_TAGLINE="TECHNO SAMPLER" BETONG_DEFAULT_PATTERN="Grund 130"
+        JUCE_USE_XRANDR=0 JUCE_USE_XINERAMA=0 JUCE_USE_XCURSOR=0 JUCE_USE_XRENDER=0 JUCE_USE_XSHM=0 JUCE_ALSA=0 JUCE_JACK=0)
+    target_link_libraries(BetongLevandeTest PRIVATE BetongData juce::juce_audio_utils juce::juce_audio_formats juce::juce_dsp PUBLIC juce::juce_recommended_config_flags)
 endif()

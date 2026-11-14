@@ -1935,8 +1935,8 @@ BetongContent::BetongContent (BetongProcessor& p)
 
     // nedre delens flikar
     {
-        const char* names[3] = { "FRIKTION", "EFFEKTER", "SPELA" };
-        for (int i = 0; i < 3; ++i)
+        const char* names[4] = { "FRIKTION", "EFFEKTER", "SPELA", "LEVANDE" };
+        for (int i = 0; i < 4; ++i)
         {
             auto& b = lowTab[i];
             b.setButtonText (utf8 (names[i]));
@@ -1947,6 +1947,37 @@ BetongContent::BetongContent (BetongProcessor& p)
         lowTab[0].setTooltip (utf8 ("FRIKTION: var slagen landar bakom rutnätet"));
         lowTab[1].setTooltip (utf8 ("EFFEKTER: dub-delay, rumble och master"));
         lowTab[2].setTooltip (utf8 ("SPELA: MIDI in och ut, stutter, play och internt tempo"));
+        lowTab[3].setTooltip (utf8 ("LEVANDE: LIV och UTBROTT, FÅNGA och NAV"));
+        lowTab[3].setColour (juce::TextButton::buttonOnColourId, cold);
+
+        kLiv.attach (s, "liv", utf8 ("LIV"));
+        kLiv.setAccent (sodium);
+        kLiv.slider.setTooltip (utf8 ("Spårens filter, drive och dub-sändning vandrar själva inom ramar. Nytt läge varje takt, i en loop på 8 takter som byts var 32:a. 0 = som förut."));
+        kUtbrott.attach (s, "utbrott", utf8 ("UTBROTT"));
+        kUtbrott.setAccent (cold);
+        kUtbrott.slider.setTooltip (utf8 ("Korta händelser i takt: dubkast, filterdyk, stutterskur och rumsvall. Samma ställe i loopen varje varv. 0 = som förut."));
+        fangaButton.setButtonText (utf8 ("FÅNGA"));
+        fangaButton.setColour (juce::TextButton::buttonColourId, sodium.withAlpha (0.3f));
+        fangaButton.setTooltip (utf8 ("FÅNGA: de senaste takterna av det som spelas blir ett eget kit. Ljudet sparas som WAV i Musik/MASKINHALLEN/BETONG FÅNGAT och hackas ut på padsen."));
+        fangaButton.onClick = [this]
+        {
+            const int bars = fangaLen.getSelectedId() == 1 ? 1 : (fangaLen.getSelectedId() == 3 ? 4 : 2);
+            const int mode = chopMode.getSelectedId() == 2 ? 8 : chopMode.getSelectedId() == 3 ? 16 : 0;
+            const int n = proc.fanga (bars, mode, (float) sensitivity.getValue());
+            fangaMsg = n > 0 ? utf8 ("Fångat: ") + juce::String (n) + utf8 (" ljud på padsen") : utf8 ("Spela först: tryck play och låt det gå några takter");
+            proc.selectedPad = 0;
+            selectionChanged();
+            repaint (lowArea);
+        };
+        fangaLen.addItem (utf8 ("1 TAKT"), 1); fangaLen.addItem (utf8 ("2 TAKTER"), 2); fangaLen.addItem (utf8 ("4 TAKTER"), 3);
+        fangaLen.setSelectedId (2, juce::dontSendNotification);
+        fangaLen.setTooltip (utf8 ("Hur mycket som fångas"));
+        navButton.setButtonText ("NAV");
+        navButton.setClickingTogglesState (true);
+        navButton.setColour (juce::TextButton::buttonOnColourId, cold);
+        navButton.setTooltip (utf8 ("NAV: BETONG skickar sitt gung och sin kick till GRUND, GLAPP och KOLV, så att maskinerna svänger ihop. De lyssnar när de får sin NAV-mottagare."));
+        navAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (s, "nav", navButton);
+        for (auto* c : std::initializer_list<juce::Component*> { &kLiv, &kUtbrott, &fangaButton, &fangaLen, &navButton }) addAndMakeVisible (*c);
         if (! kIsSmidet) setLowPage (0);
     }
 
@@ -2026,7 +2057,8 @@ void BetongContent::showMorphMenu()
 void BetongContent::setLowPage (int page)
 {
     lowPage = page;
-    for (int i = 0; i < 3; ++i) lowTab[i].setToggleState (i == page, juce::dontSendNotification);
+    for (int i = 0; i < 4; ++i) lowTab[i].setToggleState (i == page, juce::dontSendNotification);
+    for (auto* c : std::initializer_list<juce::Component*> { &kLiv, &kUtbrott, &fangaButton, &fangaLen, &navButton }) c->setVisible (page == 3);
     std::initializer_list<juce::Component*> fric { &pocketDice, &polyButton, &kPocket, &kTroghet, &kHuman, &kInterlock, &kMRatchet, &kVDecay, &kGlue };
     std::initializer_list<juce::Component*> fx { &delayTime, &freezeButton, &kDFb, &kDTone, &kDWob, &kDRet, &kRSize, &kRDrive, &kRCut, &kRDuck, &kRRet,
                                                  &kSweep, &kMCrush, &kClip, &kOut };
@@ -2135,6 +2167,12 @@ void BetongContent::refreshPresetBoxes()
 
 void BetongContent::timerCallback()
 {
+    if (lowPage == 3)
+    {
+        const int u = proc.utbrottNu.load();
+        if (u >= 0) { ubShown = u; ubHold = 12; } else if (ubHold > 0) --ubHold;
+        repaint (lowArea);
+    }
     if (proc.stateVersion.load() != seenVersion) selectionChanged();
     pads.tick();
     for (auto& r : rows) r->grid.repaint();
@@ -2230,6 +2268,22 @@ void BetongContent::paint (juce::Graphics& g)
             g.drawText (utf8 (t[i]), fxArea[i].withHeight (14), juce::Justification::centredLeft);
             if (i > 0) { g.setColour (line); g.drawVerticalLine (fxArea[i].getX() - 6, (float) fxArea[i].getY(), (float) fxArea[i].getBottom()); }
         }
+    }
+    if (lowPage == 3)
+    {
+        auto txt = [&] (juce::Rectangle<int> r, const juce::String& head, const juce::String& body, juce::Colour c)
+        {
+            g.setColour (muted); g.setFont (juce::FontOptions (9.5f, juce::Font::bold));
+            g.drawText (head, r.removeFromTop (16), juce::Justification::centredLeft);
+            g.setColour (c); g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+            g.drawFittedText (body, r.removeFromTop (44), juce::Justification::topLeft, 3, 1.0f);
+        };
+        static const char* ub[4] = { "DUBKAST", "FILTERDYK", "STUTTERSKUR", "RUMSVÄLL" };
+        txt (livInfo.withTrimmedTop (14), utf8 ("JUST NU"), ubHold > 0 ? utf8 (ub[ubShown]) : utf8 ("—"), cold);
+        const int fill = juce::roundToInt (proc.fangaFill.load() * 4.0f);
+        txt (fangaInfo.withTrimmedTop (14), utf8 ("FÅNGA"),
+             fangaMsg.isNotEmpty() ? fangaMsg : (fill > 0 ? juce::String (fill) + utf8 (" takter på bandet. Tryck FÅNGA.") : utf8 ("Tryck play: bandet spelar in det du hör.")), text);
+        txt (navInfo.withTrimmedTop (14), "NAV", proc.navLive.load() ? utf8 ("Skickar gung och kick") : utf8 ("Av"), proc.navLive.load() ? cold : muted);
     }
     if (lowPage == 2)
     {
@@ -2352,7 +2406,7 @@ void BetongContent::resized()
     {
         auto a = lowArea.reduced (10, 6);
         auto tabs = a.removeFromTop (22);
-        for (int i = 0; i < 3; ++i) { lowTab[i].setBounds (tabs.removeFromLeft (92)); tabs.removeFromLeft (4); }
+        for (int i = 0; i < 4; ++i) { lowTab[i].setBounds (tabs.removeFromLeft (92)); tabs.removeFromLeft (4); }
         a.removeFromTop (4);
 
         // FRIKTION
@@ -2386,6 +2440,22 @@ void BetongContent::resized()
             layoutKnobs (d, { &kDFb, &kDTone, &kDWob, &kDRet });
             layoutKnobs (fxArea[1].withTrimmedTop (14), { &kRSize, &kRDrive, &kRCut, &kRDuck, &kRRet });
             layoutKnobs (fxArea[2].withTrimmedTop (14), { &kSweep, &kMCrush, &kClip, &kOut });
+        }
+        // LEVANDE
+        {
+            auto l = a.withTrimmedTop (14);
+            kLiv.setBounds (l.removeFromLeft (80));
+            kUtbrott.setBounds (l.removeFromLeft (80));
+            livInfo = l.removeFromLeft (170);
+            l.removeFromLeft (20);
+            auto fc = l.removeFromLeft (110);
+            fangaButton.setBounds (fc.removeFromTop (34).reduced (0, 2));
+            fc.removeFromTop (4);
+            fangaLen.setBounds (fc.removeFromTop (24));
+            fangaInfo = l.removeFromLeft (290).reduced (8, 0);
+            l.removeFromLeft (20);
+            navButton.setBounds (l.removeFromLeft (80).withSizeKeepingCentre (80, 30));
+            navInfo = l.reduced (8, 0);
         }
         // SPELA
         {

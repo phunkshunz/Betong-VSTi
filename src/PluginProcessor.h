@@ -8,6 +8,7 @@
 #include "Library.h"
 #include "Identity.h"
 #include "Slapp.h"
+#include "Nav.h"
 
 // BETONG: techno-sampler med 16 pads, 8-spårs polyrytmisk sequencer,
 // techno-filter, dub-delay, rumble och slump.
@@ -36,6 +37,17 @@ public:
     void setCurrentProgram (int) override {}
     const juce::String getProgramName (int) override { return {}; }
     void changeProgramName (int, const juce::String&) override {}
+
+    // ---- BETONG 3
+    // FÅNGA: de senaste takterna av det som spelas blir ett eget kit (sparas som WAV, hackas till pads)
+    int fanga (int bars, int chopMode, float sensitivity);
+    juce::String lastFanga;
+    std::atomic<float> fangaFill { 0.0f };          // hur mycket som finns inspelat (0..1 av 4 takter)
+    // NAV: skickar gung och kick till GRUND, GLAPP och KOLV
+    std::atomic<bool> navLive { false };
+    std::atomic<int> utbrottNu { -1 };              // vilket utbrott som pågår (för panelen)
+    void callTimerForTest() { timerCallback(); }
+    void setSeedForTest (juce::uint32 s) { glitchSeed = s; }
 
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
@@ -231,6 +243,14 @@ private:
     betong::DubDelay delay;
     betong::Rumble rumble;
     betong::Stutter stutter;
+    // BETONG 3: FÅNGA-bandet, LIV, UTBROTT och NAV
+    juce::AudioBuffer<float> fangaRing; int fangaPos = 0; juce::int64 fangaWritten = 0; double fangaBeatSec = 0.5;
+    std::array<float, 8> livOct {}, livSend {}, livDrive {}, livTgtOct {}, livTgtSend {}, livTgtDrive {};
+    juce::int64 livBar = std::numeric_limits<juce::int64>::min();
+    juce::int64 ubK16 = std::numeric_limits<juce::int64>::min();
+    int ubLeft = 0, ubLen = 1, ubType = 0, ubLane = 1; float ubDepth = 0.0f;
+    mh::Nav nav; bool navTried = false; std::atomic<bool> navReady { false }; double navLastKick = -1.0; float navKickEnv = 0.0f;
+    std::atomic<float>* pLiv = nullptr; std::atomic<float>* pUtbrott = nullptr; std::atomic<float>* pNav = nullptr;
     betong::Svf masterSvf[2];
     betong::OnePole sideLp;
     float mHoldL = 0, mHoldR = 0, mHoldCount = 0;

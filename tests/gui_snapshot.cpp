@@ -20,7 +20,7 @@ int main (int argc, char** argv)
                 if (auto* b = dynamic_cast<TextButton*> (ch))
                 {
                     const auto t = b->getButtonText();
-                    if ((tab == 1 && (t == "EFFEKTER" || t == "EFFECTS")) || (tab == 2 && (t == "SPELA" || t == "PLAY"))) if (b->onClick) b->onClick();
+                    if ((tab == 1 && (t == "EFFEKTER" || t == "EFFECTS")) || (tab == 2 && (t == "SPELA" || t == "PLAY")) || (tab == 3 && (t == "LEVANDE" || t == "LIVING"))) if (b->onClick) b->onClick();
                 }
                 walk (*ch);
             }

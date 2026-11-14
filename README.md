@@ -6,6 +6,15 @@ SMIDET har flyttat till ett eget plugin: https://github.com/phunkshunz/Smidet-VS
 
 Ett plugin från **MASKINHALLEN**. Klicka på loggan uppe till vänster i pluginet för att läsa om båtvarvet Docklands, där allt började.
 
+## Nytt i 1.6 (BETONG 3)
+
+- **Kompakt panel** 1100 × 714 (förut 1280 × 944). Den nedre delen ligger i flikar: FRIKTION, EFFEKTER, SPELA och LEVANDE.
+- **LIV**: spårens filter, drive och dub-sändning vandrar själva inom ramar. Nytt läge varje takt, i en loop på 8 takter.
+- **UTBROTT**: korta händelser i takt: dubkast, filterdyk, stutterskur och rumsvall. Samma ställe i loopen varje varv.
+- **FÅNGA**: de senaste 1, 2 eller 4 takterna blir ett eget kit. Ljudet sparas som WAV i Musik/MASKINHALLEN/BETONG FÅNGAT och hackas ut på padsen.
+- **NAV**: BETONG skickar sitt gung och sin kick till GRUND, GLAPP och KOLV (de lyssnar när de får sin mottagare).
+- LIV och UTBROTT står på 0 från början: gamla låtar låter som förut.
+
 ## Ladda ner
 
 Ladda ner den senaste versionen här:
