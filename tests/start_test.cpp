@@ -4,11 +4,12 @@
 using namespace juce;
 struct PH : AudioPlayHead { int64 s = 0; Optional<PositionInfo> getPosition() const override
     { PositionInfo p; p.setIsPlaying (true); p.setBpm (130); p.setPpqPosition (s / 48000.0 * 130 / 60.0); return p; } };
-int main()
+int main (int argc, char** argv)
 {
     ScopedJuceInitialiser_GUI init;
     PH ph; BetongProcessor p; p.setPlayHead (&ph);
     p.setRateAndBufferSizeDetails (48000, 512); p.prepareToPlay (48000, 512);
+    if (argc > 2) { p.setParam ("mPlan", (float) atoi (argv[1])); p.setParam ("mForm", 2); p.setParam ("mSeed", (float) atoi (argv[2])); }
     std::printf ("motor=%.0f form=%.0f liv=%.2f\n", p.getParam ("mOn"), p.getParam ("mForm"), p.getParam ("liv"));
     const int perBar = (int) (4 * 60.0 / 130 * 48000);
     AudioBuffer<float> b (2, 512); int64 n = 0; double s2 = 0; float pk = 0; bool nan = false; int bar = 0;
@@ -28,6 +29,13 @@ int main()
         }
     }
     std::printf ("nan=%d\n", (int) nan);
+    if (argc > 3)
+    {
+        File f (argv[3]); f.deleteFile();
+        std::unique_ptr<AudioFormatWriter> w (WavAudioFormat().createWriterFor (new FileOutputStream (f), 48000, 2, 24, {}, 0));
+        w->writeFromAudioSampleBuffer (all, 0, all.getNumSamples());
+        return 0;
+    }
     // BETONG-KOD: tur och retur
     p.randomAll();
     const auto kod = p.betongKod();
@@ -66,7 +74,7 @@ int main()
         std::printf ("\n");
     }
     std::printf ("trasig: %s | ingen: %s\n", q.laddaKod ("BETONG:abc").toRawUTF8(), q.laddaKod ("hej").toRawUTF8());
-    File f ("/tmp/claude-0/betong-start.wav"); f.deleteFile();
+    File f (argc > 3 ? String (argv[3]) : String ("/tmp/claude-0/betong-start.wav")); f.deleteFile();
     std::unique_ptr<AudioFormatWriter> w (WavAudioFormat().createWriterFor (new FileOutputStream (f), 48000, 2, 24, {}, 0));
     w->writeFromAudioSampleBuffer (all, 0, all.getNumSamples());
 }
