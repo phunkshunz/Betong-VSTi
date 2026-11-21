@@ -784,6 +784,19 @@ Step BetongProcessor::effectiveStep (const SeqState& q, int li, juce::int64 n, i
     return st;
 }
 
+// Vilket spår som rullar virveln i uppbyggnaden: första clap/snare-spåret, annars första perc.
+int BetongProcessor::rollLaneOf (const SeqState& q) const
+{
+    int perc = -1;
+    for (int li = 1; li < kLanes; ++li)
+    {
+        const auto r = motor::roleOf (q.pattern.lanes[(size_t) li].pad);
+        if (r == motor::Clap) return li;
+        if (perc < 0 && r == motor::Perc) perc = li;
+    }
+    return perc;
+}
+
 //==============================================================================
 // MOTOR
 
@@ -792,7 +805,25 @@ bool BetongProcessor::motorStep (const SeqState& q, int li, juce::int64 n, int s
 {
     const double beatPos = (double) n / spb;
     const auto barI = (juce::int64) std::floor (beatPos / 4.0);
+    // DRAMA: tystnad före droppet, virvelrulle i uppbyggnaden, smäll på ettan
+    const auto dr = motor::dramaAt (q.ms, beatPos / 4.0 + 1.0e-4);
+    if (dr.silence) return false;
+    const auto& laneRef = q.pattern.lanes[(size_t) li];
+    if (dr.rollRate > 0 && ! laneRef.mute && li == rollLaneOf (q))
+    {
+        const int stepsPerHit = juce::jmax (1, (spb * 16) / dr.rollRate / 4);   // spb steg per slag, 4 slag per takt
+        const bool hit = n % stepsPerHit == 0;
+        if (hit || dr.rollRate == 32)
+        {
+            st.on = true; st.prob = 100;
+            st.ghost = dr.rollAmt < 0.35f; st.accent = dr.rollAmt > 0.8f;
+            if (dr.rollRate == 32) st.ratchet = (uint8_t) juce::jmax ((int) st.ratchet, 2);
+            throwHit = false;
+            return true;
+        }
+    }
     if (((motorMask (q, barI) >> li) & 1) == 0) return false;
+    if (dr.slam && li == 0) { st.accent = true; st.ghost = false; }
     int roll = -1, thrown = -1;
     motorEvents (q, barI, roll, thrown);
     const double inBar = beatPos - (double) barI * 4.0;
@@ -1557,6 +1588,25 @@ void BetongProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Midi
             st->bpm = bpm; st->ppq = cPpq; st->playing = sequencing ? 1 : 0;
             st->swing = pSwing->load(); st->pocketMs = pPocket->load();
             for (int li = 0; li < mh::Nav::kLanes && li < kLanes; ++li) st->laneOffsetMs[li] = pPocket->load() * pLaneDrag[(size_t) li]->load();   // pocket gånger spårets släp
+            // LÅTLÄGE: var i låten motorn är, så att FRÄS, FUKT, VENTIL, GRUND och GLAPP kan följa med
+            st->motorOn = motorOn ? 1 : 0;
+            if (motorOn)
+            {
+                int fas = mh::FasTopp;
+                switch (mw.section)
+                {
+                    case motor::SecIntro:  fas = mh::FasIntro; break;
+                    case motor::SecBygg:   fas = mh::FasBygg; break;
+                    case motor::SecBreak:  fas = mh::FasBreak; break;
+                    case motor::SecLyft:   fas = mh::FasLyft; break;
+                    case motor::SecUtrull: fas = mh::FasUtrull; break;
+                    default:               fas = mh::FasTopp; break;
+                }
+                st->fas = fas;
+                st->energy = mw.energy;
+                st->fasPos = mw.pos;
+                st->toNextBars = (float) juce::jmin (1.0e6, mw.toNext);
+            }
             st->lastKickPpq = navLastKick; st->kickEnv = navKickEnv;
             st->heartbeatMs.store (juce::Time::currentTimeMillis());
             st->seq.fetch_add (1);

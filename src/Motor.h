@@ -464,6 +464,48 @@ inline bool kickOut (const Settings& st, double bar)
     return false;
 }
 
+// DRAMA (1.10): vad som händer kring ett dropp. Uppbyggnaden får en virvel som rullar allt
+// tätare, sista taktslaget före droppet kan vara helt tyst, och första kicken i droppet smäller.
+struct Drama
+{
+    bool silence = false;  // sista slaget före droppet: allt tyst
+    int rollRate = 0;      // virvelns täthet per takt (0 = ingen, 4, 8, 16, 32)
+    float rollAmt = 0.0f;  // 0..1, hur långt in i rullen
+    bool slam = false;     // första slaget i droppet
+};
+
+inline bool isDrop (int sec) { return sec == SecTopp || sec == SecTopp2; }
+
+inline Drama dramaAt (const Settings& st, double bar)
+{
+    Drama d;
+    if (! st.on) return d;
+    const auto w = locate (st, bar);
+    if (w.length > 0.0 && w.toNext < 1.0e8)
+    {
+        const auto nx = locate (st, w.start + w.length + 0.01);
+        if (isDrop (nx.section) && (w.section == SecLyft || w.section == SecBygg || w.section == SecBreak))
+        {
+            const auto key = (int64_t) std::floor (w.start);
+            if (w.toNext <= 0.25 && rnd (st.seed, key, 0, 9301) < 0.45f + 0.45f * st.moveEff())
+                d.silence = true;
+            const double rollBars = w.section == SecLyft ? juce::jmin (4.0, w.length) : 2.0;
+            if (! d.silence && w.section != SecBreak && w.toNext <= rollBars)
+            {
+                d.rollAmt = (float) (1.0 - w.toNext / rollBars);
+                d.rollRate = w.toNext > 2.0 ? 4 : w.toNext > 1.0 ? 8 : w.toNext > 0.5 ? 16 : 32;
+            }
+        }
+    }
+    // smällen: första 16-delen i ett dropp som kommer efter ett break, ett lyft eller en uppbyggnad
+    if (isDrop (w.section) && bar - w.start < 0.0625 && w.start > 0.5)
+    {
+        const auto pv = locate (st, w.start - 0.01);
+        d.slam = pv.section == SecBreak || pv.section == SecLyft || pv.section == SecBygg;
+    }
+    return d;
+}
+
 // Spelar spåret enligt motorn just nu? Energin läses i början av frasen, så spår kommer in
 // och går ut på frasgränser och inte mitt i en takt.
 inline bool laneActive (const Settings& st, int li, int pad, double bar)
@@ -823,7 +865,7 @@ inline float masterSweep (const Settings& st, const Where& w)
 {
     const float F = st.filt;
     if (w.section == SecBreak) return -0.25f * F;
-    if (w.section == SecLyft) return 0.32f * F * w.pos * w.pos;
+    if (w.section == SecLyft) return 0.45f * F * w.pos * w.pos;
     if (w.section == SecBygg && w.toNext < 1.0) return 0.15f * F * (float) (1.0 - w.toNext);
     return 0.0f;
 }

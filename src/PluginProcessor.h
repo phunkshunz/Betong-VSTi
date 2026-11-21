@@ -189,6 +189,7 @@ private:
     void renderVoices (int numSamples);
     void runSequencer (int numSamples, double ppqStart, double bpm);
     struct SeqState;
+    int rollLaneOf (const SeqState& q) const;
     bool motorStep (const SeqState&, int lane, juce::int64 n, int spb, betong::Step& st, bool& throwHit) const;
     betong::Step effectiveStep (const SeqState&, int lane, juce::int64 n, int depth) const;   // steget som faktiskt spelas
     const betong::Lane& liveLane (const SeqState&, int lane, juce::int64 bar) const;         // spåret som det låter i takten
