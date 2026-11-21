@@ -2489,6 +2489,117 @@ void BetongProcessor::restoreState (const juce::ValueTree& tree)
     ++stateVersion;
 }
 
+//==============================================================================
+// BETONG-KOD. Raderna: K kit, F effekt, B tempo, S sväng, M motor, L1..L8 spåren. Packas med gzip och base64.
+// Allt som inte hör till ett spår eller en pad (effekter, motor, friktion, tempo ...): id=värde
+static bool kodGlobal (const juce::String& id)
+{
+    return ! (id.length() > 2 && (id[0] == 'l' || id[0] == 'p') && juce::CharacterFunctions::isDigit (id[1]))
+           && id != "midiOut" && id != "midiMap" && id != "seqMode";
+}
+
+juce::String BetongProcessor::betongKod() const
+{
+    juce::StringArray r;
+    r.add ("K" + currentKit);
+    r.add ("F" + currentFx);
+    juce::String pv = "P";
+    for (auto* prm : getParameters())
+        if (auto* wp = dynamic_cast<juce::AudioProcessorParameterWithID*> (prm); wp != nullptr && kodGlobal (wp->paramID))
+            pv << wp->paramID << "=" << juce::String (getParam (wp->paramID), 3).trimCharactersAtEnd ("0").trimCharactersAtEnd (".") << ",";
+    r.add (pv);
+    // laneparametrar (filter, drive, volym ...)
+    juce::String lv = "Q";
+    for (auto* prm : getParameters())
+        if (auto* wp = dynamic_cast<juce::AudioProcessorParameterWithID*> (prm); wp != nullptr && wp->paramID.startsWith ("l") && juce::CharacterFunctions::isDigit (wp->paramID[1]))
+            if (std::abs (prm->getValue() - prm->getDefaultValue()) > 1.0e-4f)
+                lv << wp->paramID << "=" << juce::String (getParam (wp->paramID), 3).trimCharactersAtEnd ("0").trimCharactersAtEnd (".") << ",";
+    r.add (lv);
+    // padsen: inbyggt ljud (eller tomt om det är ditt eget) och padens rattar
+    juce::String pads = "D";
+    for (int p = 0; p < kPads; ++p)
+    {
+        const auto info = getPad (p);
+        const auto src = info.sample != nullptr ? info.sample->source : juce::String();
+        pads << (src.startsWith ("builtin:") ? src.substring (8) : juce::String()) << "|"
+             << juce::String (getParam (padId (p, "pitch")), 2) << "|" << juce::String (getParam (padId (p, "decay")), 2) << "|"
+             << (int) getParam (padId (p, "rev")) << "|" << juce::String (getParam (padId (p, "vol")), 1) << "|" << juce::String (getParam (padId (p, "pan")), 2) << ";";
+    }
+    r.add (pads);
+    const auto pat = getPattern();
+    for (int l = 0; l < kLanes; ++l) r.add ("L" + laneToString (pat.lanes[(size_t) l]));
+    juce::MemoryOutputStream mo;
+    {
+        juce::GZIPCompressorOutputStream gz (mo, 9);
+        const auto txt = r.joinIntoString ("\n");
+        gz.write (txt.toRawUTF8(), txt.getNumBytesAsUTF8());
+    }
+    auto b64 = juce::Base64::toBase64 (mo.getData(), mo.getDataSize());
+    return (kIsSmidet ? "SMIDET:" : "BETONG:") + b64.replaceCharacter ('+', '-').replaceCharacter ('/', '_').trimCharactersAtEnd ("=");
+}
+
+juce::String BetongProcessor::laddaKod (const juce::String& text)
+{
+    auto t = text.removeCharacters (" \t\r\n");
+    const juce::String pre = kIsSmidet ? "SMIDET:" : "BETONG:";
+    const int at = t.indexOf (pre);
+    if (at < 0) return juce::String::fromUTF8 ("Ingen kod hittades. Den börjar med ") + pre;
+    t = t.substring (at + pre.length()).upToFirstOccurrenceOf ("BETONG:", false, false).upToFirstOccurrenceOf ("SMIDET:", false, false);
+    t = t.replaceCharacter ('-', '+').replaceCharacter ('_', '/');
+    while (t.length() % 4 != 0) t << "=";
+    juce::MemoryOutputStream raw;
+    if (! juce::Base64::convertFromBase64 (raw, t) || raw.getDataSize() < 10) return juce::String::fromUTF8 ("Koden är trasig");
+    juce::MemoryInputStream mi (raw.getData(), raw.getDataSize(), false);
+    juce::GZIPDecompressorInputStream gz (mi);
+    const auto txt = gz.readEntireStreamAsString();
+    juce::StringArray r; r.addLines (txt);
+    if (r.size() < 5 + kLanes) return juce::String::fromUTF8 ("Koden är trasig");
+
+    pushUndo();
+    juce::String svar;
+    const auto kit = r[0].substring (1), fx = r[1].substring (1);
+    int ki = -1, fi = -1;
+    for (int i = 0; i < kNumKits; ++i) if (juce::String::fromUTF8 (kKits[i].name) == kit) ki = i;
+    for (int i = 0; i < kNumFx; ++i) if (juce::String::fromUTF8 (kFx[i].name) == fx) fi = i;
+    if (ki >= 0) applyKit (ki);
+    int egna = 0;
+    {
+        const auto pads = juce::StringArray::fromTokens (r[4].substring (1), ";", "");
+        for (int p = 0; p < kPads && p < pads.size(); ++p)
+        {
+            const auto f = juce::StringArray::fromTokens (pads[p], "|", "");
+            if (f.size() < 6) continue;
+            if (f[0].isNotEmpty() && builtIn->get (f[0]) != nullptr) loadBuiltInToPad (p, f[0]);
+            else if (ki < 0) ++egna;
+            setParam (padId (p, "pitch"), f[1].getFloatValue()); setParam (padId (p, "decay"), f[2].getFloatValue());
+            setParam (padId (p, "rev"), (float) f[3].getIntValue()); setParam (padId (p, "vol"), f[4].getFloatValue());
+            setParam (padId (p, "pan"), f[5].getFloatValue());
+        }
+    }
+    if (egna > 0) svar = juce::String::fromUTF8 (" (") + juce::String (egna) + juce::String::fromUTF8 (" egna ljud fanns inte, dina behålls)");
+    if (fi >= 0) applyFx (fi);
+    for (int line : { 2, 3 })
+    {
+        if (line == 3)   // spårens rattar: först grundläge, sedan det som står i koden
+            for (auto* prm : getParameters())
+                if (auto* wp = dynamic_cast<juce::AudioProcessorParameterWithID*> (prm); wp != nullptr && wp->paramID.startsWith ("l") && juce::CharacterFunctions::isDigit (wp->paramID[1]))
+                    prm->setValueNotifyingHost (prm->getDefaultValue());
+        for (auto& kv : juce::StringArray::fromTokens (r[line].substring (1), ",", ""))
+        {
+            const auto id = kv.upToFirstOccurrenceOf ("=", false, false);
+            if (id.isNotEmpty() && kv.containsChar ('=') && apvts.getParameter (id) != nullptr) setParam (id, kv.fromFirstOccurrenceOf ("=", false, false).getFloatValue());
+        }
+    }
+    betong::Pattern p;
+    for (int l = 0; l < kLanes; ++l) laneFromString (p.lanes[(size_t) l], r[5 + l].substring (1));
+    setPattern (p);
+    currentKit = ki >= 0 ? kit : juce::String::fromUTF8 ("Från kod");
+    currentFx = fi >= 0 ? fx : juce::String::fromUTF8 ("Från kod");
+    currentPatternName = juce::String::fromUTF8 ("Från kod");
+    ++stateVersion;
+    return juce::String::fromUTF8 ("Koden är laddad") + svar;
+}
+
 void BetongProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     if (auto xml = buildState().createXml())

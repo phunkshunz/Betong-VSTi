@@ -82,6 +82,9 @@ public:
     int midiExportBars (int choice) const;        // 0 = hela formen (eller 64 takter utan form)
     juce::File exportMidi (int bars);
     juce::String aiPrompt() const;
+    // BETONG-KOD: hela beatet som en kort text att dela (kit, effekt, tempo, motor och de 8 spåren)
+    juce::String betongKod() const;
+    juce::String laddaKod (const juce::String& text);   // svar att visa i panelen
     juce::String applyAiAnswer (const juce::String& text);   // tom sträng = klart, annars felet
     std::atomic<bool> fillHeld { false };
 

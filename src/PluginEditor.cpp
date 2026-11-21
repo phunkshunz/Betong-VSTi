@@ -1809,6 +1809,32 @@ BetongContent::BetongContent (BetongProcessor& p)
         m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&copyScene), [this] (int r) { if (r > 0) proc.copySceneTo (r - 1); });
     };
     addAndMakeVisible (copyScene);
+    kodButton.setButtonText (utf8 ("KOD"));
+    kodButton.setTooltip (utf8 ("BETONG-KOD: hela beatet som en kort text. Kopiera och klistra in i en kommentar, så kan andra ladda just ditt beat."));
+    kodButton.setColour (juce::TextButton::textColourOffId, sodium);
+    kodButton.onClick = [this]
+    {
+        juce::PopupMenu m;
+        m.addItem (1, utf8 ("Kopiera BETONG-kod"));
+        m.addItem (2, utf8 ("Klistra in BETONG-kod"));
+        m.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&kodButton), [this] (int r)
+        {
+            auto flash = [this] (const juce::String& t)
+            {
+                kodButton.setButtonText (t);
+                juce::Component::SafePointer<juce::TextButton> b (&kodButton);
+                juce::Timer::callAfterDelay (1800, [b] { if (b != nullptr) b->setButtonText (utf8 ("KOD")); });
+            };
+            if (r == 1) { juce::SystemClipboard::copyTextToClipboard (proc.betongKod()); flash (utf8 ("KOPIERAD")); }
+            if (r == 2)
+            {
+                const auto svar = proc.laddaKod (juce::SystemClipboard::getTextFromClipboard());
+                if (svar.startsWith (juce::String::fromUTF8 ("Koden är laddad"))) { flash (utf8 ("LADDAD")); selectionChanged(); repaint(); }
+                else juce::AlertWindow::showMessageBoxAsync (juce::MessageBoxIconType::WarningIcon, "BETONG", utf8 (svar.toRawUTF8()));
+            }
+        });
+    };
+    addAndMakeVisible (kodButton);
     fillButton.setTooltip (utf8 ("Håll inne: trumvirvel på clap, snare och toms, dubbla slag på resten"));
     fillButton.setColour (juce::TextButton::textColourOffId, sodium);
     fillButton.onStateChange = [this] { proc.fillHeld.store (fillButton.isDown()); };
@@ -2406,6 +2432,8 @@ void BetongContent::resized()
         head.removeFromLeft (4);
         breedButton.setBounds (head.removeFromLeft (54));
         head.removeFromLeft (4);
+        kodButton.setBounds (head.removeFromRight (44));
+        head.removeFromRight (4);
         morphSlider.setBounds (head.removeFromLeft (juce::jmin (104, head.getWidth())));
         const int rh = s.getHeight() / kLanes;
         ringView->setBounds (s);

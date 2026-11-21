@@ -28,6 +28,25 @@ int main()
         }
     }
     std::printf ("nan=%d\n", (int) nan);
+    // BETONG-KOD: tur och retur
+    p.randomAll();
+    const auto kod = p.betongKod();
+    std::printf ("kod %d tecken: %s...\n", kod.length(), kod.substring (0, 60).toRawUTF8());
+    BetongProcessor q; q.prepareToPlay (48000, 512);
+    const auto svar = q.laddaKod ("kolla mitt beat!\n" + kod + "\n");
+    bool same = true;
+    for (int l = 0; l < betong::kLanes; ++l) same &= betong::laneToString (p.getPattern().lanes[(size_t) l]) == betong::laneToString (q.getPattern().lanes[(size_t) l]);
+    bool padsLika = true;
+    for (int i = 0; i < betong::kPads; ++i) padsLika &= p.getPad (i).sample->source == q.getPad (i).sample->source;
+    int olika = 0;
+    for (auto* prm : p.getParameters())
+        if (auto* wp = dynamic_cast<AudioProcessorParameterWithID*> (prm))
+            if (wp->paramID != "midiOut" && wp->paramID != "midiMap" && wp->paramID != "seqMode" && std::abs (p.getParam (wp->paramID) - q.getParam (wp->paramID)) > 0.01f * (1.0f + std::abs (p.getParam (wp->paramID))))
+            { if (olika < 5) std::printf ("  olika %s %.3f %.3f\n", wp->paramID.toRawUTF8(), p.getParam (wp->paramID), q.getParam (wp->paramID)); ++olika; }
+    std::printf ("pads lika %d, olika rattar %d\n", (int) padsLika, olika);
+    std::printf ("svar: %s | kit %s = %s | fx %s = %s | bpm %.1f = %.1f | spår lika %d\n", svar.toRawUTF8(), p.currentKit.toRawUTF8(), q.currentKit.toRawUTF8(),
+                 p.currentFx.toRawUTF8(), q.currentFx.toRawUTF8(), p.getParam ("bpm"), q.getParam ("bpm"), (int) same);
+    std::printf ("trasig: %s | ingen: %s\n", q.laddaKod ("BETONG:abc").toRawUTF8(), q.laddaKod ("hej").toRawUTF8());
     File f ("/tmp/claude-0/betong-start.wav"); f.deleteFile();
     std::unique_ptr<AudioFormatWriter> w (WavAudioFormat().createWriterFor (new FileOutputStream (f), 48000, 2, 24, {}, 0));
     w->writeFromAudioSampleBuffer (all, 0, all.getNumSamples());
