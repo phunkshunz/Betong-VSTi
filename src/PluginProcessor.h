@@ -298,7 +298,7 @@ private:
     std::atomic<float>* pMOn = nullptr; std::atomic<float>* pMMove = nullptr; std::atomic<float>* pMDepth = nullptr;
     std::atomic<float>* pMChaos = nullptr; std::atomic<float>* pMFilt = nullptr; std::atomic<float>* pMDub = nullptr;
     std::atomic<float>* pMPump = nullptr; std::atomic<float>* pMFeel = nullptr; std::atomic<float>* pMForm = nullptr;
-    std::atomic<float>* pMSeed = nullptr;
+    std::atomic<float>* pMSeed = nullptr; std::atomic<float>* pMPlan = nullptr; std::atomic<float>* pMVari = nullptr;
     std::atomic<float>* pMorph = nullptr; std::atomic<float>* pMorphTo = nullptr;
     float& morphAmt = seq.morphAmt;
     int& morphScene = seq.morphScene;

@@ -1231,6 +1231,15 @@ MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : pr
                               "Kort, Låt och Afterhour: intro, bygg, topp, break, lyft, topp 2 och utrull."));
     addAndMakeVisible (formBox);
 
+    for (int i = 0; i < motor::kNumPlans; ++i) planBox.addItem (utf8 (motor::planName (i)), i + 1);
+    planAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (s, "mPlan", planBox);
+    planBox.setTooltip (utf8 ("BYGGSÄTT: hur låten byggs. Trappan, Hypnos, Pendel, Falskt slut, Dubtunnel, Hårt direkt, Smyg, Brandvägg eller Kaosstorm. Följ FORM = som förut."));
+    planBox.onChange = [this] { status = utf8 (motor::planInfo (planBox.getSelectedItemIndex())); repaint(); };
+    addAndMakeVisible (planBox);
+    variAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (s, "mVari", variSlider);
+    variSlider.setTooltip (utf8 ("VARIATION: hur olika varje varv blir. Längder, ordning, vilka spår som kommer in först, och ibland en helt annan mall för ett varv. 0 = varje varv likadant."));
+    addAndMakeVisible (variSlider);
+
     seedButton.setTooltip (utf8 ("NY seed: en helt ny utveckling av samma mönster. Samma seed låter alltid likadant."));
     seedButton.onClick = [this] { proc.newMotorSeed(); tick(); };
     seedButton.setColour (juce::TextButton::textColourOffId, sodium);
@@ -1318,7 +1327,13 @@ void MotorPanel::resized()
     presetButton.setBounds (top.removeFromLeft (76)); top.removeFromLeft (6);
     seedButton.setBounds (top.removeFromRight (36)); top.removeFromRight (4);
     seedLabel.setBounds (top);
-    r.removeFromTop (6);
+    r.removeFromTop (4);
+    {
+        auto row = r.removeFromTop (24);
+        planBox.setBounds (row.removeFromLeft (150)); row.removeFromLeft (6);
+        variSlider.setBounds (row);
+    }
+    r.removeFromTop (4);
     statusArea = r.removeFromBottom (26);
     {
         auto b = statusArea;

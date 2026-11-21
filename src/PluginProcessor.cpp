@@ -168,6 +168,13 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     f ("liv", "Liv", { 0.0f, 1.0f }, 0.0f);
     f ("utbrott", "Utbrott", { 0.0f, 1.0f }, 0.0f);
     b ("nav", "NAV", false);
+    // BYGGSÄTT och VARIATION (sist). 0 = följ FORM som förut.
+    {
+        StringArray plans;
+        for (int i = 0; i < betong::motor::kNumPlans; ++i) plans.add (String::fromUTF8 (betong::motor::planName (i)));
+        c ("mPlan", String::fromUTF8 ("Motor byggsätt"), plans, 0);
+    }
+    f ("mVari", "Motor variation", { 0.0f, 1.0f }, 0.5f);
     return layout;
 }
 
@@ -201,7 +208,7 @@ BetongProcessor::BetongProcessor()
     glitchSeed = (juce::uint32) juce::Random::getSystemRandom().nextInt();
     pMOn = raw ("mOn"); pMMove = raw ("mMove"); pMDepth = raw ("mDepth"); pMChaos = raw ("mChaos");
     pMFilt = raw ("mFilt"); pMDub = raw ("mDub"); pMPump = raw ("mPump"); pMFeel = raw ("mFeel");
-    pMForm = raw ("mForm"); pMSeed = raw ("mSeed");
+    pMForm = raw ("mForm"); pMSeed = raw ("mSeed"); pMPlan = raw ("mPlan"); pMVari = raw ("mVari");
     pMorph = raw ("morph"); pMorphTo = raw ("morphTo");
     for (int l = 0; l < kLanes; ++l)
         lp[(size_t) l] = { raw (laneId (l, "type")), raw (laneId (l, "cut")), raw (laneId (l, "res")), raw (laneId (l, "drive")),
@@ -230,6 +237,10 @@ BetongProcessor::BetongProcessor()
         setParam ("mFilt", pr.filt); setParam ("mDub", pr.dub); setParam ("mPump", pr.pump); setParam ("mFeel", pr.feel);
         setParam ("mOn", 1.0f);
         setParam ("liv", 0.3f);
+        // ett byggsätt som börjar starkt, olika för varje ny BETONG
+        static const int starka[] = { betong::motor::PlanPendel, betong::motor::PlanHartDirekt, betong::motor::PlanBrandvagg, betong::motor::PlanHypnos };
+        setParam ("mPlan", (float) starka[juce::Random::getSystemRandom().nextInt (4)]);
+        setParam ("mVari", 0.55f);
     }
     // en ny maskin svänger direkt: lagom släp, tröghet och interlock. Sparade projekt ersätter detta.
     for (auto [id, v] : { std::pair<const char*, float> { "pocket", 14.0f }, { "troghet", 0.55f }, { "humanize", 1.5f },
@@ -804,6 +815,8 @@ motor::Settings BetongProcessor::motorSettings() const
     st.seed = (juce::uint32) juce::jmax (1, (int) std::lround (pMSeed->load()));
     st.move = pMMove->load(); st.depth = pMDepth->load(); st.chaos = pMChaos->load();
     st.filt = pMFilt->load(); st.dub = pMDub->load(); st.pump = pMPump->load(); st.feel = pMFeel->load();
+    st.plan = juce::jlimit (0, motor::kNumPlans - 1, (int) pMPlan->load());
+    st.vari = pMVari->load();
     return st;
 }
 

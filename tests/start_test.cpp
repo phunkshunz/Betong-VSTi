@@ -46,6 +46,25 @@ int main()
     std::printf ("pads lika %d, olika rattar %d\n", (int) padsLika, olika);
     std::printf ("svar: %s | kit %s = %s | fx %s = %s | bpm %.1f = %.1f | spår lika %d\n", svar.toRawUTF8(), p.currentKit.toRawUTF8(), q.currentKit.toRawUTF8(),
                  p.currentFx.toRawUTF8(), q.currentFx.toRawUTF8(), p.getParam ("bpm"), q.getParam ("bpm"), (int) same);
+    // BYGGSÄTT: varje varv ska se olika ut
+    for (int plan = 1; plan < betong::motor::kNumPlans; ++plan)
+    {
+        betong::motor::Settings st; st.on = true; st.plan = plan; st.vari = 0.6f; st.seed = 77; st.form = betong::motor::FormLat;
+        std::printf ("%-12s", betong::motor::planName (plan));
+        for (int cyc = 0; cyc < 3; ++cyc)
+        {
+            std::string line; int prev = -1;
+            for (int b = 0; b < 128; b += 2)
+            {
+                const auto w = betong::motor::locate (st, cyc * 128 + b + 0.5);
+                const char* abbr = "LIBTRYZUV";
+                if (w.section != prev) { line += abbr[w.section]; prev = w.section; }
+                else line += (w.energy > 0.7f ? '#' : w.energy > 0.4f ? '=' : '.');
+            }
+            std::printf (" |%s", line.c_str());
+        }
+        std::printf ("\n");
+    }
     std::printf ("trasig: %s | ingen: %s\n", q.laddaKod ("BETONG:abc").toRawUTF8(), q.laddaKod ("hej").toRawUTF8());
     File f ("/tmp/claude-0/betong-start.wav"); f.deleteFile();
     std::unique_ptr<AudioFormatWriter> w (WavAudioFormat().createWriterFor (new FileOutputStream (f), 48000, 2, 24, {}, 0));

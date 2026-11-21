@@ -73,6 +73,8 @@ struct Settings
     float dub = 0.4f;    // DUB: dub-kast på sista slaget i en fras
     float pump = 0.3f;   // PUMP: sidechain och drive som växer med energin
     float feel = 0.35f;  // SVÄNG: velocity-vågor, mikrotiming och swing som driver
+    int plan = 0;        // BYGGSÄTT: 0 = följ FORM, annars en mall för hur låten byggs (se planName)
+    float vari = 0.5f;   // VARIATION: hur mycket varje varv skiljer sig från förra (längder, ordning, mall, vem som kommer in)
 
     static float clamp01 (float v) { return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v; }
     float moveEff() const { return clamp01 (move + chaos * 0.45f); }
@@ -153,12 +155,203 @@ inline float friWave (const Settings& st, double bar)
     return (float) (0.62 - 0.22 * std::cos (kTwoPi * bar / p1 + f1) + 0.09 * std::sin (kTwoPi * bar / p2 + f2));
 }
 
+//==============================================================================
+// BYGGSÄTT: mallar för hur en låt byggs. Varje varv (lika långt som FORM säger, annars 128 takter)
+// räknas fram ur mallen, fröet och varvets nummer. VARIATION drar i längder och ordning, lägger in
+// eller tar bort delar och byter ibland mall för ett helt varv, så två varv aldrig blir likadana.
+enum Plan { PlanForm = 0, PlanTrappan, PlanHypnos, PlanPendel, PlanFalsktSlut, PlanDubtunnel, PlanHartDirekt,
+            PlanSmyg, PlanBrandvagg, PlanKaosstorm, kNumPlans };
+
+inline const char* planName (int p)
+{
+    static const char* n[] = { "Följ FORM", "Trappan", "Hypnos", "Pendel", "Falskt slut", "Dubtunnel", "Hårt direkt",
+                               "Smyg", "Brandvägg", "Kaosstorm" };
+    return n[p < 0 || p >= kNumPlans ? 0 : p];
+}
+
+inline const char* planInfo (int p)
+{
+    static const char* n[] = {
+        "Formen under FORM bestämmer.",
+        "Ett spår i taget, trappsteg för trappsteg, kort break och full topp.",
+        "Nästan platt. Små skiften, långa vågor, det hypnotiska.",
+        "Topp och break om vartannat, som en pendel.",
+        "Låten tonar ut, allt försvinner, och slår tillbaka hårdare.",
+        "Långa dubbiga breaks med kast, kicken kommer och går.",
+        "Rakt in på toppen. Korta drops, inga introt.",
+        "Långsam uppbyggnad över hela varvet. Tålamod.",
+        "Hårda väggar: fullt, tvärstopp, fullt igen med nya spår.",
+        "Delar och längder slumpas helt varje varv.",
+    };
+    return n[p < 0 || p >= kNumPlans ? 0 : p];
+}
+
+struct PlanSec { int kind; float bars; float e0, e1; };
+struct CyclePlan { PlanSec s[24]; int n = 0; double total = 128.0; };
+
+inline int planTemplate (int p, const PlanSec*& out)
+{
+    static const PlanSec trappan[] = { { SecIntro, 8, 0.20f, 0.30f }, { SecBygg, 8, 0.36f, 0.46f }, { SecBygg, 8, 0.50f, 0.62f },
+        { SecTopp, 16, 0.74f, 0.80f }, { SecTopp, 16, 0.86f, 0.92f }, { SecBreak, 4, 0.18f, 0.18f }, { SecLyft, 4, 0.35f, 0.9f },
+        { SecTopp2, 32, 0.95f, 1.0f }, { SecUtrull, 16, 0.65f, 0.40f }, { SecUtrull, 16, 0.40f, 0.22f } };
+    static const PlanSec hypnos[] = { { SecVag, 32, 0.56f, 0.62f }, { SecVag, 24, 0.62f, 0.58f }, { SecTopp, 16, 0.70f, 0.74f },
+        { SecVag, 24, 0.60f, 0.55f }, { SecBreak, 8, 0.38f, 0.38f }, { SecVag, 24, 0.55f, 0.64f } };
+    static const PlanSec pendel[] = { { SecTopp, 16, 0.84f, 0.88f }, { SecBreak, 8, 0.20f, 0.20f }, { SecTopp, 16, 0.88f, 0.92f },
+        { SecUtrull, 8, 0.55f, 0.40f }, { SecLyft, 8, 0.30f, 0.88f }, { SecTopp2, 16, 0.95f, 1.0f }, { SecBreak, 8, 0.22f, 0.22f },
+        { SecLyft, 8, 0.35f, 0.90f }, { SecTopp2, 24, 0.95f, 1.0f }, { SecUtrull, 16, 0.70f, 0.40f } };
+    static const PlanSec falskt[] = { { SecIntro, 8, 0.25f, 0.40f }, { SecBygg, 16, 0.45f, 0.75f }, { SecTopp, 24, 0.82f, 0.90f },
+        { SecUtrull, 12, 0.60f, 0.12f }, { SecBreak, 4, 0.10f, 0.10f }, { SecLyft, 4, 0.30f, 0.95f }, { SecTopp2, 40, 1.0f, 1.0f },
+        { SecUtrull, 20, 0.70f, 0.30f } };
+    static const PlanSec dub[] = { { SecIntro, 16, 0.30f, 0.45f }, { SecVag, 16, 0.50f, 0.55f }, { SecBreak, 16, 0.20f, 0.24f },
+        { SecLyft, 8, 0.30f, 0.80f }, { SecTopp, 16, 0.78f, 0.84f }, { SecBreak, 16, 0.22f, 0.22f }, { SecTopp2, 24, 0.88f, 0.94f },
+        { SecUtrull, 16, 0.60f, 0.30f } };
+    static const PlanSec hart[] = { { SecTopp, 32, 0.86f, 0.90f }, { SecBreak, 4, 0.20f, 0.20f }, { SecTopp2, 32, 0.95f, 1.0f },
+        { SecBreak, 2, 0.15f, 0.15f }, { SecLyft, 2, 0.40f, 0.95f }, { SecTopp2, 40, 1.0f, 1.0f }, { SecUtrull, 16, 0.75f, 0.50f } };
+    static const PlanSec smyg[] = { { SecIntro, 32, 0.12f, 0.40f }, { SecBygg, 32, 0.40f, 0.76f }, { SecTopp, 32, 0.80f, 0.92f },
+        { SecUtrull, 32, 0.72f, 0.28f } };
+    static const PlanSec vagg[] = { { SecTopp, 16, 0.92f, 0.92f }, { SecBreak, 2, 0.05f, 0.05f }, { SecTopp2, 16, 0.95f, 0.95f },
+        { SecBreak, 2, 0.05f, 0.05f }, { SecVag, 16, 0.55f, 0.55f }, { SecTopp, 16, 0.90f, 0.95f }, { SecBreak, 4, 0.08f, 0.08f },
+        { SecTopp2, 32, 1.0f, 1.0f }, { SecUtrull, 24, 0.60f, 0.35f } };
+    switch (p)
+    {
+        case PlanTrappan:    out = trappan; return (int) (sizeof (trappan) / sizeof (PlanSec));
+        case PlanHypnos:     out = hypnos;  return (int) (sizeof (hypnos) / sizeof (PlanSec));
+        case PlanPendel:     out = pendel;  return (int) (sizeof (pendel) / sizeof (PlanSec));
+        case PlanFalsktSlut: out = falskt;  return (int) (sizeof (falskt) / sizeof (PlanSec));
+        case PlanDubtunnel:  out = dub;     return (int) (sizeof (dub) / sizeof (PlanSec));
+        case PlanHartDirekt: out = hart;    return (int) (sizeof (hart) / sizeof (PlanSec));
+        case PlanSmyg:       out = smyg;    return (int) (sizeof (smyg) / sizeof (PlanSec));
+        case PlanBrandvagg:  out = vagg;    return (int) (sizeof (vagg) / sizeof (PlanSec));
+        default:             out = nullptr; return 0;
+    }
+}
+
+inline double planCycleBars (const Settings& st) { const int b = formBars (st.form); return b > 0 ? (double) b : 128.0; }
+
+// Varvet nummer cycle: mallen (kanske en annan), varierad och utsträckt till exakt varvets längd.
+inline void buildCycle (const Settings& st, int64_t cycle, CyclePlan& cp)
+{
+    cp.n = 0;
+    cp.total = planCycleBars (st);
+    const float v = Settings::clamp01 (st.vari + st.chaos * 0.3f);
+    int plan = st.plan;
+    // ibland ett helt varv med en annan mall (aldrig första varvet)
+    if (cycle > 0 && plan != PlanKaosstorm && rnd (st.seed, cycle, 0, 7001) < v * 0.45f)
+        plan = 1 + (int) (hashOf (st.seed, cycle, 0, 7002) % (uint32_t) (kNumPlans - 2));
+
+    if (plan == PlanKaosstorm)
+    {
+        static const int kinds[] = { SecVag, SecTopp, SecBreak, SecLyft, SecTopp2, SecBygg, SecUtrull };
+        static const float lens[] = { 4, 8, 8, 16, 16, 32 };
+        int i = 0;
+        while (cp.n < 20)
+        {
+            PlanSec p;
+            p.kind = kinds[hashOf (st.seed, cycle, i, 7101) % 7u];
+            p.bars = lens[hashOf (st.seed, cycle, i, 7102) % 6u];
+            if (p.kind == SecBreak || p.kind == SecLyft) p.bars = std::min (p.bars, 8.0f);
+            const float e = p.kind == SecBreak ? 0.15f : p.kind == SecLyft ? 0.35f : 0.45f + 0.55f * rnd (st.seed, cycle, i, 7103);
+            p.e0 = e; p.e1 = p.kind == SecLyft ? 0.92f : Settings::clamp01 (e + (rnd (st.seed, cycle, i, 7104) - 0.5f) * 0.3f);
+            cp.s[cp.n++] = p; ++i;
+            double sum = 0; for (int k = 0; k < cp.n; ++k) sum += cp.s[k].bars;
+            if (sum >= cp.total) break;
+        }
+    }
+    else
+    {
+        const PlanSec* t = nullptr;
+        const int n = planTemplate (plan, t);
+        for (int i = 0; i < n && cp.n < 22; ++i)
+        {
+            PlanSec p = t[i];
+            // längderna: halva, samma, en och en halv eller dubbla, alltid hela 4-taktsfraser
+            if (rnd (st.seed, cycle, i, 7201) < v * 0.6f)
+            {
+                static const float mul[] = { 0.5f, 0.75f, 1.5f, 2.0f };
+                p.bars = std::max (2.0f, std::round (p.bars * mul[hashOf (st.seed, cycle, i, 7202) % 4u] / 4.0f) * 4.0f);
+            }
+            // energin: lite högre eller lägre
+            const float de = (rnd (st.seed, cycle, i, 7203) - 0.5f) * 0.18f * v;
+            p.e0 = Settings::clamp01 (p.e0 + de); p.e1 = Settings::clamp01 (p.e1 + de);
+            // en del hoppas ibland över (aldrig den första)
+            if (i > 0 && p.kind != SecTopp2 && rnd (st.seed, cycle, i, 7204) < v * 0.15f) continue;
+            cp.s[cp.n++] = p;
+            // ett oväntat break, eller en extra våg
+            if (rnd (st.seed, cycle, i, 7205) < v * 0.12f && cp.n < 22)
+                cp.s[cp.n++] = rnd (st.seed, cycle, i, 7206) < 0.5f ? PlanSec { SecBreak, 4, 0.18f, 0.18f } : PlanSec { SecVag, 8, 0.60f, 0.66f };
+        }
+        // två grannar byter plats (inte intro och inte sista utrullningen)
+        if (cp.n > 3 && rnd (st.seed, cycle, 0, 7301) < v * 0.5f)
+        {
+            const int a = 1 + (int) (hashOf (st.seed, cycle, 0, 7302) % (uint32_t) (cp.n - 2));
+            std::swap (cp.s[a], cp.s[a + 1 < cp.n - 1 ? a + 1 : a - 1]);
+        }
+    }
+    // sträck ut eller kläm ihop så att varvet blir exakt rätt långt
+    double sum = 0; for (int k = 0; k < cp.n; ++k) sum += cp.s[k].bars;
+    if (sum <= 0) { cp.s[0] = { SecVag, (float) cp.total, 0.6f, 0.6f }; cp.n = 1; return; }
+    const double k = cp.total / sum;
+    double acc = 0;
+    for (int i = 0; i < cp.n; ++i)
+    {
+        double b = i == cp.n - 1 ? cp.total - acc : std::max (2.0, std::round (cp.s[i].bars * k / 2.0) * 2.0);
+        if (acc + b > cp.total) b = cp.total - acc;
+        cp.s[i].bars = (float) b;
+        acc += b;
+    }
+    // tomma delar i slutet bort
+    while (cp.n > 1 && cp.s[cp.n - 1].bars <= 0.0f) --cp.n;
+}
+
+// Senaste varvet i en liten cache per tråd: locate anropas ofta och varvet byts sällan.
+inline const CyclePlan& cycleFor (const Settings& st, int64_t cycle)
+{
+    struct Cache { uint32_t seed = 0; int plan = -1, form = -1; float vari = -1, chaos = -1; int64_t cycle = -1; CyclePlan cp; };
+    thread_local Cache c;
+    if (c.cycle != cycle || c.seed != st.seed || c.plan != st.plan || c.form != st.form || c.vari != st.vari || c.chaos != st.chaos)
+    {
+        buildCycle (st, cycle, c.cp);
+        c.cycle = cycle; c.seed = st.seed; c.plan = st.plan; c.form = st.form; c.vari = st.vari; c.chaos = st.chaos;
+    }
+    return c.cp;
+}
+
+// Vilket varv, för saker som ska skifta per varv (vem som kommer in först osv.)
+inline int64_t cycleOf (const Settings& st, double bar)
+{
+    if (st.plan == PlanForm && formBars (st.form) == 0) return (int64_t) std::floor (bar / 64.0);
+    return (int64_t) std::floor (bar / planCycleBars (st));
+}
+
 inline Where locate (const Settings& st, double bar)
 {
     Where w;
     // KAOS gör kurvan ojämn: små vågor ovanpå formen
     const double wp = 7.0 + 6.0 * rnd (st.seed, 5, 0, 4201);
     const float wobble = (float) (st.chaos * 0.07 * std::sin (kTwoPi * bar / wp + kTwoPi * rnd (st.seed, 6, 0, 4202)));
+
+    if (st.plan > PlanForm && st.plan < kNumPlans)
+    {
+        const double total = planCycleBars (st);
+        const auto cycle = (int64_t) std::floor (bar / total);
+        const auto& cp = cycleFor (st, cycle);
+        double s0 = (double) cycle * total;
+        for (int i = 0; i < cp.n; ++i)
+        {
+            const double len = cp.s[i].bars;
+            if (bar < s0 + len || i == cp.n - 1)
+            {
+                w.section = cp.s[i].kind;
+                w.start = s0; w.length = len;
+                w.pos = (float) juce::jlimit (0.0, 1.0, (bar - s0) / len);
+                w.toNext = s0 + len - bar;
+                const float t = (w.section == SecLyft || w.section == SecBygg) ? w.pos * w.pos : smooth (w.pos);
+                w.energy = Settings::clamp01 (cp.s[i].e0 + (cp.s[i].e1 - cp.s[i].e0) * t + wobble);
+                return w;
+            }
+            s0 += len;
+        }
+    }
 
     if (st.form == FormLiv)
     {
@@ -233,8 +426,11 @@ inline float energyAt (const Settings& st, double bar) { return locate (st, bar)
 // Vilka spår som spelar
 
 // Gränsen där spåret kommer in. Kicken bär golvet och spelar alltid utom i break.
-inline float threshold (const Settings& st, int li, Role r)
+inline float threshold (const Settings& st, int li, Role r, double bar = 0.0)
 {
+    // VARIATION: i nya varv kommer spåren in i en annan ordning
+    const auto cyc = cycleOf (st, bar);
+    const uint32_t vs = st.seed + (cyc > 0 && rnd (st.seed, cyc, li, 5003) < st.vari * 0.8f ? (uint32_t) cyc * 7919u : 0u);
     float t = 0.0f;
     switch (r)
     {
@@ -242,13 +438,13 @@ inline float threshold (const Settings& st, int li, Role r)
         case Hat:     t = 0.18f; break;
         case OpenHat: t = 0.55f; break;
         case Clap:    t = 0.38f; break;
-        case Perc:    t = 0.26f + 0.38f * rnd (st.seed, li, 0, 5001); break;
+        case Perc:    t = 0.26f + 0.38f * rnd (vs, li, 0, 5001); break;
         case Bass:    t = 0.32f; break;
         case Stab:    t = 0.58f; break;
         case Lead:    t = 0.72f; break;
         case Fx:      t = 0.66f; break;
     }
-    return t + (rnd (st.seed, li, 0, 5002) - 0.5f) * 0.12f;
+    return t + (rnd (vs, li, 0, 5002) - 0.5f) * (0.12f + 0.2f * st.vari);
 }
 
 inline int phraseBars (const Settings& st) { return st.moveEff() > 0.7f ? 4 : 8; }
@@ -285,11 +481,11 @@ inline bool laneActive (const Settings& st, int li, int pad, double bar)
                                                  : juce::jmax (now.start, phraseStart);
     const auto w = locate (st, evalAt + 0.01);
 
-    bool on = st.form == FormLiv ? true : w.energy >= threshold (st, li, r);
+    bool on = (st.form == FormLiv && st.plan == PlanForm) ? true : w.energy >= threshold (st, li, r, evalAt);
 
     // breaken: atmosfären och hatsen ligger kvar, plus det lugnaste percspåret
     if (w.section == SecBreak)
-        on = r == Hat || r == Stab || r == Lead || r == Fx || (r == Perc && threshold (st, li, r) < 0.42f);
+        on = r == Hat || r == Stab || r == Lead || r == Fx || (r == Perc && threshold (st, li, r, evalAt) < 0.42f);
 
     // mute-dans: i toppen tystas ett spår i taget, en fras i taget
     if (on && w.energy > 0.74f)
@@ -300,7 +496,7 @@ inline bool laneActive (const Settings& st, int li, int pad, double bar)
     // ett spår som ligger strax under gränsen får ibland smyga in en fras
     if (! on && st.form != FormLiv && w.section != SecBreak)
     {
-        const float gap = threshold (st, li, r) - w.energy;
+        const float gap = threshold (st, li, r, evalAt) - w.energy;
         if (gap < 0.2f && rnd (st.seed, phrase, li, 5203) < 0.3f * st.moveEff()) on = true;
     }
     return on;
