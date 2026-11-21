@@ -1036,8 +1036,15 @@ void EnergyView::paint (juce::Graphics& g)
     {
         g.setColour (text.withAlpha (on ? 0.75f : 0.9f));
         g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
-        g.drawText (on ? utf8 ("Tryck Play så börjar motorn") : utf8 ("Slå på MOTOR så lever beatet av sig självt"),
+        g.drawText (on ? utf8 ("Tryck Play så börjar motorn") : utf8 ("Tryck LÅT DEN LEVA så lever beatet av sig självt"),
                     plot.toNearestInt(), juce::Justification::centred, false);
+        if (! kIsSmidet)
+        {
+            g.setColour (text.withAlpha (0.45f));
+            g.setFont (juce::FontOptions (10.0f));
+            g.drawText (utf8 ("Vill du att hela låten byggs åt dig? Det gör KOLV."), plot.toNearestInt().withTrimmedTop (34),
+                        juce::Justification::centred, false);
+        }
     }
 }
 
@@ -1844,8 +1851,11 @@ BetongContent::BetongContent (BetongProcessor& p)
     tabMotor.setColour (juce::TextButton::buttonOnColourId, cold);
     motorButton.setClickingTogglesState (true);
     motorAtt = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (proc.apvts, "mOn", motorButton);
-    motorButton.setColour (juce::TextButton::buttonOnColourId, cold);
-    motorButton.setTooltip (utf8 ("MOTOR: beatet lever och utvecklas av sig självt. Ditt mönster ändras aldrig."));
+    motorButton.setButtonText (utf8 ("LÅT DEN LEVA"));
+    motorButton.setColour (juce::TextButton::buttonOnColourId, sodium);
+    motorButton.setColour (juce::TextButton::textColourOnId, juce::Colour (0xff141414));
+    motorButton.setColour (juce::TextButton::textColourOffId, sodium);
+    motorButton.setTooltip (utf8 ("LÅT DEN LEVA: motorn tar över. Spår kommer och går, fills, filter och dub-kast, och beatet utvecklas av sig självt. Ditt mönster ändras aldrig."));
     motorButton.onClick = [this] { if (motorButton.getToggleState()) setSidePage (PageMotor); };
     addAndMakeVisible (motorButton);
     breedButton.setTooltip (utf8 ("Avla: para scenen som spelar med en annan scen. Barnet får drag från båda och hamnar i en tredje scen."));
@@ -2384,19 +2394,19 @@ void BetongContent::resized()
         head.removeFromLeft (6);
         fillButton.setBounds (head.removeFromLeft (52));
         head.removeFromLeft (8);
-        svajSlider.setBounds (head.removeFromLeft (104));
+        svajSlider.setBounds (head.removeFromLeft (92));
         head.removeFromLeft (4);
-        glitchSlider.setBounds (head.removeFromLeft (104));
+        glitchSlider.setBounds (head.removeFromLeft (92));
         head.removeFromLeft (4);
-        densSlider.setBounds (head.removeFromLeft (118));
+        densSlider.setBounds (head.removeFromLeft (104));
         head.removeFromLeft (8);
         ringButton.setBounds (head.removeFromLeft (52));
         head.removeFromLeft (4);
-        motorButton.setBounds (head.removeFromLeft (64));
+        motorButton.setBounds (head.removeFromLeft (110));
         head.removeFromLeft (4);
         breedButton.setBounds (head.removeFromLeft (54));
         head.removeFromLeft (4);
-        morphSlider.setBounds (head.removeFromLeft (juce::jmin (112, head.getWidth())));
+        morphSlider.setBounds (head.removeFromLeft (juce::jmin (104, head.getWidth())));
         const int rh = s.getHeight() / kLanes;
         ringView->setBounds (s);
         for (auto& row : rows) row->setBounds (s.removeFromTop (rh));

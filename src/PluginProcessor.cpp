@@ -218,9 +218,19 @@ BetongProcessor::BetongProcessor()
         for (int i = 0; i < count; ++i) if (juce::String::fromUTF8 (table[i].name) == juce::String::fromUTF8 (name)) return i;
         return 0;
     };
-    applyKit (findIndex (kKits, kNumKits, kIsSmidet ? "Smedjan" : "Betong Grund"));
-    applyPattern (findIndex (kPatterns, kNumPatterns, BETONG_DEFAULT_PATTERN));
-    applyFx (findIndex (kFx, kNumFx, kIsSmidet ? "Smedjeglöd" : "Fuktigt Betonggolv"));
+    // BETONG ska låta fett från första sekunden: ett mörkt, rullande kit och motorn igång.
+    applyKit (findIndex (kKits, kNumKits, kIsSmidet ? "Smedjan" : "Rullande Tunnel"));
+    applyPattern (findIndex (kPatterns, kNumPatterns, kIsSmidet ? BETONG_DEFAULT_PATTERN : "Rullande Tunnel"));
+    applyFx (findIndex (kFx, kNumFx, kIsSmidet ? "Smedjeglöd" : "Tunnelpump"));
+    if (! kIsSmidet)
+    {
+        const auto& pr = betong::motor::kPresets[1];   // Plastik-drift: fri form, ändlösa vågor
+        setParam ("mForm", (float) pr.form);
+        setParam ("mMove", pr.move); setParam ("mDepth", pr.depth); setParam ("mChaos", pr.chaos);
+        setParam ("mFilt", pr.filt); setParam ("mDub", pr.dub); setParam ("mPump", pr.pump); setParam ("mFeel", pr.feel);
+        setParam ("mOn", 1.0f);
+        setParam ("liv", 0.3f);
+    }
     // en ny maskin svänger direkt: lagom släp, tröghet och interlock. Sparade projekt ersätter detta.
     for (auto [id, v] : { std::pair<const char*, float> { "pocket", 14.0f }, { "troghet", 0.55f }, { "humanize", 1.5f },
                           { "interlock", 0.4f }, { "mratchet", 0.08f }, { "vdecay", 0.5f }, { "tapeglue", 0.3f } })

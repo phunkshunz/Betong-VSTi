@@ -351,7 +351,7 @@ private:
     BarSlider svajSlider { "SVAJ" }, glitchSlider { "GLITCH" }, densSlider { "DENSITET" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> svajAtt, glitchAtt, densAtt;
     juce::TextButton ringButton { "RING" }, tabFilter { "FILTER" }, tabEuclid { "EUKLID" }, tabMotor { "MOTOR" };
-    juce::TextButton motorButton { "MOTOR" }, breedButton { "AVLA" };
+    juce::TextButton motorButton { juce::String::fromUTF8 ("LÅT DEN LEVA") }, breedButton { "AVLA" };
     MorphSlider morphSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> morphAtt;
     void showBreedMenu();
