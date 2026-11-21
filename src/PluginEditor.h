@@ -227,11 +227,12 @@ private:
     MidiDragButton midiButton { proc };
     void showAiMenu();
     juce::Label seedLabel;
-    juce::ComboBox formBox, planBox;
+    juce::ComboBox formBox, planBox, droppBox, breakBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> droppAtt, breakAtt;
     BarSlider variSlider { "VARIATION" };
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> planAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> variAtt;
-    Knob kMove, kDepth, kChaos, kFilt, kDub, kPump, kFeel;
+    Knob kMove, kDepth, kChaos, kFilt, kDub, kPump, kFeel, kVari;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> onAtt;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> formAtt;
     juce::Rectangle<int> statusArea;

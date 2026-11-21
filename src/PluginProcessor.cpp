@@ -175,6 +175,13 @@ static juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
         c ("mPlan", String::fromUTF8 ("Motor byggsätt"), plans, 0);
     }
     f ("mVari", "Motor variation", { 0.0f, 1.0f }, 0.5f);
+    {
+        StringArray dr, br;
+        for (int i = 0; i < betong::motor::kNumDropp; ++i) dr.add (String::fromUTF8 (betong::motor::droppName (i)));
+        for (int i = 0; i < betong::motor::kNumBreak; ++i) br.add (String::fromUTF8 (betong::motor::breakName (i)));
+        c ("mDropp", "Motor dropp", dr, 0);
+        c ("mBreak", "Motor break", br, 0);
+    }
     return layout;
 }
 
@@ -848,6 +855,8 @@ motor::Settings BetongProcessor::motorSettings() const
     st.filt = pMFilt->load(); st.dub = pMDub->load(); st.pump = pMPump->load(); st.feel = pMFeel->load();
     st.plan = juce::jlimit (0, motor::kNumPlans - 1, (int) pMPlan->load());
     st.vari = pMVari->load();
+    st.dropp = juce::jlimit (0, motor::kNumDropp - 1, (int) apvts.getRawParameterValue ("mDropp")->load());
+    st.brk = juce::jlimit (0, motor::kNumBreak - 1, (int) apvts.getRawParameterValue ("mBreak")->load());
     return st;
 }
 

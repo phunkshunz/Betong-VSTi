@@ -1238,7 +1238,13 @@ MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : pr
     addAndMakeVisible (planBox);
     variAtt = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (s, "mVari", variSlider);
     variSlider.setTooltip (utf8 ("VARIATION: hur olika varje varv blir. Längder, ordning, vilka spår som kommer in först, och ibland en helt annan mall för ett varv. 0 = varje varv likadant."));
-    addAndMakeVisible (variSlider);
+    for (int i = 0; i < motor::kNumDropp; ++i) droppBox.addItem (utf8 (motor::droppName (i)), i + 1);
+    for (int i = 0; i < motor::kNumBreak; ++i) breakBox.addItem (utf8 (motor::breakName (i)), i + 1);
+    droppAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (s, "mDropp", droppBox);
+    breakAtt = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (s, "mBreak", breakBox);
+    droppBox.setTooltip (utf8 ("DROPP: hur droppet förbereds. VIRVEL = virvel som rullar allt tätare, TYST = ett slag tystnad, SVEP = filtret svischar upp, KAST = sista takten kastas i ekot, ALLT = allt på en gång, INGET = rakt in. AUTO = olika varje gång."));
+    breakBox.setTooltip (utf8 ("BREAK: vad som är kvar i breaket. ATMOSFÄR = hats och ytor, KICKEN KVAR = kicken driver vidare, BASEN KVAR = bara basen och ytor, TOMT = nästan tyst. AUTO = olika varje gång."));
+    addAndMakeVisible (droppBox); addAndMakeVisible (breakBox);
 
     seedButton.setTooltip (utf8 ("NY seed: en helt ny utveckling av samma mönster. Samma seed låter alltid likadant."));
     seedButton.onClick = [this] { proc.newMotorSeed(); tick(); };
@@ -1269,6 +1275,7 @@ MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : pr
         { &kDub,   "mDub",   "DUB",     "Dub-kast: ett slag kastas in i delayen på slutet av frasen" },
         { &kPump,  "mPump",  "PUMP",    "Sidechain från kicken och drive som växer med energin" },
         { &kFeel,  "mFeel",  "SVÄNG",   "Velocity-vågor, mikrotiming och swing som driver långsamt" },
+        { &kVari,  "mVari",  "VARIERA", "VARIATION: hur olika varje varv blir. Längder, ordning, vilka spår som kommer in först, och ibland en helt annan mall för ett varv. 0 = varje varv likadant." },
     };
     for (const auto& k : knobs)
     {
@@ -1276,7 +1283,7 @@ MotorPanel::MotorPanel (BetongProcessor& p, std::function<void()> onToggle) : pr
         k.k->slider.setTooltip (utf8 (k.tip));
         addAndMakeVisible (*k.k);
     }
-    kFilt.setAccent (cold); kDub.setAccent (cold); kFeel.setAccent (cold);
+    kFilt.setAccent (cold); kDub.setAccent (cold); kFeel.setAccent (cold); kVari.setAccent (sodium);
     tick();
 }
 
@@ -1330,8 +1337,10 @@ void MotorPanel::resized()
     r.removeFromTop (4);
     {
         auto row = r.removeFromTop (24);
-        planBox.setBounds (row.removeFromLeft (150)); row.removeFromLeft (6);
-        variSlider.setBounds (row);
+        const int w = (row.getWidth() - 12) / 3;
+        planBox.setBounds (row.removeFromLeft (w)); row.removeFromLeft (6);
+        droppBox.setBounds (row.removeFromLeft (w)); row.removeFromLeft (6);
+        breakBox.setBounds (row);
     }
     r.removeFromTop (4);
     statusArea = r.removeFromBottom (26);
@@ -1344,8 +1353,8 @@ void MotorPanel::resized()
     auto knobs = r.removeFromBottom (72);
     r.removeFromBottom (4);
     energy.setBounds (r);
-    const int kw = knobs.getWidth() / 7;
-    for (auto* k : { &kMove, &kDepth, &kChaos, &kFilt, &kDub, &kPump, &kFeel }) k->setBounds (knobs.removeFromLeft (kw));
+    const int kw = knobs.getWidth() / 8;
+    for (auto* k : { &kMove, &kDepth, &kChaos, &kFilt, &kDub, &kPump, &kFeel, &kVari }) k->setBounds (knobs.removeFromLeft (kw));
 }
 
 //==============================================================================

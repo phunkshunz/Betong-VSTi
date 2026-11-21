@@ -74,6 +74,8 @@ struct Settings
     float pump = 0.3f;   // PUMP: sidechain och drive som växer med energin
     float feel = 0.35f;  // SVÄNG: velocity-vågor, mikrotiming och swing som driver
     int plan = 0;        // BYGGSÄTT: 0 = följ FORM, annars en mall för hur låten byggs (se planName)
+    int dropp = 0;       // DROPP: hur droppet förbereds (DroppStil), 0 = AUTO
+    int brk = 0;         // BREAK: vad som är kvar i breaket (BreakStil), 0 = AUTO
     float vari = 0.5f;   // VARIATION: hur mycket varje varv skiljer sig från förra (längder, ordning, mall, vem som kommer in)
 
     static float clamp01 (float v) { return v < 0.0f ? 0.0f : v > 1.0f ? 1.0f : v; }
@@ -450,9 +452,37 @@ inline float threshold (const Settings& st, int li, Role r, double bar = 0.0)
 inline int phraseBars (const Settings& st) { return st.moveEff() > 0.7f ? 4 : 8; }
 
 // Kicken ut: hela breaken och lyftet, plus ibland en takt före en frasgräns i toppen (droppen).
+// DROPP och BREAK (1.10): fler sätt att bygga upp och bryta ner
+enum DroppStil { DroppAuto = 0, DroppVirvel, DroppTyst, DroppSvep, DroppKast, DroppAllt, DroppInget, kNumDropp };
+inline const char* droppName (int i)
+{
+    static const char* n[] = { "DROPP: AUTO", "DROPP: VIRVEL", "DROPP: TYST", "DROPP: SVEP", "DROPP: KAST", "DROPP: ALLT", "DROPP: INGET" };
+    return n[i < 0 || i >= kNumDropp ? 0 : i];
+}
+enum BreakStil { BreakAuto = 0, BreakAtmos, BreakKick, BreakBas, BreakTomt, kNumBreak };
+inline const char* breakName (int i)
+{
+    static const char* n[] = { "BREAK: AUTO", "BREAK: ATMOSFÄR", "BREAK: KICKEN KVAR", "BREAK: BASEN KVAR", "BREAK: TOMT" };
+    return n[i < 0 || i >= kNumBreak ? 0 : i];
+}
+// AUTO väljer per övergång / per break, ur fröet
+inline int droppFor (const Settings& st, int64_t key)
+{
+    if (st.dropp != DroppAuto) return st.dropp;
+    static const int pick[] = { DroppVirvel, DroppVirvel, DroppTyst, DroppSvep, DroppKast, DroppAllt };
+    return pick[hashOf (st.seed, key, 0, 9401) % 6u];
+}
+inline int breakFor (const Settings& st, int64_t key)
+{
+    if (st.brk != BreakAuto) return st.brk;
+    static const int pick[] = { BreakAtmos, BreakAtmos, BreakAtmos, BreakKick, BreakBas, BreakTomt };
+    return pick[hashOf (st.seed, key, 0, 9402) % 6u];
+}
+
 inline bool kickOut (const Settings& st, double bar)
 {
     const auto w = locate (st, bar);
+    if (w.section == SecBreak && breakFor (st, (int64_t) std::floor (w.start)) == BreakKick) return false;
     if (w.section == SecBreak || w.section == SecLyft) return true;
     const auto b = (int64_t) std::floor (bar);
     if (b % 16 == 15)
@@ -472,6 +502,7 @@ struct Drama
     int rollRate = 0;      // virvelns täthet per takt (0 = ingen, 4, 8, 16, 32)
     float rollAmt = 0.0f;  // 0..1, hur långt in i rullen
     bool slam = false;     // första slaget i droppet
+    int stil = DroppInget; // vilken DROPP-stil övergången har
 };
 
 inline bool isDrop (int sec) { return sec == SecTopp || sec == SecTopp2; }
@@ -487,10 +518,14 @@ inline Drama dramaAt (const Settings& st, double bar)
         if (isDrop (nx.section) && (w.section == SecLyft || w.section == SecBygg || w.section == SecBreak))
         {
             const auto key = (int64_t) std::floor (w.start);
-            if (w.toNext <= 0.25 && rnd (st.seed, key, 0, 9301) < 0.45f + 0.45f * st.moveEff())
+            const int stil = droppFor (st, key);
+            d.stil = stil;
+            const bool tyst = stil == DroppTyst || stil == DroppAllt || (stil == DroppVirvel && rnd (st.seed, key, 0, 9301) < 0.35f);
+            if (w.toNext <= (stil == DroppTyst ? 0.5 : 0.25) && tyst && stil != DroppInget)
                 d.silence = true;
             const double rollBars = w.section == SecLyft ? juce::jmin (4.0, w.length) : 2.0;
-            if (! d.silence && w.section != SecBreak && w.toNext <= rollBars)
+            const bool rulla = stil == DroppVirvel || stil == DroppAllt;
+            if (rulla && ! d.silence && w.section != SecBreak && w.toNext <= rollBars)
             {
                 d.rollAmt = (float) (1.0 - w.toNext / rollBars);
                 d.rollRate = w.toNext > 2.0 ? 4 : w.toNext > 1.0 ? 8 : w.toNext > 0.5 ? 16 : 32;
@@ -501,7 +536,7 @@ inline Drama dramaAt (const Settings& st, double bar)
     if (isDrop (w.section) && bar - w.start < 0.0625 && w.start > 0.5)
     {
         const auto pv = locate (st, w.start - 0.01);
-        d.slam = pv.section == SecBreak || pv.section == SecLyft || pv.section == SecBygg;
+        d.slam = (pv.section == SecBreak || pv.section == SecLyft || pv.section == SecBygg) && droppFor (st, (int64_t) std::floor (pv.start)) != DroppInget;
     }
     return d;
 }
@@ -527,7 +562,16 @@ inline bool laneActive (const Settings& st, int li, int pad, double bar)
 
     // breaken: atmosfären och hatsen ligger kvar, plus det lugnaste percspåret
     if (w.section == SecBreak)
-        on = r == Hat || r == Stab || r == Lead || r == Fx || (r == Perc && threshold (st, li, r, evalAt) < 0.42f);
+    {
+        switch (breakFor (st, (int64_t) std::floor (w.start)))
+        {
+            case BreakKick: on = r == Hat || r == Fx; break;                  // kicken och hatsen driver vidare
+            case BreakBas:  on = r == Bass || r == Stab || r == Fx; break;    // bara basen och atmosfären
+            case BreakTomt: on = r == Fx; break;                              // nästan helt tomt
+            default:
+                on = r == Hat || r == Stab || r == Lead || r == Fx || (r == Perc && threshold (st, li, r, evalAt) < 0.42f);
+        }
+    }
 
     // mute-dans: i toppen tystas ett spår i taget, en fras i taget
     if (on && w.energy > 0.74f)
@@ -793,12 +837,26 @@ int rollLane (const Settings& st, double bar, LaneInfo&& info)
 template <typename LaneInfo>
 int throwLane (const Settings& st, double bar, LaneInfo&& info)
 {
-    if (st.dub <= 0.001f) return -1;
     const int pb = 8;
     const auto b = (int64_t) std::floor (bar);
-    if (b % pb != pb - 1) return -1;
+    // DROPP: KAST (och ALLT): sista takten före droppet kastas alltid in i ekot
+    bool kast = false;
+    if (st.on)
+    {
+        const auto w = locate (st, bar);
+        if (w.length > 0.0 && w.toNext <= 1.0 + 1.0e-6 && w.toNext > 0.0 && isDrop (locate (st, w.start + w.length + 0.01).section))
+        {
+            const int stil = droppFor (st, (int64_t) std::floor (w.start));
+            kast = stil == DroppKast || stil == DroppAllt;
+        }
+    }
+    if (! kast)
+    {
+        if (st.dub <= 0.001f) return -1;
+        if (b % pb != pb - 1) return -1;
+        if (rnd (st.seed, floorDiv (b, pb), 0, 8101) >= 0.35f + 0.6f * st.dub) return -1;
+    }
     const auto phrase = floorDiv (b, pb);
-    if (rnd (st.seed, phrase, 0, 8101) >= 0.35f + 0.6f * st.dub) return -1;
     int cands[kLanes], n = 0;
     for (int li = 1; li < kLanes; ++li)
     {
@@ -865,7 +923,13 @@ inline float masterSweep (const Settings& st, const Where& w)
 {
     const float F = st.filt;
     if (w.section == SecBreak) return -0.25f * F;
-    if (w.section == SecLyft) return 0.45f * F * w.pos * w.pos;
+    if (w.section == SecLyft)
+    {
+        const int stil = droppFor (st, (int64_t) std::floor (w.start));
+        if (stil == DroppInget) return 0.0f;
+        const float k = (stil == DroppSvep || stil == DroppAllt) ? 0.75f : 0.45f;
+        return k * F * w.pos * w.pos;
+    }
     if (w.section == SecBygg && w.toNext < 1.0) return 0.15f * F * (float) (1.0 - w.toNext);
     return 0.0f;
 }
